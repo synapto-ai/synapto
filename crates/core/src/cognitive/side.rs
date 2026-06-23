@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use synapto_interface::llm::LLMSafe;
 use std::sync::Arc;
+use synapto_interface::llm::LLMSafe;
 use synapto_interface::sync::{broadcast, mpsc, watch};
 use synapto_interface::types::{CognitiveState, CognitiveStateUpdate};
 use synapto_llm::LLM;
@@ -109,7 +109,7 @@ impl<'a> CognitiveOutputProcessor<CognitiveSideCommands> for SideOutputProcessor
 
 #[instrument(skip_all, fields(subsystem))]
 #[allow(clippy::too_many_arguments)]
-pub async fn cognitive_side_task<P: super::prompt_provider::CognitivePromptProvider>(
+pub(super) async fn cognitive_side_task<P: super::prompt_provider::CognitivePromptProvider>(
     config: Config,
     mut text_rx: broadcast::Receiver<PeerInputText>,
     mut interaction_memory_rx: watch::Receiver<InteractionMemory>,

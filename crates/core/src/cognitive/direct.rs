@@ -165,7 +165,7 @@ impl<'a> CognitiveOutputProcessor<CognitiveDirectCommands> for DirectOutputProce
 
 #[instrument(skip_all, fields(subsystem))]
 #[allow(clippy::too_many_arguments)]
-pub async fn cognitive_direct_task<P: super::prompt_provider::CognitivePromptProvider>(
+pub(super) async fn cognitive_direct_task<P: super::prompt_provider::CognitivePromptProvider>(
     config: Config,
     trigger: CognitiveDirectTrigger,
     interrupt: CognitiveDirectInterrupt,

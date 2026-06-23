@@ -57,11 +57,8 @@
 //! - **Add Another Workspace Crate**: Instructions for granting `DEBUG` access to other crates (like `ai-llm-client`) are documented directly above the `EnvFilter::new` call in `tracing.rs`.
 //!
 
-#[cfg(feature = "rerun")]
 pub mod graph_layer;
-#[cfg(feature = "rerun")]
 pub mod rerun;
-#[cfg(feature = "rerun")]
 pub mod rerun_logging;
 pub mod tracing;
 
