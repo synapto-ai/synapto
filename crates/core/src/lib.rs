@@ -26,7 +26,6 @@ pub mod google_credentials;
 pub mod interactions;
 
 pub mod speech_to_text;
-pub mod system_prompt;
 
 pub mod users;
 pub mod utils;
