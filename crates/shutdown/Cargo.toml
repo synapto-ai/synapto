@@ -1,6 +1,6 @@
 [package]
 name = "synapto-shutdown"
-description = "Graceful shutdown utilities for the Allusio AI framework"
+description = "Graceful shutdown utilities for the Synapto framework"
 
 version = "0.1.0-dev.1"
 edition = "2024"
