@@ -48,7 +48,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-synapto-interface.workspace = true
+synapto-interface = "0.1.0"
 async-trait.workspace = true
 schemars.workspace = true
 serde.workspace = true
@@ -100,7 +100,7 @@ impl Plugin for MyChatPlugin {
         if config.api_token.is_empty() {
             return Err("api_token must not be empty".to_string());
         }
-        
+
         // PluginContext provides secure namespaces, storage connectors, etc.
         let data_dir = context.data_dir().to_path_buf();
 
@@ -256,16 +256,15 @@ Define your serializable DTO, implement `LLMSafe`, and implement `ContextProvide
 use async_trait::async_trait;
 use schemars::JsonSchema;
 use serde::Serialize;
-use ai_interface::types::{ContextProvider, TemporalScope, ContextRequest, LLMSafe};
+use ai_interface::llm::LLMSafe;
+use ai_interface::types::{ContextProvider, TemporalScope, ContextRequest};
 use ai_interface::sync::watch;
 
-#[derive(Serialize, JsonSchema, Clone, Debug)]
+#[derive(Serialize, JsonSchema, Clone, Debug, LLMSafe)]
 pub struct TemperatureContext {
     pub current_temp_celsius: f32,
     pub humidity_percent: f32,
 }
-
-impl LLMSafe for TemperatureContext {}
 
 pub struct TemperatureSensorProvider {
     reading_rx: watch::Receiver<TemperatureContext>,
@@ -365,12 +364,12 @@ impl ai_interface::InteractionObserver for MyObserverPlugin {
         tokio::spawn(async move {
             // Wake up when the first new interaction arrives
             while let Some(first) = interaction_rx.recv().await {
-                
+
                 // IMPORTANT BEST PRACTICE: Dynamic Batching
-                // Once awake, immediately try to drain any additional interactions 
+                // Once awake, immediately try to drain any additional interactions
                 // that arrived concurrently into a single batch.
-                // This is highly token-efficient and produces better summaries 
-                // during rapid multi-turn conversations or when catching up 
+                // This is highly token-efficient and produces better summaries
+                // during rapid multi-turn conversations or when catching up
                 // from a long-running background task.
                 let mut batch = vec![first];
                 while let Ok(next) = interaction_rx.try_recv() {
@@ -473,14 +472,13 @@ Define your deserializable argument DTO, implement `LLMSafe`, and implement `Com
 use async_trait::async_trait;
 use schemars::JsonSchema;
 use serde::Deserialize;
-use ai_interface::types::{Command, LLMSafe};
+use ai_interface::types::{Command};
+use ai_interface::llm::LLMSafe;
 
-#[derive(Deserialize, JsonSchema, Clone, Debug)]
+#[derive(Deserialize, JsonSchema, Clone, Debug, LLMSafe)]
 pub struct AdjustThermostatArgs {
     pub target_temp_celsius: f32,
 }
-
-impl LLMSafe for AdjustThermostatArgs {}
 
 pub struct AdjustThermostatCommand {
     hardware_client: Arc<MyThermostatClient>,
