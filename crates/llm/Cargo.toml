@@ -24,7 +24,7 @@ tracing.workspace = true
 serde = { workspace = true, features = ["std"] }
 serde_json = { workspace = true, features = ["std"] }
 
-serde_yaml = "*"
+serde_yaml = "0.9"
 gcp_auth = { version = "0.12" }
 genai = { version = "0.6" }
 anyhow = "1.0"
