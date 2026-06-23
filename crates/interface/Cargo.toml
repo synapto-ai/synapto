@@ -1,0 +1,24 @@
+[package]
+name = "synapto-interface"
+description = "Interface definitions for the Allusio AI framework"
+
+version = "0.1.0-dev.1"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait.workspace = true
+tokio = { workspace=true, features = ["sync", "rt", "macros"] }
+serde.workspace = true
+serde_json.workspace = true
+derive_more.workspace = true
+schemars.workspace = true
+tracing.workspace = true
+synapto-derive.workspace = true
+
+genai = { version = "0.6" }
+
