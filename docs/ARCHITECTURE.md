@@ -146,8 +146,8 @@ To keep the `ai-core` agnostic to external environments, we isolate static promp
 
 ## Source Code Map
 
-- **`ai-interface/`**: The stable domain vocabulary and generic envelope structures. It is logically modularized into `audio`, `text`, and `stt` domains. See [interface/README.md](../interface/README.md) for detailed implementation guidelines and modularity rules.
-- **`ai/core/src/`**: The Core Execution Engine and router.
+- **`interface/`**: The stable domain vocabulary and generic envelope structures. It is logically modularized into `audio`, `text`, and `stt` domains. See [interface/README.md](../interface/README.md) for detailed implementation guidelines and modularity rules.
+- **`core`**: The Core Execution Engine and router.
   - `cognitive/`: Core intelligence, direct and side LLM evaluation tasks.
   - `memories/`: Hierarchical memory system implementation (episodic, semantic, behavioral, state, tasks).
   - `scenarist/`: RPG story management (Saga, Chapter, Scene).
