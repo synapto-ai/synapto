@@ -4573,7 +4573,7 @@ dependencies = [
 
 [[package]]
 name = "synapto"
-version = "0.1.0-dev.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4587,7 +4587,7 @@ dependencies = [
  "serde",
  "serde_json",
  "synapto-interface",
- "synapto-llm",
+ "synapto-llm-client",
  "synapto-shutdown",
  "synapto-telemetry",
  "tokio",
@@ -4596,7 +4596,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-derive"
-version = "0.1.0-dev.1"
+version = "0.1.0"
 dependencies = [
  "quote",
  "syn",
@@ -4604,7 +4604,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-interface"
-version = "0.1.0-dev.1"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "derive_more",
@@ -4612,14 +4612,15 @@ dependencies = [
  "schemars 1.2.1",
  "serde",
  "serde_json",
+ "serde_yaml",
  "synapto-derive",
  "tokio",
  "tracing",
 ]
 
 [[package]]
-name = "synapto-llm"
-version = "0.1.0-dev.1"
+name = "synapto-llm-client"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4637,7 +4638,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-shutdown"
-version = "0.1.0-dev.1"
+version = "0.1.0"
 dependencies = [
  "synapto-interface",
  "tracing",
@@ -4645,7 +4646,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-telemetry"
-version = "0.1.0-dev.1"
+version = "0.1.0"
 dependencies = [
  "chrono",
  "dashmap",

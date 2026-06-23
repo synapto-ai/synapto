@@ -1,5 +1,5 @@
-use std::collections::VecDeque;
 use synapto_interface::sync::mpsc;
+use std::collections::VecDeque;
 
 use crate::cognitive::CognitiveDirectTrigger;
 use crate::interactions::types::MessageText;
@@ -7,7 +7,7 @@ use crate::speech_to_text::SpeechTranscript;
 use synapto_interface::speech_to_text::types::{InternalSpeaker, SpeakerSegment, Word};
 use synapto_interface::types::{MessageChannel, PeerInputSpeech, SpeakerId};
 
-pub(super) async fn start(
+pub async fn start(
     mut transcript_rx: mpsc::Receiver<SpeechTranscript>,
     mut speaker_rx: Option<mpsc::Receiver<SpeakerSegment>>,
     heuristic_callback: Option<synapto_interface::speech_to_text::types::SpeakerHeuristicCallback>,

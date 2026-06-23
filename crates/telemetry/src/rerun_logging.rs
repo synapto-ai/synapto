@@ -1,10 +1,10 @@
-#![cfg(feature = "rerun")]
-
+#[cfg(feature = "rerun")]
 pub struct RerunLoggingLayer {
     pub rec: rerun::RecordingStream,
     pub path: String,
 }
 
+#[cfg(feature = "rerun")]
 impl<S> tracing_subscriber::Layer<S> for RerunLoggingLayer
 where
     S: tracing::Subscriber + for<'lookup> tracing_subscriber::registry::LookupSpan<'lookup>,

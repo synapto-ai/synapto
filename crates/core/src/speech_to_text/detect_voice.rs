@@ -11,7 +11,7 @@ const _: () = assert!(PEER_INPUT_AUDIO_SAMPLE_RATE == 16_000);
 const VAD_THRESHOLD: f32 = 0.5;
 
 #[instrument(skip_all)]
-pub(super) async fn detect_voice_task(
+pub async fn detect_voice_task(
     mut audio_rx: mpsc::Receiver<PeerInputAudio>,
     voice_audio_tx: broadcast::Sender<InputVoiceAudio>,
     last_voice_time_tx: watch::Sender<std::time::Instant>,

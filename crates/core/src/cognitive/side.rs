@@ -1,11 +1,11 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use synapto_interface::llm::LLMSafe;
+use std::sync::Arc;
 use synapto_interface::sync::{broadcast, mpsc, watch};
 use synapto_interface::types::{CognitiveState, CognitiveStateUpdate};
-use synapto_llm::LLM;
-use synapto_llm::LLMClient;
+use synapto_llm_client::LLM;
+use synapto_llm_client::LLMClient;
 use tracing::instrument;
 
 use super::{
@@ -109,7 +109,7 @@ impl<'a> CognitiveOutputProcessor<CognitiveSideCommands> for SideOutputProcessor
 
 #[instrument(skip_all, fields(subsystem))]
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn cognitive_side_task<P: super::prompt_provider::CognitivePromptProvider>(
+pub async fn cognitive_side_task<P: super::prompt_provider::CognitivePromptProvider>(
     config: Config,
     mut text_rx: broadcast::Receiver<PeerInputText>,
     mut interaction_memory_rx: watch::Receiver<InteractionMemory>,
@@ -134,7 +134,7 @@ pub(super) async fn cognitive_side_task<P: super::prompt_provider::CognitiveProm
     let llm_client: LLMClient<
         CognitiveLLMContent,
         CognitiveLLMOutput<CognitiveSideCommands>,
-        synapto_llm::WithTools<crate::cognitive::types::RegistryToolExecutor>,
+        synapto_llm_client::WithTools<crate::cognitive::types::RegistryToolExecutor>,
     > = CognitiveLLM::create_client_with_tools(
         llm_executor,
         config.cognitive.clone(),
@@ -329,7 +329,7 @@ pub(super) async fn cognitive_side_task<P: super::prompt_provider::CognitiveProm
         };
 
         let in_flight_tools = match &generated_text_result {
-            Ok(synapto_llm::LLMResult::Interrupted(_, tool_calls)) => tool_calls
+            Ok(synapto_llm_client::LLMResult::Interrupted(_, tool_calls)) => tool_calls
                 .iter()
                 .map(|call| InFlightTool {
                     id: call.call_id.clone(),

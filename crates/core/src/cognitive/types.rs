@@ -4,7 +4,7 @@ use std::sync::Arc;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use synapto_interface::llm::{LLMSafe, genai::chat::ToolCall};
-use synapto_llm::{LLM, ToolExecutor, ToolOutput};
+use synapto_llm_client::{LLM, ToolExecutor, ToolOutput};
 
 use crate::{
     interactions::{

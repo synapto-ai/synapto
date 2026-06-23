@@ -1,7 +1,7 @@
 use crate::interactions::types::{AiWritten, PeerInput};
 use crate::interactions::{Interaction, types::AiSpoken};
 use synapto_interface::sync::mpsc;
-use synapto_llm::LLMResult;
+use synapto_llm_client::LLMResult;
 use schemars::JsonSchema;
 use serde::Serialize;
 

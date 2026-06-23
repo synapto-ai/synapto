@@ -1,12 +1,7 @@
 [package]
 name = "synapto-derive"
-version = "0.1.0-dev.1"
+version = "0.1.0"
 edition = "2024"
-
-description = "Derive macros for the Synapto framework"
-
-license.workspace = true
-repository.workspace = true
 
 [lib]
 proc-macro = true

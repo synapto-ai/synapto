@@ -2,7 +2,7 @@
 name = "synapto-interface"
 description = "Interface definitions for the Allusio AI framework"
 
-version = "0.1.0-dev.1"
+version = "0.1.0"
 edition = "2024"
 license.workspace = true
 repository.workspace = true
@@ -21,4 +21,4 @@ tracing.workspace = true
 synapto-derive.workspace = true
 
 genai = { version = "0.6" }
-
+serde_yaml = "0.9"

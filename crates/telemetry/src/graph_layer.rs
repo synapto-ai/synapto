@@ -138,6 +138,26 @@ impl RerunGraphLayer {
     }
 }
 
+#[derive(Default)]
+struct ChannelVisitor {
+    channel: Option<String>,
+}
+
+impl tracing::field::Visit for ChannelVisitor {
+    fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
+        if field.name() == "channel" {
+            self.channel = Some(value.to_string());
+        }
+    }
+
+    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+        if field.name() == "channel" {
+            let s = format!("{:?}", value);
+            self.channel = Some(s.trim_matches('"').to_string());
+        }
+    }
+}
+
 impl<S> Layer<S> for RerunGraphLayer
 where
     S: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,

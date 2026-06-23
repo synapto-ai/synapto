@@ -26,6 +26,7 @@ pub mod google_credentials;
 pub mod interactions;
 
 pub mod speech_to_text;
+pub mod system_prompt;
 
 pub mod users;
 pub mod utils;
@@ -185,7 +186,7 @@ impl<
         }
 
         let config = config_provider.get_core_config();
-        let executor_config = synapto_llm::LLMClientConfig {
+        let executor_config = synapto_llm_client::LLMClientConfig {
             google_vertex_ai_location: config.google_vertex_ai_location.clone(),
             google_project_id: config.google_project_id.clone(),
             google_service_account_credentials: Some(String::from(
@@ -193,7 +194,7 @@ impl<
             )),
             gemini_api_key: config.gemini_api_key.clone(),
         };
-        let llm_executor = std::sync::Arc::new(synapto_llm::ConcreteLlmExecutor::new(
+        let llm_executor = std::sync::Arc::new(synapto_llm_client::ConcreteLlmExecutor::new(
             executor_config,
         ));
 

@@ -63,8 +63,6 @@ pub mod mpsc {
         /// Sends a value, waiting until there is capacity.
         ///
         /// Automatically emits a telemetry pulse upon successful send.
-        // TODO Remove lint exception after https://github.com/rust-lang/rust/issues/110011
-        #[allow(ungated_async_fn_track_caller)]
         #[track_caller]
         pub async fn send(&self, value: T) -> Result<(), SendError<T>> {
             let res = self.0.send(value).await;
@@ -284,7 +282,7 @@ mod detail {
     use std::panic::Location;
 
     #[inline(always)]
-    pub(super) fn trace_pulse<T: crate::sync::TypeChannelName>(
+    pub fn trace_pulse<T: crate::sync::TypeChannelName>(
         channel_type: &'static str,
         location: &Location<'_>,
     ) {

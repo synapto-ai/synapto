@@ -1,8 +1,8 @@
 [package]
 name = "synapto-telemetry"
-description = "Telemetry and tracing definitions for the Synapto framework"
+description = "Telemetry and tracing definitions for the Allusio AI framework"
 
-version = "0.1.0-dev.1"
+version = "0.1.0"
 edition = "2024"
 license.workspace = true
 repository.workspace = true

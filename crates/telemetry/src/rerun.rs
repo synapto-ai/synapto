@@ -1,5 +1,3 @@
-#![cfg(feature = "rerun")]
-
 //! # Development Guide: Rerun Telemetry
 //!
 //! This module provides a generic metrics representer for the [Rerun](https://rerun.io/) window.
@@ -82,6 +80,8 @@
 //!
 //! For LLM calls, this is handled automatically via the `track_stats = true` field on the span,
 //! which generates `latency`, `avg`, and `max` metrics.
+
+#![cfg(feature = "rerun")]
 
 use crate::find_parent_subsystem;
 use dashmap::{DashMap, DashSet};
