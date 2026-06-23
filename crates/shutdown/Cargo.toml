@@ -1,0 +1,16 @@
+[package]
+name = "synapto-shutdown"
+description = "Graceful shutdown utilities for the Allusio AI framework"
+
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+synapto-interface.workspace = true
+
+tracing.workspace = true
+
+[lints]
+workspace = true

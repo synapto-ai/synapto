@@ -1,0 +1,40 @@
+[package]
+name = "synapto"
+description = "Core orchestrator for the Synapto framework"
+
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = []
+
+rerun = ["synapto-telemetry/rerun", "synapto-llm-client/rerun"]
+tracy = ["synapto-telemetry/tracy"]
+
+[dependencies]
+synapto-interface.workspace = true
+synapto-llm-client.workspace = true
+synapto-telemetry.workspace = true
+synapto-shutdown.workspace = true
+
+async-trait.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+tracing.workspace = true
+derive_more.workspace = true
+
+anyhow = "1"
+rustls = {version="0.23.41", features = ["ring"]}
+futures = { version = "0.3" }
+
+ogg = "0.8.0"
+opus = "0.3.1"
+
+earshot = "1"
