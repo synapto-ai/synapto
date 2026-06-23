@@ -116,6 +116,11 @@ fn get_cognitive_system_prompt<P: prompt_provider::CognitivePromptProvider>(
 ) -> Vec<Instruction> {
     let mut instructions = Vec::new();
 
+    instructions.push(Instruction::Text(format!(
+        "Speak in a way that a {} can understand.",
+        config.audience
+    )));
+ 
     let prompt_config: P::Config =
         serde_json::from_value(config.prompt.clone()).unwrap_or_default();
     let prompt_content = P::get_system_prompt(&config.data_dir, &prompt_config);
