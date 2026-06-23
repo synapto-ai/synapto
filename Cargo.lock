@@ -4573,7 +4573,7 @@ dependencies = [
 
 [[package]]
 name = "synapto"
-version = "0.1.0"
+version = "0.1.0-dev.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4596,7 +4596,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-derive"
-version = "0.1.0"
+version = "0.1.0-dev.1"
 dependencies = [
  "quote",
  "syn",
@@ -4604,7 +4604,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-interface"
-version = "0.1.0"
+version = "0.1.0-dev.1"
 dependencies = [
  "async-trait",
  "derive_more",
@@ -4619,7 +4619,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-llm"
-version = "0.1.0"
+version = "0.1.0-dev.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4637,7 +4637,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-shutdown"
-version = "0.1.0"
+version = "0.1.0-dev.1"
 dependencies = [
  "synapto-interface",
  "tracing",
@@ -4645,7 +4645,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-telemetry"
-version = "0.1.0"
+version = "0.1.0-dev.1"
 dependencies = [
  "chrono",
  "dashmap",
