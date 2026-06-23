@@ -5,6 +5,15 @@ pub use genai;
 
 pub trait LLMSafe {}
 
+impl<T: LLMSafe> LLMSafe for Vec<T> {}
+impl<T: LLMSafe> LLMSafe for Option<T> {}
+impl<T: LLMSafe> LLMSafe for Box<T> {}
+impl<T: LLMSafe> LLMSafe for &T {}
+impl<T: LLMSafe> LLMSafe for [T] {}
+impl<T: LLMSafe, const N: usize> LLMSafe for [T; N] {}
+use std::collections::HashMap;
+impl<K: LLMSafe, V: LLMSafe> LLMSafe for HashMap<K, V> {}
+
 pub use synapto_derive::LLMSafe;
 
 #[derive(
