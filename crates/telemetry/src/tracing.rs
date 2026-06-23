@@ -7,7 +7,9 @@ pub struct ShutdownDowngradeLayer;
 
 impl<S: tracing::Subscriber> Layer<S> for ShutdownDowngradeLayer {
     fn on_event(&self, event: &Event<'_>, _cx: tracing_subscriber::layer::Context<'_, S>) {
-        if *event.metadata().level() == tracing::Level::ERROR && synapto_shutdown::is_shutting_down() {
+        if *event.metadata().level() == tracing::Level::ERROR
+            && synapto_shutdown::is_shutting_down()
+        {
             let mut visitor = MsgVisitor::default();
             event.record(&mut visitor);
             let m = visitor.msg;
@@ -108,7 +110,8 @@ impl Tracing {
         // HOW TO ADD ANOTHER WORKSPACE CRATE (e.g., `ai-llm-client`):
         // Append `,crate_name_with_underscores=debug` to the format string below.
         // Rust's tracing replaces hyphens in crate names with underscores.
-        let log_filter = EnvFilter::new("warn,synapto=debug,synapto_llm_client=debug,telemetry=trace");
+        let log_filter =
+            EnvFilter::new("warn,synapto=debug,synapto_llm_client=debug,telemetry=trace");
 
         let (reloadable_filter, reload_handle) =
             tracing_subscriber::reload::Layer::new(log_filter.clone());

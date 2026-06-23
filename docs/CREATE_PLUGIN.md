@@ -48,7 +48,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ai-interface = { path = "../../interface" }
+synapto-interface.workspace = true
 async-trait.workspace = true
 schemars.workspace = true
 serde.workspace = true
