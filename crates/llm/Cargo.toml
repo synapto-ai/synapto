@@ -1,5 +1,5 @@
 [package]
-name = "synapto-llm-client"
+name = "synapto-llm"
 description = "LLM client implementation for the Allusio AI framework"
 
 version = "0.1.0"

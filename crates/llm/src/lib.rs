@@ -10,9 +10,14 @@ use genai::{
 use serde::{Serialize, de::DeserializeOwned};
 use tracing::instrument;
 
-use synapto_interface::llm::Instruction;
 use synapto_interface::llm::LLMSafe;
 use synapto_interface::llm::ReasoningEffort;
+
+pub mod ext;
+pub mod instruction;
+
+pub use ext::{LlmExecutorExt, LlmInput, LlmOutput};
+pub use instruction::Instruction;
 
 #[derive(Clone, Debug, Default)]
 pub struct LLMClientConfig {
@@ -148,7 +153,7 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
     async fn call_inner(
         &self,
         content: Content,
-        instructions: Option<Vec<synapto_interface::llm::Instruction>>,
+        instructions: Option<Vec<Instruction>>,
         override_reasoning_effort: Option<ReasoningEffort>,
         resolved_tools: Option<ResolvedTools>,
         override_tools: Option<Vec<Tool>>,
@@ -212,7 +217,7 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
             {
                 format!(
                     "# Instructions:\n\n[CRITICAL RULES]:\n{}",
-                    synapto_interface::llm::Instruction::render(instructions, 0)
+                    Instruction::render(instructions, 0)
                 )
             } else {
                 "".to_string()
@@ -300,7 +305,7 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned>
     pub async fn call(
         &self,
         content: Content,
-        instructions: Option<Vec<synapto_interface::llm::Instruction>>,
+        instructions: Option<Vec<Instruction>>,
         override_reasoning_effort: Option<ReasoningEffort>,
     ) -> Result<Output, anyhow::Error> {
         self.call_inner(
@@ -321,7 +326,7 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Executor: T
     pub async fn call(
         &self,
         content: Content,
-        instructions: Option<Vec<synapto_interface::llm::Instruction>>,
+        instructions: Option<Vec<Instruction>>,
         override_reasoning_effort: Option<ReasoningEffort>,
         resolved_tools: Option<ResolvedTools>,
         override_tools: Option<Vec<Tool>>,

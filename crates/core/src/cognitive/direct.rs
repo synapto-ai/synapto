@@ -5,8 +5,8 @@ use synapto_interface::llm::LLMSafe;
 use synapto_interface::sync::{Notify, futures::Notified};
 use synapto_interface::sync::{broadcast, mpsc, watch};
 use synapto_interface::types::{CognitiveOutputSpeech, PeerInput, PeerInputSpeech};
-use synapto_llm_client::LLM;
-use synapto_llm_client::LLMClient;
+use synapto_llm::LLM;
+use synapto_llm::LLMClient;
 use tracing::instrument;
 
 use crate::config::Config;
@@ -192,7 +192,7 @@ pub async fn cognitive_direct_task<P: super::prompt_provider::CognitivePromptPro
     let llm_client: LLMClient<
         CognitiveLLMContent,
         CognitiveLLMOutput<CognitiveDirectCommands>,
-        synapto_llm_client::WithTools<crate::cognitive::types::RegistryToolExecutor>,
+        synapto_llm::WithTools<crate::cognitive::types::RegistryToolExecutor>,
     > = CognitiveLLM::create_client_with_tools(
         llm_executor,
         config.cognitive.clone(),
@@ -463,7 +463,7 @@ pub async fn cognitive_direct_task<P: super::prompt_provider::CognitivePromptPro
         };
 
         let in_flight_tools = match &generated_text_result {
-            Ok(synapto_llm_client::LLMResult::Interrupted(_, tool_calls)) => tool_calls
+            Ok(synapto_llm::LLMResult::Interrupted(_, tool_calls)) => tool_calls
                 .iter()
                 .map(|call| InFlightTool {
                     id: call.call_id.clone(),

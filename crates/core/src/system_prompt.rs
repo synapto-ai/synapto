@@ -1,4 +1,4 @@
-pub use synapto_interface::llm::Instruction;
+pub use synapto_llm::Instruction;
 
 pub fn get_system_prompt(
     config: &crate::config::Config,

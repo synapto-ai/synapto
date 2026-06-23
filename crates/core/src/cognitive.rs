@@ -32,7 +32,7 @@ use std::sync::Arc;
 
 use crate::interactions::types::CognitiveOutputText;
 
-use synapto_interface::llm::Instruction;
+use synapto_llm::Instruction;
 
 use crate::{
     config::Config,

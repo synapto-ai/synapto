@@ -14,7 +14,7 @@ synapto = {path="crates/core", version = "0.1.0" }
 synapto-derive = {path="crates/derive", version = "0.1.0" }
 synapto-interface = {path="crates/interface", version = "0.1.0" }
 synapto-telemetry = {path="crates/telemetry", version = "0.1.0"}
-synapto-llm-client = {path="crates/llm-client", version = "0.1.0"}
+synapto-llm = {path="crates/llm", version = "0.1.0"}
 synapto-shutdown = {path="crates/shutdown", version = "0.1.0" }
 
 schemars = "1.2"

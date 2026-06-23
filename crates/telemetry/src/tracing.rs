@@ -111,7 +111,7 @@ impl Tracing {
         // Append `,crate_name_with_underscores=debug` to the format string below.
         // Rust's tracing replaces hyphens in crate names with underscores.
         let log_filter =
-            EnvFilter::new("warn,synapto=debug,synapto_llm_client=debug,telemetry=trace");
+            EnvFilter::new("warn,synapto=debug,synapto_llm=debug,telemetry=trace");
 
         let (reloadable_filter, reload_handle) =
             tracing_subscriber::reload::Layer::new(log_filter.clone());
