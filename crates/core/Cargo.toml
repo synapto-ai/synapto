@@ -13,12 +13,12 @@ workspace = true
 [features]
 default = []
 
-rerun = ["synapto-telemetry/rerun", "synapto-llm-client/rerun"]
+rerun = ["synapto-telemetry/rerun", "synapto-llm/rerun"]
 tracy = ["synapto-telemetry/tracy"]
 
 [dependencies]
 synapto-interface.workspace = true
-synapto-llm-client.workspace = true
+synapto-llm.workspace = true
 synapto-telemetry.workspace = true
 synapto-shutdown.workspace = true
 

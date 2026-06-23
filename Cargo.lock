@@ -4587,7 +4587,7 @@ dependencies = [
  "serde",
  "serde_json",
  "synapto-interface",
- "synapto-llm-client",
+ "synapto-llm",
  "synapto-shutdown",
  "synapto-telemetry",
  "tokio",
@@ -4612,14 +4612,13 @@ dependencies = [
  "schemars 1.2.1",
  "serde",
  "serde_json",
- "serde_yaml",
  "synapto-derive",
  "tokio",
  "tracing",
 ]
 
 [[package]]
-name = "synapto-llm-client"
+name = "synapto-llm"
 version = "0.1.0"
 dependencies = [
  "anyhow",

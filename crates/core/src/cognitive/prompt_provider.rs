@@ -14,7 +14,7 @@ pub trait CognitivePromptProvider: Send + Sync + 'static {
     fn get_system_prompt(
         data_dir: &Path,
         prompt_config: &Self::Config,
-    ) -> Vec<synapto_interface::llm::Instruction>;
+    ) -> Vec<synapto_llm::Instruction>;
 
     /// Generates dynamic instructions for the current turn based on the compiled context.
     /// This is fed into `LLMClient::call` on every cycle, overriding or steering immediate behavior.
@@ -23,5 +23,5 @@ pub trait CognitivePromptProvider: Send + Sync + 'static {
         compiled_context: &crate::cognitive::types::CognitiveLLMContent,
         is_initial_run: bool,
         target: CognitiveTarget,
-    ) -> Vec<synapto_interface::llm::Instruction>;
+    ) -> Vec<synapto_llm::Instruction>;
 }
