@@ -363,10 +363,8 @@ pub(super) async fn cognitive_direct_task<P: super::prompt_provider::CognitivePr
 
             let ai_output = if let Some(spoken) = &i.ai_spoken {
                 Some(spoken.0.clone())
-            } else if let Some(written) = &i.ai_written {
-                Some(written.text.clone())
             } else {
-                None
+                i.ai_written.as_ref().map(|written| written.text.clone())
             };
 
             recent_interactions.push(synapto_interface::types::ContextInteraction {

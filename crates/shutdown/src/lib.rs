@@ -31,7 +31,7 @@ pub fn init() -> mpsc::UnboundedReceiver<ShutdownResult> {
             .location()
             .map(|l| format!(" at {}:{}:{}", l.file(), l.line(), l.column()))
             .unwrap_or_default();
-        let backtrace = std::backtrace::Backtrace::force_capture();
+        let backtrace = std::backtrace::Backtrace::capture();
         trigger_fatal(format!(
             "Panic: {}{}\nBacktrace:\n{}",
             msg, location, backtrace
