@@ -277,36 +277,52 @@ pub(super) async fn cognitive_direct_task<P: super::prompt_provider::CognitivePr
             );
         } else {
             loop {
-                tokio::select! {
-                    _ = trigger.triggered() => {
+                better_tokio_select::tokio_select!(match .. {
+                    .. if let _ = trigger.triggered() => {
                         if config.barge_in || ai_speaking_semaphore.available_permits() > 0 {
                             tracing::debug!("Trigger detected. Waiting for interaction lock...");
                             run_after_unpaused = true;
                         } else {
-                            tracing::debug!("Trigger ignored: AI is speaking and barge-in is disabled");
+                            tracing::debug!(
+                                "Trigger ignored: AI is speaking and barge-in is disabled"
+                            );
                         }
                     }
-                    permit = ai_speaking_semaphore.clone().acquire_owned(), if run_after_unpaused => {
+                    .. if let permit = ai_speaking_semaphore.clone().acquire_owned()
+                        && run_after_unpaused =>
+                    {
                         tracing::debug!("Interaction lock acquired. Proceeding.");
-                        _cycle_permit = Some(permit.unwrap_or_else(|e| panic!("Semaphore closed: {:?}", e)));
+                        _cycle_permit =
+                            Some(permit.unwrap_or_else(|e| panic!("Semaphore closed: {:?}", e)));
                         break;
                     }
-                    res = tool_resolved_rx.recv() => {
+                    .. if let res = tool_resolved_rx.recv() => {
                         if let Some((doc_text, tool_call)) = res {
-                            tracing::debug!("Cognitive Direct Task triggered by tool resolution: {}", tool_call.fn_name);
+                            tracing::debug!(
+                                "Cognitive Direct Task triggered by tool resolution: {}",
+                                tool_call.fn_name
+                            );
                             resolved_tools = Some(vec![(tool_call.clone(), doc_text)]);
                             // Document results also need the lock to start a cycle
                             run_after_unpaused = true;
 
                             // Remove the in-flight tool from memory since it has resolved
-                            if let Err(e) = resolve_in_flight_tool_tx.send(synapto_interface::types::ToolCallId(tool_call.call_id.clone())).await {
-                                tracing::warn!("Failed to request resolving in-flight tool marker: {}", e);
+                            if let Err(e) = resolve_in_flight_tool_tx
+                                .send(synapto_interface::types::ToolCallId(
+                                    tool_call.call_id.clone(),
+                                ))
+                                .await
+                            {
+                                tracing::warn!(
+                                    "Failed to request resolving in-flight tool marker: {}",
+                                    e
+                                );
                             }
                         } else {
                             break;
                         }
                     }
-                }
+                })
             }
         }
 
@@ -439,21 +455,23 @@ pub(super) async fn cognitive_direct_task<P: super::prompt_provider::CognitivePr
             crate::cognitive::prompt_provider::CognitiveTarget::Direct,
         );
 
-        let generated_text_result = tokio::select! {
-            res = llm_client.call(
+        let generated_text_result = better_tokio_select::tokio_select!(match .. {
+            .. if let res = llm_client.call(
                 content,
                 Some(dynamic_instructions).filter(|v| !v.is_empty()),
                 override_reasoning_effort,
                 resolved_tools.clone(),
                 Some(dynamic_tools),
                 request,
-            ) => res,
-            _ = interrupt.interrupted() => {
+            ) =>
+                res,
+            .. if let _ = interrupt.interrupted() => {
                 tracing::info!("Cognitive task interrupted");
-                pending_user_messages.extend(new_speech_messages.into_iter().map(PeerInput::Speech));
+                pending_user_messages
+                    .extend(new_speech_messages.into_iter().map(PeerInput::Speech));
                 continue;
             }
-        };
+        });
 
         let mut processor = DirectOutputProcessor {
             cognitive_speech_tx: &cognitive_speech_tx,

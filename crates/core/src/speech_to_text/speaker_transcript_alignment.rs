@@ -19,8 +19,8 @@ pub(super) async fn start(
     let heuristic = heuristic_callback.unwrap_or_else(|| std::sync::Arc::new(fallback_heuristic));
 
     loop {
-        tokio::select! {
-            transcript_result = transcript_rx.recv() => {
+        better_tokio_select::tokio_select!(match .. {
+            .. if let transcript_result = transcript_rx.recv() => {
                 let transcript = match transcript_result {
                     Some(t) => t,
                     None => break, // Channel closed
@@ -138,18 +138,27 @@ pub(super) async fn start(
                             continue;
                         }
 
-                        let final_speaker = sentence.words[0].speaker_hint
+                        let final_speaker = sentence.words[0]
+                            .speaker_hint
                             .as_ref()
-                            .map(|hint| InternalSpeaker::Recognized(SpeakerId(format!("STT_Speaker_{}", hint))))
+                            .map(|hint| {
+                                InternalSpeaker::Recognized(SpeakerId(format!(
+                                    "STT_Speaker_{}",
+                                    hint
+                                )))
+                            })
                             .unwrap_or(InternalSpeaker::Unknown(None));
 
-                        let sentence_text = sentence.words
+                        let sentence_text = sentence
+                            .words
                             .iter()
                             .map(|w| w.word.trim())
                             .collect::<Vec<&str>>()
                             .join(" ");
 
-                        if let Some((last_speaker, last_text)) = grouped_messages.last_mut() && *last_speaker == final_speaker {
+                        if let Some((last_speaker, last_text)) = grouped_messages.last_mut()
+                            && *last_speaker == final_speaker
+                        {
                             last_text.push(' ');
                             last_text.push_str(&sentence_text);
                         } else {
@@ -221,7 +230,8 @@ pub(super) async fn start(
                             let w_start = word.start_index.unwrap_or(sentence.start_index);
                             let w_end = word.end_index.unwrap_or(sentence.end_index);
 
-                            let mut w_overlaps: std::collections::HashMap<InternalSpeaker, u64> = std::collections::HashMap::new();
+                            let mut w_overlaps: std::collections::HashMap<InternalSpeaker, u64> =
+                                std::collections::HashMap::new();
 
                             // Calculate overlap using mathematically inclusive closed bounds `[start, end]`.
                             // `overlap_end - overlap_start + 1` yields the precise number of discrete 80ms chunks.
@@ -230,19 +240,23 @@ pub(super) async fn start(
                                 let overlap_end = std::cmp::min(w_end, segment.end_index);
                                 if overlap_end >= overlap_start {
                                     let overlap = overlap_end - overlap_start + 1;
-                                    *w_overlaps.entry(segment.speaker.clone()).or_insert(0) += overlap;
+                                    *w_overlaps.entry(segment.speaker.clone()).or_insert(0) +=
+                                        overlap;
                                 }
                             }
 
-                            precomputed_overlaps.push(synapto_interface::speech_to_text::types::WordOverlap {
-                                start_index: w_start,
-                                end_index: w_end,
-                                overlaps: w_overlaps,
-                                word: word.word.clone(),
-                            });
+                            precomputed_overlaps.push(
+                                synapto_interface::speech_to_text::types::WordOverlap {
+                                    start_index: w_start,
+                                    end_index: w_end,
+                                    overlaps: w_overlaps,
+                                    word: word.word.clone(),
+                                },
+                            );
                         }
 
-                        let resolved_speakers = heuristic(&precomputed_overlaps, speaker_segments.make_contiguous());
+                        let resolved_speakers =
+                            heuristic(&precomputed_overlaps, speaker_segments.make_contiguous());
 
                         let mut processed_words = Vec::new();
                         for (i, word_overlap) in precomputed_overlaps.into_iter().enumerate() {
@@ -262,7 +276,9 @@ pub(super) async fn start(
                         for (_, _, _, word_text, speaker) in processed_words {
                             // If the current word has the same speaker as the previous one,
                             // append its text to the last message instead of creating a new entry.
-                            if let Some((last_speaker, last_text)) = grouped_messages.last_mut() && *last_speaker == speaker {
+                            if let Some((last_speaker, last_text)) = grouped_messages.last_mut()
+                                && *last_speaker == speaker
+                            {
                                 last_text.push(' ');
                                 last_text.push_str(word_text.trim());
                                 continue;
@@ -284,16 +300,20 @@ pub(super) async fn start(
 
                     tracing::info!("\n{:?}", user_message);
 
-                    peer_input_speech_tx.send(user_message).await.unwrap_or_else(|e| panic!("Failed to send peer input speech: {:?}", e));
+                    peer_input_speech_tx
+                        .send(user_message)
+                        .await
+                        .unwrap_or_else(|e| panic!("Failed to send peer input speech: {:?}", e));
                     trigger_cognitive_direct.trigger();
                 }
             }
-            result = async {
+            .. if let result = async {
                 match &mut speaker_rx {
                     Some(rx) => rx.recv().await,
                     None => std::future::pending().await,
                 }
-            } => {
+            } =>
+            {
                 match result {
                     Some(segment) => {
                         speaker_segments.push_back(segment);
@@ -303,7 +323,7 @@ pub(super) async fn start(
                     }
                 }
             }
-        }
+        })
     }
 }
 

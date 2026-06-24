@@ -15,7 +15,7 @@
 //! 2. **Injected Ownership:** The loop passes its specific transmitter (`tool_resolved_tx`) into the `RegistryToolExecutor`.
 //! 3. **Background Execution:** The executor `tokio::spawn`s an isolated background task for the tool. This task captures
 //!    the transmitter, wiring it exclusively to the loop that originated the call.
-//! 4. **Resumption:** The cognitive loop waits concurrently in a `tokio::select!` for either new user input or a
+//! 4. **Resumption:** The cognitive loop waits concurrently in a `better_tokio_select::tokio_select!` for either new user input or a
 //!    message on its `tool_resolved_rx` channel. When the tool finishes, it sends the output back through the
 //!    transmitter, immediately waking the correct loop and triggering the next LLM cycle.
 
@@ -25,10 +25,10 @@ pub mod prompt_provider;
 mod side;
 pub mod speaking_coordinator;
 pub mod types;
-use synapto_interface::sync::{broadcast, mpsc, watch};
-use synapto_interface::types::{CognitiveOutputSpeech, CognitiveStateUpdate};
 use derive_more::Display;
 use std::sync::Arc;
+use synapto_interface::sync::{broadcast, mpsc, watch};
+use synapto_interface::types::{CognitiveOutputSpeech, CognitiveStateUpdate};
 
 use crate::interactions::types::CognitiveOutputText;
 
@@ -120,7 +120,7 @@ fn get_cognitive_system_prompt<P: prompt_provider::CognitivePromptProvider>(
         "Speak in a way that a {} can understand.",
         config.audience
     )));
- 
+
     let prompt_config: P::Config =
         serde_json::from_value(config.prompt.clone()).unwrap_or_default();
     let prompt_content = P::get_system_prompt(&config.data_dir, &prompt_config);

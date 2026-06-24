@@ -17,6 +17,7 @@ rerun = ["synapto-telemetry/rerun", "synapto-llm/rerun"]
 tracy = ["synapto-telemetry/tracy"]
 
 [dependencies]
+better_tokio_select = { workspace = true }
 synapto-interface.workspace = true
 synapto-llm.workspace = true
 synapto-telemetry.workspace = true

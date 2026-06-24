@@ -45,8 +45,8 @@ impl RerunGraphLayer {
             let mut interval = tokio::time::interval(Duration::from_millis(50));
 
             loop {
-                tokio::select! {
-                    Some(event) = rx.recv() => {
+                better_tokio_select::tokio_select!(match .. {
+                    .. if let Some(event) = rx.recv() => {
                         match event {
                             GraphEvent::NodeDiscovered(node) => {
                                 if nodes.insert(node) {
@@ -74,7 +74,7 @@ impl RerunGraphLayer {
                             }
                         }
                     }
-                    _ = interval.tick() => {
+                    .. if let _ = interval.tick() => {
                         let now = Instant::now();
                         let mut expired = Vec::new();
                         for (edge, time) in &active_edges {
@@ -87,7 +87,7 @@ impl RerunGraphLayer {
                             dirty = true;
                         }
                     }
-                }
+                });
 
                 if dirty {
                     dirty = false;

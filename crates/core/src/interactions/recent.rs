@@ -1,4 +1,7 @@
-use synapto_interface::{llm::LLMSafe, sync::{mpsc, watch}};
+use synapto_interface::{
+    llm::LLMSafe,
+    sync::{mpsc, watch},
+};
 use tracing::instrument;
 
 use crate::{config::Config, users::Users};
@@ -208,19 +211,22 @@ pub async fn interaction_memory_task(
 
     loop {
         let mut did_add = false;
-        let do_rollout_timestamp = tokio::select! {
-            res = resolve_in_flight_tool_rx.recv() => {
+        let do_rollout_timestamp = better_tokio_select::tokio_select!(match .. {
+            .. if let res = resolve_in_flight_tool_rx.recv() => {
                 if let Some(tool_call_id) = res {
                     if let Err(e) = interaction_memory.resolve_in_flight_tool(&tool_call_id) {
                         tracing::warn!("Failed to resolve in-flight tool marker: {}", e);
                     } else {
                         // send an update to subscribers when memory changes
-                        interaction_memory_tx.send(interaction_memory.clone()).inspect_err(|e| tracing::error!("Channel send failed: {:?}", e)).ok();
+                        interaction_memory_tx
+                            .send(interaction_memory.clone())
+                            .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
+                            .ok();
                     }
                 }
                 false
             }
-            res = new_interaction_rx.recv() => {
+            .. if let res = new_interaction_rx.recv() => {
                 match res {
                     Some(new_interaction) => {
                         interaction_memory.push_back(new_interaction);
@@ -233,14 +239,14 @@ pub async fn interaction_memory_task(
                     }
                 }
             }
-            res = wait_for_any_rollout(&mut rollout_receivers) => {
+            .. if let res = wait_for_any_rollout(&mut rollout_receivers) => {
                 if let Err((name, e)) = res {
                     tracing::error!("A rollout receiver has closed for plugin {}: {}", name, e);
                     return;
                 }
                 true
             }
-        };
+        });
 
         let mut did_rollout = false;
         if do_rollout_timestamp {
