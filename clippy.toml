@@ -4,3 +4,6 @@ disallowed-methods = [
     "core::result::Result::expect",
     "std::result::Result::expect"
 ]
+disallowed-macros = [
+    { path = "tokio::select", reason = "Swallows Result types. Use better_tokio_select, refactor to try_join! or explicitly bind to variables." }
+]
