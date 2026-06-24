@@ -1,8 +1,8 @@
+use std::sync::Arc;
 use synapto_interface::cognitive_output_audio::types::CognitiveOutputAudio;
 use synapto_interface::sync::{OwnedSemaphorePermit, Semaphore};
 use synapto_interface::sync::{broadcast, mpsc, watch};
 use synapto_interface::types::CognitiveOutputSpeech;
-use std::sync::Arc;
 use tracing::instrument;
 
 use crate::cognitive::CognitiveDirectInterrupt;
@@ -29,17 +29,25 @@ pub async fn start(
         let mut sleep_timer = pin!(sleep(Duration::from_secs(365 * 24 * 60 * 60)));
 
         loop {
-            tokio::select! {
+            better_tokio_select::tokio_select!(match .. {
                 // If an audio packet is received
-                Some(msg) = cognitive_output_audio_rx_plugin.recv() => {
+                .. if let Some(msg) = cognitive_output_audio_rx_plugin.recv() => {
                     // Forward the audio immediately
-                    cognitive_output_audio_tx.send(msg.clone()).inspect_err(|e| tracing::error!("Channel send failed: {:?}", e)).ok();
+                    cognitive_output_audio_tx
+                        .send(msg.clone())
+                        .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
+                        .ok();
 
                     if let Ok(duration) = crate::utils::audio::get_ogg_opus_duration(&msg.0) {
                         // If we don't hold the permit, acquire it
-                        if permit.is_none() && let Ok(p) = ai_speaking_semaphore_clone.clone().acquire_owned().await {
+                        if permit.is_none()
+                            && let Ok(p) = ai_speaking_semaphore_clone.clone().acquire_owned().await
+                        {
                             permit = Some(p);
-                            ai_speaking_tx.send(true).inspect_err(|e| tracing::error!("Channel send failed: {:?}", e)).ok();
+                            ai_speaking_tx
+                                .send(true)
+                                .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
+                                .ok();
                             deadline = Instant::now();
                         }
 
@@ -51,18 +59,30 @@ pub async fn start(
                     }
                 }
                 // If the speaking duration has elapsed
-                _ = &mut sleep_timer, if permit.is_some() => {
-                    ai_speaking_tx.send(false).inspect_err(|e| tracing::error!("Channel send failed: {:?}", e)).ok();
+                .. if let _ = &mut sleep_timer
+                    && permit.is_some() =>
+                {
+                    ai_speaking_tx
+                        .send(false)
+                        .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
+                        .ok();
                     permit.take();
-                    sleep_timer.as_mut().reset(Instant::now() + Duration::from_secs(365 * 24 * 60 * 60));
+                    sleep_timer
+                        .as_mut()
+                        .reset(Instant::now() + Duration::from_secs(365 * 24 * 60 * 60));
                 }
                 // If an interrupt is received
-                _ = interrupt_rx.notified() => {
-                    ai_speaking_tx.send(false).inspect_err(|e| tracing::error!("Channel send failed: {:?}", e)).ok();
+                .. if let _ = interrupt_rx.notified() => {
+                    ai_speaking_tx
+                        .send(false)
+                        .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
+                        .ok();
                     permit.take();
-                    sleep_timer.as_mut().reset(Instant::now() + Duration::from_secs(365 * 24 * 60 * 60));
+                    sleep_timer
+                        .as_mut()
+                        .reset(Instant::now() + Duration::from_secs(365 * 24 * 60 * 60));
                 }
-            }
+            })
         }
     });
 

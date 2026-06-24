@@ -10,12 +10,12 @@ license = "MPL-2.0"
 repository = "https://github.com/synapto-ai/synapto"
 
 [workspace.dependencies]
-synapto = {path="crates/core", version = "0.1.0-dev.1" }
-synapto-derive = {path="crates/derive", version = "0.1.0-dev.1" }
-synapto-interface = {path="crates/interface", version = "0.1.0-dev.1" }
-synapto-telemetry = {path="crates/telemetry", version = "0.1.0-dev.1"}
-synapto-llm = {path="crates/llm", version = "0.1.0-dev.1"}
-synapto-shutdown = {path="crates/shutdown", version = "0.1.0-dev.1" }
+synapto = {path="crates/core" }
+synapto-derive = {path="crates/derive" }
+synapto-interface = {path="crates/interface" }
+synapto-telemetry = {path="crates/telemetry"}
+synapto-llm = {path="crates/llm"}
+synapto-shutdown = {path="crates/shutdown" }
 
 schemars = "1.2"
 serde = { version = "1", default-features = false, features = [
@@ -24,6 +24,7 @@ serde = { version = "1", default-features = false, features = [
 ] }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
 tokio = { version = "1", features = ["macros", "signal", "rt", "rt-multi-thread", "net", "time"] }
+better_tokio_select = "0.2.0"
 bytes = "1"
 derive_more= {version = "2", features=["full"]}
 async-trait= "0.1"
@@ -37,4 +38,5 @@ unreachable_pub = "warn"
 let_underscore_must_use = "deny"
 unwrap_used = "deny"
 disallowed_methods = "deny"
+disallowed_macros = "deny"
 todo = "warn"

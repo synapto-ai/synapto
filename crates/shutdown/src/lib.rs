@@ -1,7 +1,7 @@
-use synapto_interface::sync::mpsc;
 use std::error::Error;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
+use synapto_interface::sync::mpsc;
 
 pub type FatalError = Box<dyn Error + Send + Sync + 'static>;
 
@@ -31,8 +31,11 @@ pub fn init() -> mpsc::UnboundedReceiver<ShutdownResult> {
             .location()
             .map(|l| format!(" at {}:{}:{}", l.file(), l.line(), l.column()))
             .unwrap_or_default();
-
-        trigger_fatal(format!("Panic: {}{}", msg, location));
+        let backtrace = std::backtrace::Backtrace::capture();
+        trigger_fatal(format!(
+            "Panic: {}{}\nBacktrace:\n{}",
+            msg, location, backtrace
+        ));
     }));
 
     rx

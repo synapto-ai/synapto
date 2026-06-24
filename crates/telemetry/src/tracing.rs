@@ -7,19 +7,17 @@ pub struct ShutdownDowngradeLayer;
 
 impl<S: tracing::Subscriber> Layer<S> for ShutdownDowngradeLayer {
     fn on_event(&self, event: &Event<'_>, _cx: tracing_subscriber::layer::Context<'_, S>) {
+        if cfg!(debug_assertions) {
+            return;
+        }
+
         if *event.metadata().level() == tracing::Level::ERROR
             && synapto_shutdown::is_shutting_down()
         {
             let mut visitor = MsgVisitor::default();
             event.record(&mut visitor);
-            let m = visitor.msg;
-            if m.contains("Channel send failed")
-                || m.contains("closed")
-                || m.contains("background task failed")
-            {
-                // We emit a new TRACE event with the same message.
-                tracing::trace!(is_downgraded = true, "{}", m);
-            }
+            let m = visitor.message;
+            tracing::trace!(is_downgraded = true, "{}", m);
         }
     }
 }
@@ -31,38 +29,22 @@ impl<S> tracing_subscriber::layer::Filter<S> for ShutdownErrorFilter {
         meta: &Metadata<'_>,
         _cx: &tracing_subscriber::layer::Context<'_, S>,
     ) -> bool {
-        meta.level() == &tracing::Level::ERROR
-    }
-
-    fn event_enabled(
-        &self,
-        event: &Event<'_>,
-        _cx: &tracing_subscriber::layer::Context<'_, S>,
-    ) -> bool {
-        if !synapto_shutdown::is_shutting_down() {
-            return true;
+        if cfg!(debug_assertions) {
+            true
+        } else {
+            !(meta.level() == &tracing::Level::ERROR && synapto_shutdown::is_shutting_down())
         }
-        let mut visitor = MsgVisitor::default();
-        event.record(&mut visitor);
-        let m = &visitor.msg;
-        if m.contains("Channel send failed")
-            || m.contains("closed")
-            || m.contains("background task failed")
-        {
-            return false;
-        }
-        true
     }
 }
 
 #[derive(Default)]
 struct MsgVisitor {
-    msg: String,
+    message: String,
 }
 impl tracing::field::Visit for MsgVisitor {
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
         if field.name() == "message" {
-            self.msg = format!("{:?}", value);
+            self.message = format!("{:?}", value);
         }
     }
 }
@@ -110,8 +92,7 @@ impl Tracing {
         // HOW TO ADD ANOTHER WORKSPACE CRATE (e.g., `ai-llm-client`):
         // Append `,crate_name_with_underscores=debug` to the format string below.
         // Rust's tracing replaces hyphens in crate names with underscores.
-        let log_filter =
-            EnvFilter::new("warn,synapto=debug,synapto_llm=debug,telemetry=trace");
+        let log_filter = EnvFilter::new("warn,synapto=debug,synapto_llm=debug,telemetry=trace");
 
         let (reloadable_filter, reload_handle) =
             tracing_subscriber::reload::Layer::new(log_filter.clone());
@@ -146,7 +127,9 @@ impl Tracing {
             .with_file(true)
             .with_line_number(true)
             .with_filter(ShutdownErrorFilter)
-            .with_filter(LevelFilter::DEBUG);
+            .with_filter(tracing_subscriber::filter::filter_fn(|meta| {
+                meta.level() == &tracing::Level::ERROR
+            }));
 
         let file_non_error_layer = tracing_subscriber::fmt::layer()
             .with_span_events(FmtSpan::CLOSE)
@@ -175,6 +158,9 @@ impl Tracing {
 
             boxed_layer
                 .with_filter(ShutdownErrorFilter)
+                .with_filter(tracing_subscriber::filter::filter_fn(|meta| {
+                    meta.level() == &tracing::Level::ERROR
+                }))
                 .with_filter(log_filter.clone())
                 .with_filter(
                     EnvFilter::builder()

@@ -408,6 +408,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "better_tokio_select"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "047b7f8be6d3b8565898e4eec281b6ffa9535b84bc3378695e6556ff2e45e7d1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "bit-vec"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4577,6 +4588,7 @@ version = "0.1.0-dev.1"
 dependencies = [
  "anyhow",
  "async-trait",
+ "better_tokio_select",
  "derive_more",
  "earshot",
  "futures",
@@ -4647,6 +4659,7 @@ dependencies = [
 name = "synapto-telemetry"
 version = "0.1.0-dev.1"
 dependencies = [
+ "better_tokio_select",
  "chrono",
  "dashmap",
  "file-rotate",

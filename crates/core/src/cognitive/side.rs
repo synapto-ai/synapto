@@ -165,29 +165,37 @@ pub(super) async fn cognitive_side_task<P: super::prompt_provider::CognitiveProm
     let mut pending_user_messages: Vec<PeerInput> = Vec::new();
 
     loop {
-        let (do_process, msg, resolved_tools) = tokio::select! {
-            res = text_rx.recv() => {
+        let (do_process, msg, resolved_tools) = better_tokio_select::tokio_select!(match .. {
+            .. if let res = text_rx.recv() => {
                 let Ok(msg) = res else {
                     break;
                 };
                 tracing::debug!("Cognitive Side Task triggered by text message");
                 (true, Some(msg), None)
             }
-            res = tool_resolved_rx.recv() => {
+            .. if let res = tool_resolved_rx.recv() => {
                 let Some((doc_text, tool_call)) = res else {
                     break;
                 };
 
-                tracing::debug!("Cognitive Side Task triggered by tool resolution: {}", tool_call.fn_name);
+                tracing::debug!(
+                    "Cognitive Side Task triggered by tool resolution: {}",
+                    tool_call.fn_name
+                );
 
                 // Remove the in-flight tool from memory since it has resolved
-                if let Err(e) = resolve_in_flight_tool_tx.send(synapto_interface::types::ToolCallId(tool_call.call_id.clone())).await {
+                if let Err(e) = resolve_in_flight_tool_tx
+                    .send(synapto_interface::types::ToolCallId(
+                        tool_call.call_id.clone(),
+                    ))
+                    .await
+                {
                     tracing::warn!("Failed to request resolving in-flight tool marker: {}", e);
                 }
 
                 (true, None, Some(vec![(tool_call, doc_text)]))
             }
-        };
+        });
 
         if !do_process {
             continue;

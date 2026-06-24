@@ -193,9 +193,8 @@ impl<
             )),
             gemini_api_key: config.gemini_api_key.clone(),
         };
-        let llm_executor = std::sync::Arc::new(synapto_llm::ConcreteLlmExecutor::new(
-            executor_config,
-        ));
+        let llm_executor =
+            std::sync::Arc::new(synapto_llm::ConcreteLlmExecutor::new(executor_config));
 
         let (current_context_tx, current_context_rx) = watch::channel(serde_json::Value::Null);
 
@@ -625,10 +624,13 @@ impl<
 
         tracing::info!("--- System is running. Waiting for events... ---\n");
 
-        let exit_code = tokio::select! {
-            res = shutdown_rx.recv() => {
+        let exit_code = better_tokio_select::tokio_select!(match .. {
+            .. if let res = shutdown_rx.recv() => {
                 match res {
-                    Some(synapto_shutdown::ShutdownResult(Ok(()))) => { tracing::info!("Standard shutdown requested."); ExitCode::SUCCESS}
+                    Some(synapto_shutdown::ShutdownResult(Ok(()))) => {
+                        tracing::info!("Standard shutdown requested.");
+                        ExitCode::SUCCESS
+                    }
                     Some(synapto_shutdown::ShutdownResult(Err(e))) => {
                         tracing::error!(error = %e, "Fatal error, shutting down.");
                         ExitCode::FAILURE
@@ -638,12 +640,12 @@ impl<
                         ExitCode::FAILURE
                     }
                 }
-            },
-            _ = tokio::signal::ctrl_c() => {
+            }
+            .. if let _ = tokio::signal::ctrl_c() => {
                 tracing::info!("Ctrl+C received, shutting down.");
                 ExitCode::SUCCESS
-            },
-        };
+            }
+        });
 
         tracing::info!("\n--- Shutting down ---");
         synapto_shutdown::trigger_graceful();

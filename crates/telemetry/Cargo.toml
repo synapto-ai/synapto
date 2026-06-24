@@ -16,6 +16,7 @@ rerun = ["dep:rerun"]
 tracy = ["dep:tracing-tracy", "dep:tracy-client"]
 
 [dependencies]
+better_tokio_select = { workspace = true }
 tracing.workspace = true
 synapto-shutdown.workspace = true
 tokio = { workspace = true, features = ["sync", "time", "rt"] }

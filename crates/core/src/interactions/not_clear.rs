@@ -52,24 +52,30 @@ pub async fn not_clear_interactions_task(
     loop {
         let mut changed = false;
 
-        tokio::select! {
-            Some(interaction) = not_clear_rx.recv() => {
-                if !not_clear_memory.iter().any(|i| i.timestamp == interaction.timestamp) {
+        better_tokio_select::tokio_select!(match .. {
+            .. if let Some(interaction) = not_clear_rx.recv() => {
+                if !not_clear_memory
+                    .iter()
+                    .any(|i| i.timestamp == interaction.timestamp)
+                {
                     not_clear_memory.push_back(interaction);
                     changed = true;
                 }
             }
-            Some(resolved_timestamp) = resolve_not_clear_rx.recv() => {
-                if let Some(pos) = not_clear_memory.iter().position(|i| i.timestamp == resolved_timestamp) {
+            .. if let Some(resolved_timestamp) = resolve_not_clear_rx.recv() => {
+                if let Some(pos) = not_clear_memory
+                    .iter()
+                    .position(|i| i.timestamp == resolved_timestamp)
+                {
                     not_clear_memory.remove(pos);
                     changed = true;
                 }
             }
-            else => {
+            _ => {
                 tracing::error!("not_clear channels closed");
                 return;
             }
-        };
+        });
 
         if changed {
             if let Err(e) = not_clear_memory_tx.send(not_clear_memory.clone()) {
