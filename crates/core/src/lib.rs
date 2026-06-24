@@ -193,9 +193,8 @@ impl<
             )),
             gemini_api_key: config.gemini_api_key.clone(),
         };
-        let llm_executor = std::sync::Arc::new(synapto_llm::ConcreteLlmExecutor::new(
-            executor_config,
-        ));
+        let llm_executor =
+            std::sync::Arc::new(synapto_llm::ConcreteLlmExecutor::new(executor_config));
 
         let (current_context_tx, current_context_rx) = watch::channel(serde_json::Value::Null);
 
