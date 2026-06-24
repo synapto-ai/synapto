@@ -127,7 +127,9 @@ impl Tracing {
             .with_file(true)
             .with_line_number(true)
             .with_filter(ShutdownErrorFilter)
-            .with_filter(LevelFilter::DEBUG);
+            .with_filter(tracing_subscriber::filter::filter_fn(|meta| {
+                meta.level() == &tracing::Level::ERROR
+            }));
 
         let file_non_error_layer = tracing_subscriber::fmt::layer()
             .with_span_events(FmtSpan::CLOSE)
@@ -156,6 +158,9 @@ impl Tracing {
 
             boxed_layer
                 .with_filter(ShutdownErrorFilter)
+                .with_filter(tracing_subscriber::filter::filter_fn(|meta| {
+                    meta.level() == &tracing::Level::ERROR
+                }))
                 .with_filter(log_filter.clone())
                 .with_filter(
                     EnvFilter::builder()
