@@ -3,8 +3,10 @@ use serde::{Deserialize, Serialize};
 use synapto_interface::llm::ModelConfig;
 use synapto_interface::llm::ReasoningEffort;
 
+pub mod data_dir;
 pub mod env;
 pub mod provider;
+pub use data_dir::*;
 pub use provider::*;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]

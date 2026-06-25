@@ -2,7 +2,7 @@ pub trait ConfigProvider: Send + Sync + Sized + 'static {
     /// Initializes the config provider.
     /// Provider-specific contexts (like use cases) must be handled internally
     /// by the implementing type (e.g., via trait markers or environment variables).
-    fn init() -> Self;
+    fn init(data_dir: std::path::PathBuf) -> Self;
 
     /// Returns the BASE core configuration BEFORE environment variables are applied.
     /// Providers should return the raw JSON Value representing their stored config.
