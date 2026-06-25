@@ -32,6 +32,63 @@ pub mod utils;
 
 use synapto_interface::speech_to_text::types::{InputVoiceAudio, SpeechDetected, SpeechTranscript};
 
+pub trait PluginTuple<
+    D: crate::config::DataDirProvider,
+    C: crate::config::ConfigProvider,
+    PR: crate::cognitive::prompt_provider::CognitivePromptProvider,
+>
+{
+    fn register_plugins(synapto: Synapto<D, C, PR>) -> Synapto<D, C, PR>;
+}
+
+impl<
+    D: crate::config::DataDirProvider,
+    C: crate::config::ConfigProvider,
+    PR: crate::cognitive::prompt_provider::CognitivePromptProvider,
+> PluginTuple<D, C, PR> for ()
+{
+    fn register_plugins(synapto: Synapto<D, C, PR>) -> Synapto<D, C, PR> {
+        synapto
+    }
+}
+
+macro_rules! impl_plugin_tuple {
+    ($($T:ident),+) => {
+        impl<
+            D: crate::config::DataDirProvider,
+            C: crate::config::ConfigProvider,
+            PR: crate::cognitive::prompt_provider::CognitivePromptProvider,
+            $($T: synapto_interface::Plugin),+
+        > PluginTuple<D, C, PR> for ($($T,)+) {
+            fn register_plugins(synapto: Synapto<D, C, PR>) -> Synapto<D, C, PR> {
+                synapto
+                $(.register_plugin::<$T>())+
+            }
+        }
+    };
+}
+
+impl_plugin_tuple!(P1);
+impl_plugin_tuple!(P1, P2);
+impl_plugin_tuple!(P1, P2, P3);
+impl_plugin_tuple!(P1, P2, P3, P4);
+impl_plugin_tuple!(P1, P2, P3, P4, P5);
+impl_plugin_tuple!(P1, P2, P3, P4, P5, P6);
+impl_plugin_tuple!(P1, P2, P3, P4, P5, P6, P7);
+impl_plugin_tuple!(P1, P2, P3, P4, P5, P6, P7, P8);
+impl_plugin_tuple!(P1, P2, P3, P4, P5, P6, P7, P8, P9);
+impl_plugin_tuple!(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10);
+impl_plugin_tuple!(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11);
+impl_plugin_tuple!(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12);
+impl_plugin_tuple!(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13);
+impl_plugin_tuple!(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14);
+impl_plugin_tuple!(
+    P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14, P15
+);
+impl_plugin_tuple!(
+    P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14, P15, P16
+);
+
 type AudioInputSpawner = Box<dyn FnOnce(&mut Option<mpsc::Sender<PeerInputAudio>>) + Send>;
 type AudioOutputSpawner = Box<dyn FnOnce(&mut Option<mpsc::Receiver<CognitiveOutputAudio>>) + Send>;
 type SttSpawner = Box<
@@ -330,8 +387,11 @@ impl<
         self
     }
 
-    #[allow(unused_mut)]
-    pub async fn run(mut self) -> ExitCode {
+    pub async fn run<T: PluginTuple<D, C, PR>>() -> ExitCode {
+        T::register_plugins(Self::new()).run_internal().await
+    }
+
+    async fn run_internal(self) -> ExitCode {
         tracing::debug!("Configuration {:?}", &self.config);
 
         let mut shutdown_rx = synapto_shutdown::init();

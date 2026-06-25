@@ -599,10 +599,8 @@ async fn main() -> ExitCode {
         datadir_local::DataLocalDir<"my-assistant">,
         config_providers::file::FileConfigProvider,
         prompt_file::FilePromptProvider
-    >::new()
-        .register_plugin::<MyChatPlugin>()
-        .run()
-        .await
+    >::run::<(MyChatPlugin,)>()
+    .await
 }
 ```
 
