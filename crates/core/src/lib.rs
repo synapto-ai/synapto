@@ -105,11 +105,13 @@ impl<C: crate::config::ConfigProvider> synapto_interface::storage::StorageConfig
 }
 
 pub struct Synapto<
+    D: crate::config::DataDirProvider,
     C: crate::config::ConfigProvider,
     PR: crate::cognitive::prompt_provider::CognitivePromptProvider,
 > {
     pub config: config::Config,
     config_provider: Arc<C>,
+    _data_dir_provider: std::marker::PhantomData<D>,
     _prompt_provider: std::marker::PhantomData<PR>,
     tracing: Tracing,
     audio_input_spawners: Vec<AudioInputSpawner>,
@@ -160,13 +162,14 @@ pub struct Synapto<
 }
 
 impl<
+    D: crate::config::DataDirProvider,
     C: crate::config::ConfigProvider,
     PR: crate::cognitive::prompt_provider::CognitivePromptProvider,
-> Synapto<C, PR>
+> Synapto<D, C, PR>
 {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        Self::with_config_provider(C::init())
+        Self::with_config_provider(C::init(D::get_data_dir()))
     }
 
     pub fn with_config_provider(config_provider: C) -> Self {
@@ -205,6 +208,7 @@ impl<
 
         Self {
             config_provider,
+            _data_dir_provider: std::marker::PhantomData,
             _prompt_provider: std::marker::PhantomData,
             config,
             tracing,
@@ -678,9 +682,10 @@ pub fn get_dynamic_capabilities() -> Vec<String> {
 }
 
 impl<
+    D: crate::config::DataDirProvider,
     C: crate::config::ConfigProvider,
     PR: crate::cognitive::prompt_provider::CognitivePromptProvider,
-> synapto_interface::PluginRegistry for Synapto<C, PR>
+> synapto_interface::PluginRegistry for Synapto<D, C, PR>
 {
     fn register_audio_input<P: AudioInputPlugin>(&mut self, plugin: Arc<P>) {
         self.audio_input_spawners.push(Box::new(move |tx_opt| {

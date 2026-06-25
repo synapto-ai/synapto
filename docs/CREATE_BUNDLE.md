@@ -54,7 +54,11 @@ impl config_file::UseCaseProfile for MyAssistantProfile {
 #[tokio::main]
 async fn main() -> ExitCode {
     // Initialize the core with the chosen configuration provider and profile
-    AI::<config_file::FileConfigProvider<MyAssistantProfile>, prompt_file::FilePromptProvider>::new()
+    Synapto::<
+        datadir_local::DataLocalDir<"my-assistant">,
+        config_file::FileConfigProvider,
+        prompt_file::FilePromptProvider
+    >::new()
         // Register the plugins you want to activate
         .register_plugin::<HostAudioInputPlugin>()
         .register_plugin::<HostAudioOutputPlugin>()

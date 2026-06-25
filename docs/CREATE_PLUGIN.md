@@ -595,7 +595,11 @@ use std::process::ExitCode;
 #[tokio::main]
 async fn main() -> ExitCode {
     // Initialize the core with the appropriate configuration provider
-    AI::<config_providers::file::FileConfigProvider<MyAssistantProfile>, prompt_file::FilePromptProvider>::new()
+    Synapto::<
+        datadir_local::DataLocalDir<"my-assistant">,
+        config_providers::file::FileConfigProvider,
+        prompt_file::FilePromptProvider
+    >::new()
         .register_plugin::<MyChatPlugin>()
         .run()
         .await
