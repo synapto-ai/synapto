@@ -6,8 +6,9 @@ use synapto_interface::llm::ReasoningEffort;
 pub mod data_dir;
 pub mod env;
 pub mod provider;
-pub use data_dir::*;
-pub use provider::*;
+
+pub use data_dir::DataDirProvider;
+pub use provider::ConfigProvider;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct GoogleServiceAccountCredentials(serde_json::Value);
