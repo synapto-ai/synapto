@@ -58,14 +58,12 @@ async fn main() -> ExitCode {
         datadir_local::DataLocalDir<"my-assistant">,
         config_file::FileConfigProvider,
         prompt_file::FilePromptProvider
-    >::new()
-        // Register the plugins you want to activate
-        .register_plugin::<HostAudioInputPlugin>()
-        .register_plugin::<HostAudioOutputPlugin>()
-        // .register_plugin::<MyChatPlugin>()
-        // Start the infinite cognitive loop
-        .run()
-        .await
+    >::run::<(
+        HostAudioInputPlugin,
+        HostAudioOutputPlugin,
+        // MyChatPlugin
+    )>()
+    .await
 }
 ```
 
