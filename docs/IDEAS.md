@@ -5,7 +5,7 @@ This document tracks high-level ideas, architectural experiments, and potential 
 ## Robustness & Resilience
 
 ### Plugin Panic Handling
-- **Current State**: Termination on panic is a **deliberate design choice** for maximum visibility. In many asynchronous systems, panics in spawned tasks can go unnoticed in logs. To prevent silent failures, a global panic hook in `ai-core` catches any task panic and triggers a fatal program shutdown.
+- **Current State**: Termination on panic is a **deliberate design choice** for maximum visibility. In many asynchronous systems, panics in spawned tasks can go unnoticed in logs. To prevent silent failures, a global panic hook in `synapto` catches any task panic and triggers a fatal program shutdown.
 - **Idea**: Introduce a configurable "Fault Tolerance" policy.
     - **Policies**: 
         - `Terminate` (Default): Stop the entire program to ensure the failure is addressed.

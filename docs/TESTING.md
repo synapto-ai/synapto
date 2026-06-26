@@ -22,9 +22,9 @@ To maintain absolute system reliability, we classify tests into four distinct ti
 To prevent code pollution and keep build dependencies isolated, all tests must respect crate boundaries:
 
 1. **Plugin Tests**: Must be fully contained inside the respective plugin crate (e.g., `ai/plugins/tts-google`). They must never depend on `core` or the orchestrator.
-2. **Core Tests**: Scope to the `ai-core` crate (`ai/core`). Used for validating core document ingestion, RAG memories, system prompts, and orchestrator state.
-3. **Interface Tests**: Scope to the `ai-interface` crate (`ai/interface`). Used solely for validating named channels, sync boundaries, or proxy structures.
-   * *Note:* Real-world third-party integration tests are non-sensical inside `ai-interface` since the interface only defines semantic types and trait boundaries.
+2. **Core Tests**: Scope to the `synapto` crate (`ai/core`). Used for validating core document ingestion, RAG memories, system prompts, and orchestrator state.
+3. **Interface Tests**: Scope to the `synapto-interface` crate (`ai/interface`). Used solely for validating named channels, sync boundaries, or proxy structures.
+   * *Note:* Real-world third-party integration tests are non-sensical inside `synapto-interface` since the interface only defines semantic types and trait boundaries.
 
 ---
 
@@ -39,11 +39,11 @@ cargo test
 ### Run Crate-Specific Unit Tests
 * **Core Unit Tests:**
   ```sh
-  cargo test -p ai-core
+  cargo test -p synapto
   ```
 * **Interface Unit Tests:**
   ```sh
-  cargo test -p ai-interface
+  cargo test -p synapto-interface
   ```
 * **Specific Plugin Unit Tests:**
   ```sh
@@ -109,8 +109,8 @@ plugins/tts-google/
 ```rust
 use std::fs;
 use tts_google::TtsGooglePlugin;
-use ai_interface::{Plugin, TTSPlugin};
-use ai_interface::types::CognitiveOutputSpeech;
+use synapto_interface::{Plugin, TTSPlugin};
+use synapto_interface::types::CognitiveOutputSpeech;
 
 #[tokio::test]
 #[ignore] // MUST ignore integration tests by default to keep standard offline compiles clean
@@ -149,8 +149,8 @@ async fn test_google_tts_live_synthesis() {
     let plugin = TtsGooglePlugin::new(config).expect("Failed to create plugin");
 
     // 3. Create mock communication channels
-    let (speech_tx, speech_rx) = ai_interface::sync::broadcast::channel(10);
-    let (audio_tx, mut audio_rx) = ai_interface::sync::mpsc::channel(10);
+    let (speech_tx, speech_rx) = synapto_interface::sync::broadcast::channel(10);
+    let (audio_tx, mut audio_rx) = synapto_interface::sync::mpsc::channel(10);
 
     // 4. Spawn the plugin loop inside tokio sandbox
     tokio::spawn(async move {
@@ -159,7 +159,7 @@ async fn test_google_tts_live_synthesis() {
 
     // 5. Inject payload containing XML unsafe characters
     speech_tx.send(CognitiveOutputSpeech {
-        target_channel: ai_interface::types::MessageChannel {
+        target_channel: synapto_interface::types::MessageChannel {
             context: serde_json::Value::Null,
         },
         text: "Ahoj & čau, toto je integrační test.".to_string(),

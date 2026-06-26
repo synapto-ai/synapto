@@ -39,3 +39,4 @@ ogg = "0.8.0"
 opus = "0.3.1"
 
 earshot = "1"
+dotenvy = "0.15.7"

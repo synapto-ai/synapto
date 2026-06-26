@@ -231,10 +231,11 @@ impl<
 {
     #[allow(clippy::new_without_default)]
     fn new() -> Self {
-        Self::with_config_provider(C::init(D::get_data_dir()))
+        let base_data_dir = D::get_data_dir();
+        Self::with_config_provider(C::init(base_data_dir.clone()), base_data_dir)
     }
 
-    fn with_config_provider(config_provider: C) -> Self {
+    fn with_config_provider(config_provider: C, base_data_dir: std::path::PathBuf) -> Self {
         let config_provider = std::sync::Arc::new(config_provider);
         rustls::crypto::ring::default_provider()
             .install_default()
@@ -249,7 +250,7 @@ impl<
             tracing::info!("{} config provider intialized", full_path);
         }
 
-        let config = config_provider.get_core_config();
+        let config = config_provider.get_core_config(base_data_dir);
         let executor_config = synapto_llm::LLMClientConfig {
             google_vertex_ai_location: config.google_vertex_ai_location.clone(),
             google_project_id: config.google_project_id.clone(),

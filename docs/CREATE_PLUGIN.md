@@ -13,7 +13,7 @@ Rather than a single monolithic plugin trait with optional/nullable fields, the 
 1. **`Plugin` (The Base Lifecycle Trait)**:
    All plugins implement the core `Plugin` trait. It handles initialization (`create` with `PluginContext`), metadata, and registration via the `register` hook.
 2. **Specialized Role Traits**:
-   Depending on what capabilities your plugin provides, it implements one or more specialized execution traits defined in `ai-interface`:
+   Depending on what capabilities your plugin provides, it implements one or more specialized execution traits defined in `synapto-interface`:
    - `ChatPlugin`: For text-based dialogue interfaces (e.g., Slack, Google Chat).
    - `AudioInputPlugin`: For raw audio sources (e.g., local microphone captures).
    - `AudioOutputPlugin`: For raw audio sinks (e.g., local speakers).
@@ -39,7 +39,7 @@ Generate a new library crate inside the `plugins/` directory:
 cargo new plugins/my-chat-plugin --lib
 ```
 
-Update its `Cargo.toml` to depend on `ai-interface`, `async-trait`, and other required workspace dependencies:
+Update its `Cargo.toml` to depend on `synapto-interface`, `async-trait`, and other required workspace dependencies:
 
 ```toml
 [package]
@@ -66,11 +66,11 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use ai_interface::{Plugin, PluginRegistry, ChatPlugin};
-use ai_interface::sync::{mpsc, broadcast};
-use ai_interface::peer_input_text::types::PeerInputText;
-use ai_interface::cognitive_output_text::types::CognitiveOutputText;
-use ai_interface::types::CognitiveStateUpdate;
+use synapto_interface::{Plugin, PluginRegistry, ChatPlugin};
+use synapto_interface::sync::{mpsc, broadcast};
+use synapto_interface::peer_input_text::types::PeerInputText;
+use synapto_interface::cognitive_output_text::types::CognitiveOutputText;
+use synapto_interface::types::CognitiveStateUpdate;
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]
 pub struct MyChatConfig {
@@ -95,7 +95,7 @@ impl Plugin for MyChatPlugin {
     // Optional: Compile-time semantic description for LLM tools/capabilities
     const CAPABILITY: Option<&'static str> = Some("my-chat-service");
 
-    async fn create(context: ai_interface::types::PluginContext) -> Result<Self, String> {
+    async fn create(context: synapto_interface::types::PluginContext) -> Result<Self, String> {
         let config: MyChatConfig = context.config()?;
         if config.api_token.is_empty() {
             return Err("api_token must not be empty".to_string());
@@ -145,7 +145,7 @@ impl ChatPlugin for MyChatPlugin {
         peer_input_text_tx: mpsc::Sender<PeerInputText>,
         mut cognitive_output_text_rx: mpsc::Receiver<CognitiveOutputText>,
         _cognitive_state_rx: broadcast::Receiver<CognitiveStateUpdate>,
-        _add_document_tx: Option<mpsc::Sender<ai_interface::types::AddDocumentRequest>>,
+        _add_document_tx: Option<mpsc::Sender<synapto_interface::types::AddDocumentRequest>>,
     ) -> Result<(), String> {
         let token = self.config.api_token.clone();
         let room = self.config.default_room.clone();
@@ -197,7 +197,7 @@ pub struct MyVoipPlugin {
 }
 
 impl Plugin for MyVoipPlugin {
-    async fn create(context: ai_interface::types::PluginContext) -> Result<Self, String> {
+    async fn create(context: synapto_interface::types::PluginContext) -> Result<Self, String> {
         let config: VoipConfig = context.config()?;
         let client = Arc::new(VoipClient::new(config));
         Ok(Self { client })
@@ -256,9 +256,9 @@ Define your serializable DTO, implement `LLMSafe`, and implement `ContextProvide
 use async_trait::async_trait;
 use schemars::JsonSchema;
 use serde::Serialize;
-use ai_interface::llm::LLMSafe;
-use ai_interface::types::{ContextProvider, TemporalScope, ContextRequest};
-use ai_interface::sync::watch;
+use synapto_interface::llm::LLMSafe;
+use synapto_interface::types::{ContextProvider, TemporalScope, ContextRequest};
+use synapto_interface::sync::watch;
 
 #[derive(Serialize, JsonSchema, Clone, Debug, LLMSafe)]
 pub struct TemperatureContext {
@@ -327,8 +327,8 @@ Implement the specialized `InteractionObserver` trait, and register it inside yo
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use ai_interface::{Plugin, PluginRegistry, sync::watch, sync::mpsc};
-use ai_interface::types::{Interaction, Timestamp, InteractionMemory};
+use synapto_interface::{Plugin, PluginRegistry, sync::watch, sync::mpsc};
+use synapto_interface::types::{Interaction, Timestamp, InteractionMemory};
 
 pub struct MyObserverPlugin {
     // A private sender to populate your internal state
@@ -336,7 +336,7 @@ pub struct MyObserverPlugin {
 }
 
 impl Plugin for MyObserverPlugin {
-    async fn create(context: ai_interface::types::PluginContext) -> Result<Self, String> {
+    async fn create(context: synapto_interface::types::PluginContext) -> Result<Self, String> {
         // let config: MyObserverConfig = context.config()?; // Load config if needed
         let (memory_tx, memory_rx) = watch::channel(MyCustomState::default());
         Ok(Self {
@@ -354,10 +354,10 @@ impl Plugin for MyObserverPlugin {
 }
 
 #[async_trait]
-impl ai_interface::InteractionObserver for MyObserverPlugin {
+impl synapto_interface::InteractionObserver for MyObserverPlugin {
     async fn start(
         &self,
-        mut interaction_rx: mpsc::Receiver<ai_interface::types::ObservedInteraction>,
+        mut interaction_rx: mpsc::Receiver<synapto_interface::types::ObservedInteraction>,
     ) -> Result<(), String> {
         let memory_tx = self.memory_tx.lock().unwrap().take().unwrap();
 
@@ -401,7 +401,7 @@ Use `CollectionStore` when your plugin needs to persist lists of data across reb
 
 ### Storage Providers
 
-The AI architecture defines storage capabilities as generic traits in `ai_interface::storage`. The bundle initializing your plugin will inject a concrete storage provider at compile time.
+The AI architecture defines storage capabilities as generic traits in `synapto_interface::storage`. The bundle initializing your plugin will inject a concrete storage provider at compile time.
 
 There are currently two available providers:
 
@@ -415,7 +415,7 @@ Define your plugin with a generic type `S` bound to `CollectionStore + StorageCo
 ```rust
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use ai_interface::storage::{CollectionStore, StorageConnection};
+use synapto_interface::storage::{CollectionStore, StorageConnection};
 use std::sync::Arc;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -472,8 +472,8 @@ Define your deserializable argument DTO, implement `LLMSafe`, and implement `Com
 use async_trait::async_trait;
 use schemars::JsonSchema;
 use serde::Deserialize;
-use ai_interface::types::{Command};
-use ai_interface::llm::LLMSafe;
+use synapto_interface::types::{Command};
+use synapto_interface::llm::LLMSafe;
 
 #[derive(Deserialize, JsonSchema, Clone, Debug, LLMSafe)]
 pub struct AdjustThermostatArgs {
@@ -565,7 +565,7 @@ To expose this tool, register it within your `Plugin` trait implementation:
 
 ```rust
 impl Plugin for MyPlugin {
-    fn register<R: ai_interface::PluginRegistry + ?Sized>(self: Arc<Self>, registry: &mut R) {
+    fn register<R: synapto_interface::PluginRegistry + ?Sized>(self: Arc<Self>, registry: &mut R) {
         registry.register_tool(ReadDocumentPluginTool { ... });
     }
 }
@@ -580,7 +580,7 @@ To use your custom plugin, add it as a dependency to your bundle's `Cargo.toml`:
 ```toml
 # bundles/my-custom-assistant/Cargo.toml
 [dependencies]
-ai-core = { path = "../../core" }
+synapto = { path = "../../core" }
 my-chat-plugin = { path = "../../plugins/my-chat-plugin" }
 ```
 
@@ -588,7 +588,7 @@ And register it in your bundle's `main.rs` using `.register_plugin::<T>()`:
 
 ```rust
 // bundles/my-custom-assistant/src/main.rs
-use ai_core::AI;
+use synapto::AI;
 use my_chat_plugin::MyChatPlugin;
 use std::process::ExitCode;
 
@@ -597,7 +597,7 @@ async fn main() -> ExitCode {
     // Initialize the core with the appropriate configuration provider
     Synapto::<
         datadir_local::DataLocalDir<"my-assistant">,
-        config_providers::file::FileConfigProvider,
+        (synapto::config::ConfigJson, synapto::config::DotEnv, synapto::config::Env),
         prompt_file::FilePromptProvider
     >::run::<(MyChatPlugin,)>()
     .await
@@ -618,7 +618,7 @@ async fn main() -> ExitCode {
 
 ## Telemetry & Instrumentation
 
-To simplify debugging, use the `ai_interface::sync` module (`mpsc`, `broadcast`, `watch`) instead of raw `tokio::sync` imports.
+To simplify debugging, use the `synapto_interface::sync` module (`mpsc`, `broadcast`, `watch`) instead of raw `tokio::sync` imports.
 
 In **Debug** mode, any message sent over these instrumented channels automatically records telemetry that can be visualized in the Rerun window. In **Release** mode, these resolve directly to standard `tokio::sync` types with **zero performance overhead**.
 
