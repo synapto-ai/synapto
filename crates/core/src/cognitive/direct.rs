@@ -1,19 +1,21 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use synapto_interface::cognitive_output_text::types::CognitiveOutputText;
 use synapto_interface::llm::LLMSafe;
 use synapto_interface::sync::{Notify, futures::Notified};
 use synapto_interface::sync::{broadcast, mpsc, watch};
-use synapto_interface::types::{CognitiveOutputSpeech, PeerInput, PeerInputSpeech};
+use synapto_interface::types::{
+    AiSpoken, AiWritten, CognitiveOutputSpeech, PeerInput, PeerInputSpeech,
+};
 use synapto_llm::LLM;
 use synapto_llm::LLMClient;
 use tracing::instrument;
 
 use crate::config::Config;
-use crate::interactions::Interaction;
 use crate::interactions::InteractionMemory;
-use crate::interactions::types::AiSpoken;
-use crate::interactions::types::{CognitiveOutputText, InFlightTool};
+use crate::interactions::{InFlightTool, Interaction};
+use crate::prompt_provider::{CognitivePromptProvider, CognitiveTarget};
 
 use super::{
     processor::{CognitiveOutputProcessor, SideEffectMetadata, process_llm_output},
@@ -26,21 +28,21 @@ use super::{
 struct CognitiveDirectCommands {
     #[serde(skip_serializing_if = "Option::is_none")]
     /// tell something loudly. Don't use abbreviation. Omit the field if you have nothing to say now.
-    pub say: Option<CognitiveOutputSpeech>,
+    say: Option<CognitiveOutputSpeech>,
     #[serde(skip_serializing_if = "Option::is_none")]
     /// Write something to the chat. Snippets, code, links. Everything that is not natural to say. Mention it in the speech when you have written something in the chat. Omit the field if you have nothing to write now.
-    pub write: Option<CognitiveOutputText>,
+    write: Option<CognitiveOutputText>,
 
     #[serde(flatten)]
-    pub commands_map: std::collections::BTreeMap<String, serde_json::Value>,
+    commands_map: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 #[derive(Clone, Default)]
-pub struct CognitiveDirectTrigger(Arc<Notify>);
+pub(crate) struct CognitiveDirectTrigger(Arc<Notify>);
 
 impl CognitiveDirectTrigger {
     #[track_caller]
-    pub fn trigger(&self) {
+    pub(crate) fn trigger(&self) {
         let caller = std::panic::Location::caller();
         tracing::debug!(
             "CognitiveDirectTrigger triggered from {}:{}:{}",
@@ -57,10 +59,10 @@ impl CognitiveDirectTrigger {
 }
 
 #[derive(Clone, Default)]
-pub struct CognitiveDirectInterrupt(Arc<Notify>);
+pub(crate) struct CognitiveDirectInterrupt(Arc<Notify>);
 
 impl CognitiveDirectInterrupt {
-    pub fn interrupt(&self) {
+    fn interrupt(&self) {
         self.0.notify_waiters();
     }
 
@@ -68,7 +70,7 @@ impl CognitiveDirectInterrupt {
         self.0.notified()
     }
 
-    pub fn inner(&self) -> &Arc<Notify> {
+    pub(crate) fn inner(&self) -> &Arc<Notify> {
         &self.0
     }
 }
@@ -141,11 +143,9 @@ impl<'a> CognitiveOutputProcessor<CognitiveDirectCommands> for DirectOutputProce
 
         let ai_spoken = say_command.map(|cmd| AiSpoken(cmd.text.clone()));
 
-        let ai_written = model_response.commands.write.as_ref().map(|cmd| {
-            crate::interactions::types::AiWritten {
-                target_channel: cmd.target_channel.clone(),
-                text: cmd.text.clone(),
-            }
+        let ai_written = model_response.commands.write.as_ref().map(|cmd| AiWritten {
+            target_channel: cmd.target_channel.clone(),
+            text: cmd.text.clone(),
         });
 
         Some(SideEffectMetadata {
@@ -165,7 +165,7 @@ impl<'a> CognitiveOutputProcessor<CognitiveDirectCommands> for DirectOutputProce
 
 #[instrument(skip_all, fields(subsystem))]
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn cognitive_direct_task<P: super::prompt_provider::CognitivePromptProvider>(
+pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
     config: Config,
     trigger: CognitiveDirectTrigger,
     interrupt: CognitiveDirectInterrupt,
@@ -442,7 +442,7 @@ pub(super) async fn cognitive_direct_task<P: super::prompt_provider::CognitivePr
         let content_value = serde_json::to_value(&content)
             .unwrap_or_else(|e| panic!("Failed to serialize content: {}", e));
         let dynamic_tools =
-            crate::cognitive::types::evaluate_dynamic_tools(&tools, &request, &content_value).await;
+            super::types::evaluate_dynamic_tools(&tools, &request, &content_value).await;
 
         let prompt_config: P::Config =
             serde_json::from_value(config.prompt.clone()).unwrap_or_default();
@@ -450,7 +450,7 @@ pub(super) async fn cognitive_direct_task<P: super::prompt_provider::CognitivePr
             &prompt_config,
             &content,
             initial_cognitive_trigger,
-            crate::cognitive::prompt_provider::CognitiveTarget::Direct,
+            CognitiveTarget::Direct,
         );
 
         let generated_text_result = better_tokio_select::tokio_select!(match .. {

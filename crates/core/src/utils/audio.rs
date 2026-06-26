@@ -4,7 +4,9 @@ use std::error::Error;
 use std::io::Cursor;
 use std::time::Duration;
 
-pub fn get_ogg_opus_duration(input_data: &[u8]) -> Result<Duration, Box<dyn Error + Send + Sync>> {
+pub(crate) fn get_ogg_opus_duration(
+    input_data: &[u8],
+) -> Result<Duration, Box<dyn Error + Send + Sync>> {
     let cursor = Cursor::new(input_data);
     let mut packet_reader = PacketReader::new(cursor);
     let mut total_samples = 0;

@@ -7,10 +7,12 @@ use synapto_interface::types::PeerInputSpeech;
 mod detect_voice;
 mod speaker_transcript_alignment;
 
-pub async fn start(
+pub(super) async fn start(
     peer_input_audio_rx: mpsc::Receiver<PeerInputAudio>,
     peer_input_speech_tx: mpsc::Sender<PeerInputSpeech>,
-    speaker_segment_rx: Option<mpsc::Receiver<synapto_interface::speech_to_text::types::SpeakerSegment>>,
+    speaker_segment_rx: Option<
+        mpsc::Receiver<synapto_interface::speech_to_text::types::SpeakerSegment>,
+    >,
     heuristic: Option<synapto_interface::speech_to_text::types::SpeakerHeuristicCallback>,
     trigger_cognitive_direct: CognitiveDirectTrigger,
     last_voice_time_tx: watch::Sender<std::time::Instant>,

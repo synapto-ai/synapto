@@ -20,33 +20,30 @@
 //!    transmitter, immediately waking the correct loop and triggering the next LLM cycle.
 
 mod direct;
-pub mod processor;
-pub mod prompt_provider;
+mod processor;
 mod side;
-pub mod speaking_coordinator;
-pub mod types;
-use derive_more::Display;
-use std::sync::Arc;
-use synapto_interface::sync::{broadcast, mpsc, watch};
-use synapto_interface::types::{CognitiveOutputSpeech, CognitiveStateUpdate};
 
-use crate::interactions::types::CognitiveOutputText;
+mod types;
+use std::sync::Arc;
+use synapto_interface::cognitive_output_text::types::CognitiveOutputText;
+use synapto_interface::peer_input_text::types::PeerInputText;
+use synapto_interface::sync::{broadcast, mpsc, watch};
+use synapto_interface::types::{CognitiveOutputSpeech, CognitiveStateUpdate, PeerInputSpeech};
 
 use synapto_llm::Instruction;
 
+use crate::prompt_provider::CognitivePromptProvider;
 use crate::{
     config::Config,
-    interactions::{
-        Interaction, InteractionMemory,
-        types::{PeerInputSpeech, PeerInputText},
-    },
+    interactions::{Interaction, InteractionMemory},
 };
+pub use types::CognitiveLLMContent;
 
 use direct::cognitive_direct_task;
 use side::cognitive_side_task;
 
 #[allow(clippy::too_many_arguments)]
-pub async fn start<P: prompt_provider::CognitivePromptProvider>(
+pub(crate) async fn start<P: CognitivePromptProvider>(
     config: Config,
     llm_executor: std::sync::Arc<dyn synapto_interface::llm::LlmExecutor>,
     trigger_cognitive_direct: CognitiveDirectTrigger,
@@ -104,16 +101,9 @@ pub async fn start<P: prompt_provider::CognitivePromptProvider>(
     }
 }
 
-#[derive(Display)]
-pub struct Capability(pub &'static str);
+pub(crate) use direct::{CognitiveDirectInterrupt, CognitiveDirectTrigger};
 
-pub use direct::{CognitiveDirectInterrupt, CognitiveDirectTrigger};
-
-pub use types::CognitiveLLMInteraction;
-
-fn get_cognitive_system_prompt<P: prompt_provider::CognitivePromptProvider>(
-    config: &Config,
-) -> Vec<Instruction> {
+fn get_cognitive_system_prompt<P: CognitivePromptProvider>(config: &Config) -> Vec<Instruction> {
     let mut instructions = Vec::new();
 
     instructions.push(Instruction::Text(format!(

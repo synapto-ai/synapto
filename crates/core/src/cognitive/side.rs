@@ -1,27 +1,24 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use synapto_interface::cognitive_output_text::types::CognitiveOutputText;
 use synapto_interface::llm::LLMSafe;
+use synapto_interface::peer_input_text::types::PeerInputText;
 use synapto_interface::sync::{broadcast, mpsc, watch};
-use synapto_interface::types::{CognitiveState, CognitiveStateUpdate};
+use synapto_interface::types::{AiWritten, CognitiveState, CognitiveStateUpdate, PeerInput};
 use synapto_llm::LLM;
 use synapto_llm::LLMClient;
 use tracing::instrument;
 
 use super::{
     processor::{CognitiveOutputProcessor, SideEffectMetadata, process_llm_output},
-    types::{CognitiveLLM, CognitiveLLMContent, CognitiveLLMOutput},
+    types::{CognitiveLLM, CognitiveLLMContent, CognitiveLLMOutput, LLMUserMessage},
 };
 
-use crate::interactions::types::CognitiveOutputText;
-
+use crate::prompt_provider::CognitivePromptProvider;
 use crate::{
     config::Config,
-    interactions::{
-        Interaction, InteractionMemory,
-        recent::LLMUserMessage,
-        types::{InFlightTool, PeerInput, PeerInputText},
-    },
+    interactions::{InFlightTool, Interaction, InteractionMemory},
 };
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Default, LLMSafe)]
@@ -30,10 +27,10 @@ use crate::{
 struct CognitiveSideCommands {
     #[serde(skip_serializing_if = "Option::is_none")]
     /// Write something to the chat. Snippets, code, links. Everything that is not natural to say. Mention it in the speech when you have written something in the chat. Null if you have nothing to write now.
-    pub write: Option<CognitiveOutputText>,
+    write: Option<CognitiveOutputText>,
 
     #[serde(flatten)]
-    pub commands_map: std::collections::BTreeMap<String, serde_json::Value>,
+    commands_map: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 struct SideOutputProcessor<'a> {
@@ -89,11 +86,9 @@ impl<'a> CognitiveOutputProcessor<CognitiveSideCommands> for SideOutputProcessor
             }
         }
 
-        let ai_written = model_response.commands.write.as_ref().map(|cmd| {
-            crate::interactions::types::AiWritten {
-                target_channel: cmd.target_channel.clone(),
-                text: cmd.text.clone(),
-            }
+        let ai_written = model_response.commands.write.as_ref().map(|cmd| AiWritten {
+            target_channel: cmd.target_channel.clone(),
+            text: cmd.text.clone(),
         });
 
         Some(SideEffectMetadata {
@@ -109,7 +104,7 @@ impl<'a> CognitiveOutputProcessor<CognitiveSideCommands> for SideOutputProcessor
 
 #[instrument(skip_all, fields(subsystem))]
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn cognitive_side_task<P: super::prompt_provider::CognitivePromptProvider>(
+pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
     config: Config,
     mut text_rx: broadcast::Receiver<PeerInputText>,
     mut interaction_memory_rx: watch::Receiver<InteractionMemory>,
@@ -317,7 +312,7 @@ pub(super) async fn cognitive_side_task<P: super::prompt_provider::CognitiveProm
             &prompt_config,
             &content,
             false,
-            crate::cognitive::prompt_provider::CognitiveTarget::Side,
+            crate::prompt_provider::CognitiveTarget::Side,
         );
 
         let generated_text_result = llm_client

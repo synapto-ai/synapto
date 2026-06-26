@@ -3,15 +3,18 @@ use std::sync::Arc;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use synapto_interface::llm::{LLMSafe, genai::chat::ToolCall};
+use synapto_interface::{
+    llm::{LLMSafe, genai::chat::ToolCall},
+    types::{
+        AiSpoken, CognitiveReasoning, DocumentId, MessageChannel, MessageText, PeerInput, SenderId,
+        Speaker,
+    },
+};
 use synapto_llm::{LLM, ToolExecutor, ToolOutput};
 
 use crate::{
-    interactions::{
-        Interaction, InteractionMemory,
-        recent::LLMUserMessage,
-        types::{AiSpoken, CognitiveReasoning, LlmSafeInFlightTool},
-    },
+    interactions::{InFlightTool, Interaction, InteractionMemory, SpeakerName},
+    users::Users,
     utils::schema::flatten_enum,
 };
 
@@ -23,7 +26,7 @@ use crate::{
 /// is kept entirely within the `tool_resolved_tx` channel. Because each cognitive loop (`direct` or `side`)
 /// creates and passes its own unique transmitter when instantiating this executor, the background
 /// task is hard-wired to wake up only the loop that spawned it.
-pub struct RegistryToolExecutor {
+pub(super) struct RegistryToolExecutor {
     pub tool_resolved_tx: tokio::sync::mpsc::Sender<(ToolOutput, ToolCall)>,
     pub tools: Arc<synapto_interface::types::ToolRegistryBuilder>,
 }
@@ -122,18 +125,99 @@ impl ToolExecutor for RegistryToolExecutor {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
+pub enum LLMUser {
+    /// A known person (e.g., John Doe)
+    /// We have a real name for them.
+    Known(SpeakerName),
+
+    /// An unknown but distinguishable person
+    /// We don't know their name, but we know that "OS456" from document A
+    /// is the same person as "OS456" from document B.
+    Distinguishable(SpeakerName), // e.g., "OS456"
+
+    /// An unknown and indistinguishable person
+    /// For example, a voice from a crowd. In the next sentence, "another voice" could be someone completely different.
+    Indistinguishable,
+}
+
+impl From<Speaker> for LLMUser {
+    fn from(speaker: Speaker) -> Self {
+        match speaker {
+            Speaker::Unknown(_) => LLMUser::Indistinguishable,
+            Speaker::Recognized(speaker_id) => match Users::get_by_speaker_id(&speaker_id) {
+                Some(user) => LLMUser::Known(SpeakerName(user.full_name)),
+                None => LLMUser::Distinguishable(SpeakerName(format!("Some user {}", speaker_id))),
+            },
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
+pub enum LLMUserMessage {
+    Speech {
+        speaker: LLMUser,
+        transcript: MessageText,
+    },
+    Text {
+        channel: MessageChannel,
+        sender: SenderId,
+        text: MessageText,
+        attached_documents: Vec<DocumentId>,
+        #[schemars(
+            description = "True if the message was explicitly addressed to the assistant (e.g. via direct message or @mention). If this is true, the assistant is invoked and should respond."
+        )]
+        explicitly_addressed: bool,
+    },
+}
+
+impl From<PeerInput> for LLMUserMessage {
+    fn from(user_message: PeerInput) -> Self {
+        match user_message {
+            PeerInput::Speech(speech) => LLMUserMessage::Speech {
+                speaker: speech.speaker.into(),
+                transcript: speech.transcript,
+            },
+            PeerInput::Text(text_msg) => LLMUserMessage::Text {
+                channel: text_msg.channel,
+                sender: text_msg.sender_id,
+                text: text_msg.text,
+                attached_documents: text_msg.attached_documents,
+                explicitly_addressed: text_msg.explicitly_addressed,
+            },
+        }
+    }
+}
+
+#[derive(
+    Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema, PartialEq, Eq, LLMSafe,
+)]
+struct LlmSafeInFlightTool {
+    name: String,
+    arguments: serde_json::Value,
+}
+
+impl From<&InFlightTool> for LlmSafeInFlightTool {
+    fn from(tool: &InFlightTool) -> Self {
+        Self {
+            name: tool.name.clone(),
+            arguments: tool.arguments.clone(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
 #[serde(rename = "Interaction")]
-pub struct CognitiveLLMInteraction {
-    pub user_messages: Vec<LLMUserMessage>,
+struct CognitiveLLMInteraction {
+    user_messages: Vec<LLMUserMessage>,
     #[schemars(description = "What AI says to human")]
-    pub ai_spoken: Option<AiSpoken>,
-    pub ai_reasoning: Option<CognitiveReasoning>,
+    ai_spoken: Option<AiSpoken>,
+    ai_reasoning: Option<CognitiveReasoning>,
 
     #[schemars(
         description = "Tools triggered during this interaction that are currently processing in the background. If populated, the AI should acknowledge they are still working if asked, and wait for their resolution before answering questions reliant on them."
     )]
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub in_flight_tools: Vec<LlmSafeInFlightTool>,
+    in_flight_tools: Vec<LlmSafeInFlightTool>,
 }
 
 impl From<&Interaction> for CognitiveLLMInteraction {
@@ -155,7 +239,7 @@ impl From<&Interaction> for CognitiveLLMInteraction {
 #[derive(JsonSchema, Serialize, PartialEq, Eq, Debug, Clone, Default)]
 #[serde(rename = "InteractionMemory")]
 #[schemars(description = "Your last interactions with the user")]
-pub struct CognitiveLLMInteractionMemory(pub Vec<CognitiveLLMInteraction>);
+pub struct CognitiveLLMInteractionMemory(Vec<CognitiveLLMInteraction>);
 
 impl From<InteractionMemory> for CognitiveLLMInteractionMemory {
     fn from(value: InteractionMemory) -> Self {
@@ -163,23 +247,20 @@ impl From<InteractionMemory> for CognitiveLLMInteractionMemory {
     }
 }
 
-#[derive(JsonSchema, Serialize, Clone)]
-pub struct CognitiveLLMDocument {
-    pub name: String,
-    pub content: String,
-}
+// #[derive(JsonSchema, Serialize, Clone)]
+// struct CognitiveLLMDocument {
+//     name: String,
+//     content: String,
+// }
 
 #[derive(JsonSchema, Serialize, Debug, LLMSafe)]
 pub struct CognitiveLLMContent {
-    // 1. The Past
     #[serde(flatten)]
     pub historical_contexts: std::collections::BTreeMap<String, serde_json::Value>,
 
-    // 2. The Present
     #[serde(flatten)]
     pub current_contexts: std::collections::BTreeMap<String, serde_json::Value>,
 
-    // 3. The Future / Intent
     #[serde(flatten)]
     pub prospective_contexts: std::collections::BTreeMap<String, serde_json::Value>,
 
@@ -193,7 +274,7 @@ pub struct CognitiveLLMContent {
 #[schemars(
     description = "Only on SemanticallyClear should the LLM respond. Check that in other cases the write to chat and say commands are not used."
 )]
-pub enum UsersMessagesEvaluation {
+pub(super) enum UsersMessagesEvaluation {
     #[schemars(
         description = "All messages are clearly understandable and actionable. The underlying meaning is unambiguous. You will respond and the input buffer will be cleared."
     )]
@@ -216,7 +297,7 @@ pub enum UsersMessagesEvaluation {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, PartialEq, Eq, LLMSafe)]
-pub struct CognitiveLLMOutput<CognitiveCommands> {
+pub(super) struct CognitiveLLMOutput<CognitiveCommands> {
     pub commands: CognitiveCommands,
     pub reasoning: CognitiveReasoning,
 
@@ -226,7 +307,7 @@ pub struct CognitiveLLMOutput<CognitiveCommands> {
     pub users_messages_evaluation: UsersMessagesEvaluation,
 }
 
-pub struct CognitiveLLM<CognitiveCommands> {
+pub(super) struct CognitiveLLM<CognitiveCommands> {
     _marker: PhantomData<CognitiveCommands>,
 }
 
@@ -237,7 +318,7 @@ impl<CognitiveCommands: LLMSafe + Clone + DeserializeOwned + JsonSchema> LLM
     type Output = CognitiveLLMOutput<CognitiveCommands>;
 }
 
-pub async fn evaluate_dynamic_tools(
+pub(super) async fn evaluate_dynamic_tools(
     tools: &synapto_interface::types::ToolRegistryBuilder,
     request: &synapto_interface::types::ContextRequest,
     content_value: &serde_json::Value,

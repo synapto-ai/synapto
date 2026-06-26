@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct GoogleServiceAccountCredentials(serde_json::Value);
+struct GoogleServiceAccountCredentials(serde_json::Value);
 
 impl From<GoogleServiceAccountCredentials> for String {
     fn from(value: GoogleServiceAccountCredentials) -> Self {

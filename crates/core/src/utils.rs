@@ -1,2 +1,2 @@
-pub mod audio;
-pub mod schema;
+pub(crate) mod audio;
+pub(crate) mod schema;

@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 use synapto_interface::llm::ModelConfig;
 use synapto_interface::llm::ReasoningEffort;
 
-pub mod data_dir;
-pub mod env;
-pub mod provider;
+mod data_dir;
+mod env;
+mod provider;
 
 pub use data_dir::DataDirProvider;
 pub use provider::ConfigProvider;
@@ -19,13 +19,6 @@ impl From<GoogleServiceAccountCredentials> for String {
             panic!("Failed to serialize GoogleServiceAccountCredentials: {}", e)
         })
     }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
-#[serde(deny_unknown_fields)]
-pub struct AssistantConfig {
-    pub chats: std::collections::BTreeMap<String, String>,
-    pub full_name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -48,27 +41,33 @@ pub struct Config {
     #[serde(default = "default_audience")]
     pub audience: String,
 
+    // FIXME
     #[serde(default)]
     pub google_vertex_ai_location: Option<String>,
 
+    // FIXME
     #[serde(default)]
     pub google_project_id: String,
 
+    // FIXME
     #[serde(default)]
     pub gemini_api_key: Option<String>,
 
+    // FIXME pub
     #[serde(default)]
     pub data_dir: std::path::PathBuf,
 
     #[serde(default)]
     pub barge_in: bool,
 
+    // FIXME
     #[serde(default)]
-    pub speakers: Vec<String>,
+    speakers: Vec<String>,
 
     #[serde(default)]
     pub initial_run: InitialRunConfig,
 
+    // FIXME
     #[serde(default)]
     pub google_service_account_credentials: GoogleServiceAccountCredentials,
 
@@ -77,9 +76,6 @@ pub struct Config {
 
     #[serde(default)]
     pub disable_cognitive_side: bool,
-
-    #[serde(default)]
-    pub diarization_warn_when_uncertain: bool,
 
     #[serde(default = "default_prompt_config")]
     pub prompt: serde_json::Value,
