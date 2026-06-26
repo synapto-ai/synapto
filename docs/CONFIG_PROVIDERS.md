@@ -8,8 +8,13 @@ Importantly, Configuration Providers do not *only* dictate where the configurati
 
 The configuration system operates on a "Base + Overlay" architecture via Tuple Composition.
 
-1. **Base Configuration (The Provider Chain):** The core accepts a tuple of up to 6 `ConfigProvider` implementations. During `init`, these are evaluated left-to-right. Each provider returns raw data as a weakly-typed `serde_json::Value` which recursively overlays/merges into the output of the previous provider.
-2. **Overlay & Deserialization (The Core):** The resulting composite JSON object is strictly deserialized into the strongly-typed `Config` or plugin configuration structs.
+1. **Base Configuration (The Provider Chain):** The core accepts a tuple of up to 6 `ConfigProvider` implementations. During the `init` phase, the base `data_dir` (resolved by the `DataDirProvider` parameter) is cloned and passed identically to the `init()` method of **every** provider in the tuple in parallel.
+2. **JSON Overlay:** The providers are evaluated left-to-right. Each provider returns raw data as a weakly-typed `serde_json::Value` which recursively overlays/merges into the output of the previous provider.
+3. **Data Directory Passthrough:** As a final step before parsing, the core checks if any provider explicitly overrode the `"data_dir"` key in the JSON. If not, it automatically injects the original base `data_dir` into the JSON payload (Passthrough).
+4. **Deserialization (The Core):** The resulting composite JSON object is strictly deserialized into the strongly-typed `Config` or plugin configuration structs.
+
+> [!NOTE]
+> **Data Dir Initialization is Parallel, not Chained:** Because all providers receive the *exact same* initial `data_dir` during the `init` phase, overriding the `"data_dir"` in a JSON config (e.g., via `ConfigJson`) will successfully change the application's final output directory, but it will *not* change the initialization path fed to downstream providers in the tuple. This guarantees deterministic behavior during boot.
 
 **Strict Validation:**
 All core and plugin configuration structs use `#[serde(deny_unknown_fields)]`. If a configuration source (base JSON or environment variable) provides an unknown field, the system will intentionally panic at boot.
