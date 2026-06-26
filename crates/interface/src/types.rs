@@ -1,6 +1,6 @@
 pub mod documents;
-use crate::{cognitive_output_text::types::CognitiveOutputText, llm::LLMSafe};
 use crate::peer_input_text::types::PeerInputText;
+use crate::{cognitive_output_text::types::CognitiveOutputText, llm::LLMSafe};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

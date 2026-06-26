@@ -1,21 +1,24 @@
-use crate::interactions::types::{AiWritten, PeerInput};
-use crate::interactions::{Interaction, types::AiSpoken};
-use synapto_interface::sync::mpsc;
-use synapto_llm::LLMResult;
+use crate::interactions::{InFlightTool, Interaction};
+
 use schemars::JsonSchema;
 use serde::Serialize;
+use synapto_interface::{
+    sync::mpsc,
+    types::{AiSpoken, AiWritten, PeerInput},
+};
+use synapto_llm::LLMResult;
 
 use super::types::{CognitiveLLMOutput, UsersMessagesEvaluation};
 
 use std::future::Future;
 
 #[derive(Debug)]
-pub struct SideEffectMetadata {
+pub(super) struct SideEffectMetadata {
     pub ai_spoken: Option<AiSpoken>,
     pub ai_written: Option<AiWritten>,
 }
 
-pub trait CognitiveOutputProcessor<Cmd>: Send
+pub(super) trait CognitiveOutputProcessor<Cmd>: Send
 where
     Cmd: Send + Clone + Default + Serialize + JsonSchema + std::fmt::Debug,
 {
@@ -34,14 +37,14 @@ where
     fn on_cycle_finished(&mut self);
 }
 
-pub async fn process_llm_output<Cmd, P>(
+pub(super) async fn process_llm_output<Cmd, P>(
     new_messages: Vec<PeerInput>,
     pending_user_messages: &mut Vec<PeerInput>,
     generated_text_result: Result<LLMResult<CognitiveLLMOutput<Cmd>>, anyhow::Error>,
     processor: &mut P,
     new_interaction_tx: &mpsc::Sender<Interaction>,
     discard_interaction: bool,
-    in_flight_tools: Vec<crate::interactions::types::InFlightTool>,
+    in_flight_tools: Vec<InFlightTool>,
 ) where
     P: CognitiveOutputProcessor<Cmd>,
     Cmd: Send + Clone + Default + Serialize + JsonSchema + std::fmt::Debug,

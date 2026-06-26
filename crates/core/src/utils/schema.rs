@@ -1,7 +1,7 @@
 use schemars::Schema;
 use serde_json::Value;
 
-pub fn flatten_enum(schema: &mut Schema) {
+pub(crate) fn flatten_enum(schema: &mut Schema) {
     if let Some(Value::Array(one_of)) = schema.remove("oneOf") {
         let mut descriptions = Vec::new();
         let mut enum_values = Vec::new();

@@ -1,35 +1,45 @@
-use synapto_interface::sync::{mpsc, watch};
+use synapto_interface::{
+    sync::{mpsc, watch},
+    types::{NotClearInteraction, NotClearInteractionMemory},
+};
 use tracing::instrument;
 
-use super::Timestamp;
+use crate::config::Config;
 
-use crate::{
-    cognitive::CognitiveLLMInteraction,
-    config::Config,
-    interactions::types::{NotClearInteraction, NotClearInteractionMemory},
-};
+use super::{Interaction, Timestamp};
 
-impl From<&NotClearInteraction> for super::SummaryLLMInteraction {
-    fn from(interaction: &NotClearInteraction) -> Self {
+impl From<&Interaction> for NotClearInteraction {
+    fn from(interaction: &Interaction) -> Self {
         Self {
             timestamp: interaction.timestamp,
-            interaction: CognitiveLLMInteraction {
-                user_messages: interaction
-                    .user_messages
-                    .clone()
-                    .into_iter()
-                    .map(Into::into)
-                    .collect(),
-                ai_spoken: interaction.ai_spoken.clone(),
-                ai_reasoning: None,
-                in_flight_tools: vec![],
-            },
+            user_messages: interaction.user_messages.clone(),
+            ai_spoken: interaction.ai_spoken.clone(),
+            ai_written: interaction.ai_written.clone(),
         }
     }
 }
 
+// impl From<&NotClearInteraction> for super::SummaryLLMInteraction {
+//     fn from(interaction: &NotClearInteraction) -> Self {
+//         Self {
+//             timestamp: interaction.timestamp,
+//             interaction: CognitiveLLMInteraction {
+//                 user_messages: interaction
+//                     .user_messages
+//                     .clone()
+//                     .into_iter()
+//                     .map(Into::into)
+//                     .collect(),
+//                 ai_spoken: interaction.ai_spoken.clone(),
+//                 ai_reasoning: None,
+//                 in_flight_tools: vec![],
+//             },
+//         }
+//     }
+// }
+
 #[instrument(skip_all, fields(subsystem))]
-pub async fn not_clear_interactions_task(
+pub(super) async fn not_clear_interactions_task(
     config: Config,
     mut not_clear_rx: mpsc::Receiver<NotClearInteraction>,
     mut resolve_not_clear_rx: mpsc::Receiver<Timestamp>,

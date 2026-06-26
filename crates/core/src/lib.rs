@@ -3,7 +3,10 @@ use synapto_interface::cognitive_output_audio::types::CognitiveOutputAudio;
 use synapto_interface::cognitive_output_text::types::CognitiveOutputText;
 use synapto_interface::peer_input_audio::types::PeerInputAudio;
 use synapto_interface::peer_input_text::types::PeerInputText;
-use synapto_interface::types::{CognitiveOutputSpeech, CognitiveStateUpdate, PeerInputSpeech};
+use synapto_interface::types::{
+    CognitiveOutputSpeech, CognitiveStateUpdate, NotClearInteractionMemory, PeerInputSpeech,
+    Timestamp,
+};
 use synapto_interface::{
     AudioInputPlugin, AudioOutputPlugin, AudioRecorderPlugin, CallPlugin, ChatPlugin,
     DiarizationPlugin, Plugin, STTPlugin, TTSPlugin, speech_to_text::types::SpeakerSegment,
@@ -17,34 +20,36 @@ use std::process::ExitCode;
 use synapto_interface::sync::{broadcast, mpsc, watch};
 use synapto_telemetry::tracing::Tracing;
 
-pub mod cognitive;
+mod cognitive;
+pub use cognitive::CognitiveLLMContent;
 pub mod config;
+pub mod prompt_provider;
+mod utils;
 
-pub mod enveloped;
-pub mod google_credentials;
+mod google_credentials;
+mod speaking_coordinator;
 
-pub mod interactions;
+mod interactions;
 
-pub mod speech_to_text;
+mod speech_to_text;
 
-pub mod users;
-pub mod utils;
+mod users;
 
 use synapto_interface::speech_to_text::types::{InputVoiceAudio, SpeechDetected, SpeechTranscript};
 
 pub trait PluginTuple<
-    D: crate::config::DataDirProvider,
-    C: crate::config::ConfigProvider,
-    PR: crate::cognitive::prompt_provider::CognitivePromptProvider,
+    D: config::DataDirProvider,
+    C: config::ConfigProvider,
+    PR: prompt_provider::CognitivePromptProvider,
 >
 {
     fn register_plugins(synapto: Synapto<D, C, PR>) -> Synapto<D, C, PR>;
 }
 
 impl<
-    D: crate::config::DataDirProvider,
-    C: crate::config::ConfigProvider,
-    PR: crate::cognitive::prompt_provider::CognitivePromptProvider,
+    D: config::DataDirProvider,
+    C: config::ConfigProvider,
+    PR: prompt_provider::CognitivePromptProvider,
 > PluginTuple<D, C, PR> for ()
 {
     fn register_plugins(synapto: Synapto<D, C, PR>) -> Synapto<D, C, PR> {
@@ -55,9 +60,9 @@ impl<
 macro_rules! impl_plugin_tuple {
     ($($T:ident),+) => {
         impl<
-            D: crate::config::DataDirProvider,
-            C: crate::config::ConfigProvider,
-            PR: crate::cognitive::prompt_provider::CognitivePromptProvider,
+            D: config::DataDirProvider,
+            C: config::ConfigProvider,
+            PR: prompt_provider::CognitivePromptProvider,
             $($T: synapto_interface::Plugin),+
         > PluginTuple<D, C, PR> for ($($T,)+) {
             fn register_plugins(synapto: Synapto<D, C, PR>) -> Synapto<D, C, PR> {
@@ -164,9 +169,9 @@ impl<C: crate::config::ConfigProvider> synapto_interface::storage::StorageConfig
 pub struct Synapto<
     D: crate::config::DataDirProvider,
     C: crate::config::ConfigProvider,
-    PR: crate::cognitive::prompt_provider::CognitivePromptProvider,
+    PR: prompt_provider::CognitivePromptProvider,
 > {
-    pub config: config::Config,
+    config: config::Config,
     config_provider: Arc<C>,
     _data_dir_provider: std::marker::PhantomData<D>,
     _prompt_provider: std::marker::PhantomData<PR>,
@@ -184,10 +189,10 @@ pub struct Synapto<
     audio_recorder_spawners: Vec<RecorderSpawner>,
     plugins_names: Vec<String>,
     plugins: std::collections::HashMap<std::any::TypeId, Arc<dyn std::any::Any + Send + Sync>>,
-    pub registries: Arc<synapto_interface::types::ContextRegistries>,
-    pub tools: Arc<synapto_interface::types::ToolRegistryBuilder>,
-    pub commands: Arc<synapto_interface::types::CommandRegistryBuilder>,
-    pub storage: Arc<synapto_interface::storage::StorageRegistry>,
+    registries: Arc<synapto_interface::types::ContextRegistries>,
+    tools: Arc<synapto_interface::types::ToolRegistryBuilder>,
+    commands: Arc<synapto_interface::types::CommandRegistryBuilder>,
+    storage: Arc<synapto_interface::storage::StorageRegistry>,
     #[allow(clippy::type_complexity)]
     interaction_observer_spawners: Vec<(
         String,
@@ -210,26 +215,26 @@ pub struct Synapto<
                 + Sync,
         >,
     >,
-    pub llm_executor: std::sync::Arc<dyn synapto_interface::llm::LlmExecutor>,
+    llm_executor: std::sync::Arc<dyn synapto_interface::llm::LlmExecutor>,
     gui_spawner: Option<GuiSpawner>,
     camera_spawner: Option<CameraSpawner>,
     error_rx: Option<std::sync::mpsc::Receiver<String>>,
-    pub current_context_tx: watch::Sender<serde_json::Value>,
-    pub current_context_rx: watch::Receiver<serde_json::Value>,
+    current_context_tx: watch::Sender<serde_json::Value>,
+    current_context_rx: watch::Receiver<serde_json::Value>,
 }
 
 impl<
-    D: crate::config::DataDirProvider,
-    C: crate::config::ConfigProvider,
-    PR: crate::cognitive::prompt_provider::CognitivePromptProvider,
+    D: config::DataDirProvider,
+    C: config::ConfigProvider,
+    PR: prompt_provider::CognitivePromptProvider,
 > Synapto<D, C, PR>
 {
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self::with_config_provider(C::init(D::get_data_dir()))
     }
 
-    pub fn with_config_provider(config_provider: C) -> Self {
+    fn with_config_provider(config_provider: C) -> Self {
         let config_provider = std::sync::Arc::new(config_provider);
         rustls::crypto::ring::default_provider()
             .install_default()
@@ -297,20 +302,20 @@ impl<
         }
     }
 
-    pub fn load_plugin_config<P: Plugin>(&self) -> serde_json::Value {
-        let full_path = std::any::type_name::<P>();
-        let crate_name = full_path
-            .split("::")
-            .next()
-            .unwrap_or("")
-            .to_string()
-            .replace('-', "_");
-        let base_path = full_path.split('<').next().unwrap_or(full_path);
-        let plugin_type_name = base_path.split("::").last().unwrap_or("").to_string();
+    // fn load_plugin_config<P: Plugin>(&self) -> serde_json::Value {
+    //     let full_path = std::any::type_name::<P>();
+    //     let crate_name = full_path
+    //         .split("::")
+    //         .next()
+    //         .unwrap_or("")
+    //         .to_string()
+    //         .replace('-', "_");
+    //     let base_path = full_path.split('<').next().unwrap_or(full_path);
+    //     let plugin_type_name = base_path.split("::").last().unwrap_or("").to_string();
 
-        self.config_provider
-            .get_plugin_config_value(&crate_name, &plugin_type_name)
-    }
+    //     self.config_provider
+    //         .get_plugin_config_value(&crate_name, &plugin_type_name)
+    // }
 
     fn get_or_init_plugin<P: Plugin>(&mut self) -> Arc<P> {
         let type_id = std::any::TypeId::of::<P>();
@@ -373,7 +378,7 @@ impl<
             .get_plugin_config_value(&crate_name, &plugin_type_name)
     }
 
-    pub fn register_plugin<P: Plugin>(mut self) -> Self {
+    fn register_plugin<P: Plugin>(mut self) -> Self {
         let full_path = core::any::type_name::<P>();
         let base_path = full_path.split('<').next().unwrap_or(full_path);
         let plugin_identity = base_path.to_string();
@@ -459,7 +464,7 @@ impl<
             (None, None)
         };
 
-        let (ai_speaking_rx, ai_speaking_semaphore) = cognitive::speaking_coordinator::start(
+        let (ai_speaking_rx, ai_speaking_semaphore) = speaking_coordinator::start(
             interrupt_cognitive_direct.clone(),
             cognitive_speech_tx.clone(),
             cognitive_output_audio_rx_plugin,
@@ -486,7 +491,7 @@ impl<
             (None, None)
         };
 
-        let (speech_transcript_tx, mut core_voice_audio_rx, input_voice_audio_tx) =
+        let (speech_transcript_tx, core_voice_audio_rx, input_voice_audio_tx) =
             speech_to_text::start(
                 peer_input_audio_rx,
                 peer_input_speech_tx.clone(),
@@ -516,10 +521,9 @@ impl<
             watch::channel(interactions::InteractionMemory::default());
 
         let (not_clear_memory_tx, not_clear_memory_rx) =
-            watch::channel(interactions::NotClearInteractionMemory::default());
+            watch::channel(NotClearInteractionMemory::default());
 
-        let (resolve_not_clear_tx, resolve_not_clear_rx) =
-            mpsc::channel::<interactions::Timestamp>(100);
+        let (resolve_not_clear_tx, resolve_not_clear_rx) = mpsc::channel::<Timestamp>(100);
 
         for spawner in self.retrospective_consolidation_spawners {
             spawner(not_clear_memory_rx.clone(), resolve_not_clear_tx.clone());
@@ -560,14 +564,14 @@ impl<
 
         let registries = self.registries.clone();
 
-        {
-            let interaction_provider = std::sync::Arc::new(
-                crate::interactions::recent::InteractionMemoryContextProvider::new(
-                    interaction_memory_rx.clone(),
-                ),
-            );
-            registries.current.register_erased(interaction_provider);
-        }
+        // {
+        //     let interaction_provider = std::sync::Arc::new(
+        //         crate::interactions::recent::InteractionMemoryContextProvider::new(
+        //             interaction_memory_rx.clone(),
+        //         ),
+        //     );
+        //     registries.current.register_erased(interaction_provider);
+        // }
 
         {
             let current_context_tx = self.current_context_tx;
@@ -722,7 +726,7 @@ impl<
 static DYNAMIC_CAPABILITIES: std::sync::OnceLock<std::sync::Mutex<Vec<String>>> =
     std::sync::OnceLock::new();
 
-pub fn register_dynamic_capability(cap: String) {
+fn register_dynamic_capability(cap: String) {
     DYNAMIC_CAPABILITIES
         .get_or_init(|| std::sync::Mutex::new(Vec::new()))
         .lock()
@@ -730,7 +734,7 @@ pub fn register_dynamic_capability(cap: String) {
         .push(cap);
 }
 
-pub fn get_dynamic_capabilities() -> Vec<String> {
+fn get_dynamic_capabilities() -> Vec<String> {
     DYNAMIC_CAPABILITIES
         .get()
         .map(|m| {
@@ -742,9 +746,9 @@ pub fn get_dynamic_capabilities() -> Vec<String> {
 }
 
 impl<
-    D: crate::config::DataDirProvider,
-    C: crate::config::ConfigProvider,
-    PR: crate::cognitive::prompt_provider::CognitivePromptProvider,
+    D: config::DataDirProvider,
+    C: config::ConfigProvider,
+    PR: prompt_provider::CognitivePromptProvider,
 > synapto_interface::PluginRegistry for Synapto<D, C, PR>
 {
     fn register_audio_input<P: AudioInputPlugin>(&mut self, plugin: Arc<P>) {

@@ -8,7 +8,7 @@ use tracing::instrument;
 use crate::cognitive::CognitiveDirectInterrupt;
 
 #[instrument(skip_all)]
-pub async fn start(
+pub(crate) async fn start(
     interrupt_cognitive_direct: CognitiveDirectInterrupt,
     _cognitive_speech_tx: broadcast::Sender<CognitiveOutputSpeech>,
     mut cognitive_output_audio_rx_plugin: mpsc::Receiver<CognitiveOutputAudio>,

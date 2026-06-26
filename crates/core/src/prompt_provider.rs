@@ -1,6 +1,8 @@
 use serde::de::DeserializeOwned;
 use std::path::Path;
 
+pub use crate::cognitive::CognitiveLLMContent;
+
 pub enum CognitiveTarget {
     Direct,
     Side,
@@ -20,7 +22,7 @@ pub trait CognitivePromptProvider: Send + Sync + 'static {
     /// This is fed into `LLMClient::call` on every cycle, overriding or steering immediate behavior.
     fn get_dynamic_instructions(
         prompt_config: &Self::Config,
-        compiled_context: &crate::cognitive::types::CognitiveLLMContent,
+        compiled_context: &CognitiveLLMContent,
         is_initial_run: bool,
         target: CognitiveTarget,
     ) -> Vec<synapto_llm::Instruction>;

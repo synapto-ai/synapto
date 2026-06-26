@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-pub fn merge_env_overrides(base: &mut Value, prefix: &str) {
+pub(super) fn merge_env_overrides(base: &mut Value, prefix: &str) {
     let env_json = build_env_json(prefix);
     merge_json(base, env_json);
 }

@@ -1,19 +1,79 @@
 use synapto_interface::{
-    llm::LLMSafe,
     sync::{mpsc, watch},
+    types::{
+        AiSpoken, AiWritten, CognitiveReasoning, NotClearInteraction, ObservedInteraction,
+        PeerInput, Timestamp,
+    },
 };
 use tracing::instrument;
 
-use crate::{config::Config, users::Users};
-
-use super::types::{
-    DocumentId, Interaction, MessageChannel, MessageText, PeerInput, SenderId, Speaker, Timestamp,
-};
+use crate::config::Config;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::cognitive::CognitiveLLMInteraction;
+// use crate::cognitive::CognitiveLLMInteraction;
+
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
+pub(crate) struct InFlightTool {
+    pub id: String,   // The thought_signature or tool_call_id
+    pub name: String, // The fn_name
+    pub arguments: serde_json::Value,
+}
+
+
+
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
+pub(crate) struct Interaction {
+    pub timestamp: Timestamp,
+    pub user_messages: Vec<PeerInput>,
+    pub ai_spoken: Option<AiSpoken>,
+    pub ai_written: Option<AiWritten>,
+    pub ai_reasoning: Option<CognitiveReasoning>,
+    is_actionable: bool,
+    #[serde(skip)]
+    pub in_flight_tools: Vec<InFlightTool>,
+}
+
+synapto_interface::register_channel_name!(Interaction, "interaction");
+
+impl Interaction {
+    pub(crate) fn new(
+        user_messages: Vec<PeerInput>,
+        ai_spoken: Option<AiSpoken>,
+        ai_written: Option<AiWritten>,
+        ai_reasoning: Option<CognitiveReasoning>,
+        is_actionable: bool,
+        in_flight_tools: Vec<InFlightTool>,
+    ) -> Self {
+        Self {
+            timestamp: Timestamp(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_else(|e| panic!("System clock was before UNIX EPOCH: {}", e))
+                    .as_millis() as i64,
+            ),
+            user_messages,
+            ai_spoken,
+            ai_written,
+            ai_reasoning,
+            is_actionable,
+            in_flight_tools,
+        }
+    }
+}
+
+impl From<&Interaction> for ObservedInteraction {
+    fn from(interaction: &Interaction) -> Self {
+        Self {
+            timestamp: interaction.timestamp,
+            user_messages: interaction.user_messages.clone(),
+            ai_spoken: interaction.ai_spoken.clone(),
+            ai_written: interaction.ai_written.clone(),
+            ai_reasoning: interaction.ai_reasoning.clone(),
+        }
+    }
+}
 
 #[derive(
     Serialize,
@@ -28,84 +88,20 @@ use crate::cognitive::CognitiveLLMInteraction;
 )]
 pub struct SpeakerName(pub String);
 
-#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
-pub enum LLMUser {
-    /// A known person (e.g., John Doe)
-    /// We have a real name for them.
-    Known(SpeakerName),
+// #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
+// struct SummaryLLMInteraction {
+//     timestamp: Timestamp,
+//     interaction: CognitiveLLMInteraction,
+// }
 
-    /// An unknown but distinguishable person
-    /// We don't know their name, but we know that "OS456" from document A
-    /// is the same person as "OS456" from document B.
-    Distinguishable(SpeakerName), // e.g., "OS456"
-
-    /// An unknown and indistinguishable person
-    /// For example, a voice from a crowd. In the next sentence, "another voice" could be someone completely different.
-    Indistinguishable,
-}
-
-impl From<Speaker> for LLMUser {
-    fn from(speaker: Speaker) -> Self {
-        match speaker {
-            Speaker::Unknown(_) => LLMUser::Indistinguishable,
-            Speaker::Recognized(speaker_id) => match Users::get_by_speaker_id(&speaker_id) {
-                Some(user) => LLMUser::Known(SpeakerName(user.full_name)),
-                None => LLMUser::Distinguishable(SpeakerName(format!("Some user {}", speaker_id))),
-            },
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
-pub enum LLMUserMessage {
-    Speech {
-        speaker: LLMUser,
-        transcript: MessageText,
-    },
-    Text {
-        channel: MessageChannel,
-        sender: SenderId,
-        text: MessageText,
-        attached_documents: Vec<DocumentId>,
-        #[schemars(
-            description = "True if the message was explicitly addressed to the assistant (e.g. via direct message or @mention). If this is true, the assistant is invoked and should respond."
-        )]
-        explicitly_addressed: bool,
-    },
-}
-
-impl From<PeerInput> for LLMUserMessage {
-    fn from(user_message: PeerInput) -> Self {
-        match user_message {
-            PeerInput::Speech(speech) => LLMUserMessage::Speech {
-                speaker: speech.speaker.into(),
-                transcript: speech.transcript,
-            },
-            PeerInput::Text(text_msg) => LLMUserMessage::Text {
-                channel: text_msg.channel,
-                sender: text_msg.sender_id,
-                text: text_msg.text,
-                attached_documents: text_msg.attached_documents,
-                explicitly_addressed: text_msg.explicitly_addressed,
-            },
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
-pub struct SummaryLLMInteraction {
-    pub timestamp: Timestamp,
-    pub interaction: CognitiveLLMInteraction,
-}
-
-impl From<&Interaction> for SummaryLLMInteraction {
-    fn from(interaction: &Interaction) -> Self {
-        Self {
-            timestamp: interaction.timestamp,
-            interaction: CognitiveLLMInteraction::from(interaction),
-        }
-    }
-}
+// impl From<&Interaction> for SummaryLLMInteraction {
+//     fn from(interaction: &Interaction) -> Self {
+//         Self {
+//             timestamp: interaction.timestamp,
+//             interaction: CognitiveLLMInteraction::from(interaction),
+//         }
+//     }
+// }
 
 #[derive(
     derive_more::IntoIterator,
@@ -119,10 +115,10 @@ impl From<&Interaction> for SummaryLLMInteraction {
     Clone,
     Default,
 )]
-pub struct InteractionMemory(pub std::collections::VecDeque<Interaction>);
+pub(crate) struct InteractionMemory(std::collections::VecDeque<Interaction>);
 
 impl InteractionMemory {
-    pub fn resolve_in_flight_tool(&mut self, tool_call_id: &str) -> Result<(), String> {
+    fn resolve_in_flight_tool(&mut self, tool_call_id: &str) -> Result<(), String> {
         let mut found = false;
         for interaction in self.0.iter_mut() {
             if let Some(idx) = interaction
@@ -171,13 +167,13 @@ async fn wait_for_any_rollout(
 }
 
 #[instrument(skip_all, fields(subsystem))]
-pub async fn interaction_memory_task(
+pub(super) async fn interaction_memory_task(
     config: Config,
     mut new_interaction_rx: mpsc::Receiver<Interaction>,
     mut rollout_receivers: Vec<(String, watch::Receiver<Timestamp>)>,
     observers_tx: Vec<mpsc::Sender<synapto_interface::types::ObservedInteraction>>,
     interaction_memory_tx: watch::Sender<InteractionMemory>,
-    not_clear_tx: mpsc::Sender<super::NotClearInteraction>,
+    not_clear_tx: mpsc::Sender<NotClearInteraction>,
     mut resolve_in_flight_tool_rx: mpsc::Receiver<synapto_interface::types::ToolCallId>,
 ) {
     let memory_dir = config.data_dir.join("memory");
@@ -350,52 +346,52 @@ pub async fn interaction_memory_task(
     }
 }
 
-#[derive(Serialize, JsonSchema, Clone, Debug, PartialEq, Eq, LLMSafe)]
-pub struct LLMInteractionMemory(pub Vec<SummaryLLMInteraction>);
+// #[derive(Serialize, JsonSchema, Clone, Debug, PartialEq, Eq, LLMSafe)]
+// struct LLMInteractionMemory(Vec<SummaryLLMInteraction>);
 
-impl From<InteractionMemory> for LLMInteractionMemory {
-    fn from(value: InteractionMemory) -> Self {
-        Self(value.iter().map(SummaryLLMInteraction::from).collect())
-    }
-}
+// impl From<InteractionMemory> for LLMInteractionMemory {
+//     fn from(value: InteractionMemory) -> Self {
+//         Self(value.iter().map(SummaryLLMInteraction::from).collect())
+//     }
+// }
 
-pub struct InteractionMemoryContextProvider {
-    interaction_memory_rx: watch::Receiver<InteractionMemory>,
-}
+// struct InteractionMemoryContextProvider {
+//     interaction_memory_rx: watch::Receiver<InteractionMemory>,
+// }
 
-impl InteractionMemoryContextProvider {
-    pub fn new(interaction_memory_rx: watch::Receiver<InteractionMemory>) -> Self {
-        Self {
-            interaction_memory_rx,
-        }
-    }
-}
+// impl InteractionMemoryContextProvider {
+//     fn new(interaction_memory_rx: watch::Receiver<InteractionMemory>) -> Self {
+//         Self {
+//             interaction_memory_rx,
+//         }
+//     }
+// }
 
-#[async_trait::async_trait]
-impl synapto_interface::types::ContextProvider for InteractionMemoryContextProvider {
-    type Context = LLMInteractionMemory;
-    const NAME: &'static str = "interaction_memory";
-    const SCOPE: synapto_interface::types::TemporalScope =
-        synapto_interface::types::TemporalScope::Current;
+// #[async_trait::async_trait]
+// impl synapto_interface::types::ContextProvider for InteractionMemoryContextProvider {
+//     type Context = LLMInteractionMemory;
+//     const NAME: &'static str = "interaction_memory";
+//     const SCOPE: synapto_interface::types::TemporalScope =
+//         synapto_interface::types::TemporalScope::Current;
 
-    async fn context(
-        &self,
-        _request: &synapto_interface::types::ContextRequest,
-    ) -> Result<Self::Context, String> {
-        let mem = self.interaction_memory_rx.borrow().clone();
-        Ok(LLMInteractionMemory::from(mem))
-    }
+//     async fn context(
+//         &self,
+//         _request: &synapto_interface::types::ContextRequest,
+//     ) -> Result<Self::Context, String> {
+//         let mem = self.interaction_memory_rx.borrow().clone();
+//         Ok(LLMInteractionMemory::from(mem))
+//     }
 
-    fn subscribe(&self) -> Option<tokio::sync::watch::Receiver<()>> {
-        let mut rx = self.interaction_memory_rx.clone();
-        let (tx, out_rx) = tokio::sync::watch::channel(());
-        tokio::spawn(async move {
-            while rx.changed().await.is_ok() {
-                tx.send(())
-                    .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
-                    .ok();
-            }
-        });
-        Some(out_rx)
-    }
-}
+//     fn subscribe(&self) -> Option<tokio::sync::watch::Receiver<()>> {
+//         let mut rx = self.interaction_memory_rx.clone();
+//         let (tx, out_rx) = tokio::sync::watch::channel(());
+//         tokio::spawn(async move {
+//             while rx.changed().await.is_ok() {
+//                 tx.send(())
+//                     .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
+//                     .ok();
+//             }
+//         });
+//         Some(out_rx)
+//     }
+// }
