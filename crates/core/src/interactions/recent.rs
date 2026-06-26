@@ -21,8 +21,6 @@ pub(crate) struct InFlightTool {
     pub arguments: serde_json::Value,
 }
 
-
-
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
 pub(crate) struct Interaction {
     pub timestamp: Timestamp,

@@ -36,7 +36,7 @@ The **Single Source of Truth (SSoT)** for system topology, design principles, st
   - **Prescriptive Design Principles** (e.g., event-driven loops, stateless context, `!LLMSafe` boundaries, Direct Channel Coupling).
   - **Structural boundaries and decoupling rules** (e.g., the Switchboard Principle, the exact separation of Core Subsystems vs. Plugins, Inversion of Control, and Opaque Resource Identifiers).
   - **Ternary Naming Conventions** for cross-boundary data streams.
-  - **Interface Invariants** (e.g., "Plugin traits in `ai-interface` must be atomic and represent the smallest decomposable unit of work").
+  - **Interface Invariants** (e.g., "Plugin traits in `synapto-interface` must be atomic and represent the smallest decomposable unit of work").
   - **Actionable Anti-patterns**: Explicit warnings against system-wide design violations paired with the required alternative (e.g., "Do not tightly couple to another plugin's internal JSON schema; instead, use generic fulltext serialization scans").
 - **What it MUST NOT contain:**
   - Tutorial walkthroughs, step-by-step setup guides, commands, or generic code boilerplate.
@@ -58,7 +58,7 @@ A practical step-by-step recipe for building, testing, and registering custom pl
   - **Code-level Best Practices & Anti-patterns**: Concrete code blocks demonstrating "Do this" (Best Practice) and "Don't do this" (Anti-pattern) to practically apply the invariants from `ARCHITECTURE.md`.
   - **Minimal boilerplate** and copy-pasteable library/cargo template configurations.
   - **Code-level patterns** (e.g., loop patterns, `tokio::spawn` usage, schema negotiation setups).
-  - How to configure local telemetry via the transparent `ai_interface::sync` proxy.
+  - How to configure local telemetry via the transparent `synapto_interface::sync` proxy.
 - **What it MUST NOT contain:**
   - Primary architectural rule-making. It must never declare new design invariants or establish system-wide structural constraints. It should only _link to_ or _demonstrate_ the rules established in `ARCHITECTURE.md`.
 
@@ -69,7 +69,7 @@ A practical step-by-step guide for creating composition roots and bootstrapping 
 - **Responsibility:** Walks developers through building custom deployment agents by registering plugins.
 - **What it MUST contain:**
   - Cargo configuration for a new bundle crate.
-  - Minimal registration and async-runtime bootstrapping boilerplate (`AI::new().register::<T>()`).
+  - Minimal registration and async-runtime bootstrapping boilerplate (`Synapto::new().register::<T>()`).
 - **What it MUST NOT contain:**
   - Low-level plugin I/O rules or interface design rules.
 

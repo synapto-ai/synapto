@@ -4,10 +4,15 @@ use synapto_interface::llm::ModelConfig;
 use synapto_interface::llm::ReasoningEffort;
 
 mod data_dir;
-mod env;
+mod dotenv;
+pub mod env;
+mod json;
 mod provider;
 
 pub use data_dir::DataDirProvider;
+pub use dotenv::DotEnv;
+pub use env::Env;
+pub use json::ConfigJson;
 pub use provider::ConfigProvider;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
