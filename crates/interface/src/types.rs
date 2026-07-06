@@ -1,4 +1,3 @@
-pub mod documents;
 use crate::peer_input_text::types::PeerInputText;
 use crate::{cognitive_output_text::types::CognitiveOutputText, llm::LLMSafe};
 use schemars::JsonSchema;
