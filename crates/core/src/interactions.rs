@@ -2,8 +2,9 @@ mod not_clear;
 mod recent;
 
 use synapto_interface::{
+    interaction::Timestamp,
+    interaction::{NotClearInteraction, NotClearInteractionMemory},
     sync::{mpsc, watch},
-    types::{NotClearInteraction, NotClearInteractionMemory, Timestamp},
 };
 
 use crate::config::Config;
@@ -15,11 +16,11 @@ pub(crate) async fn start(
     config: Config,
     new_interaction_rx: mpsc::Receiver<recent::Interaction>,
     rollout_receivers: Vec<(String, watch::Receiver<Timestamp>)>,
-    observers_tx: Vec<mpsc::Sender<synapto_interface::types::ObservedInteraction>>,
+    observers_tx: Vec<mpsc::Sender<synapto_interface::interaction::ObservedInteraction>>,
     interaction_memory_tx: watch::Sender<recent::InteractionMemory>,
     resolve_not_clear_rx: mpsc::Receiver<Timestamp>,
     not_clear_memory_tx: watch::Sender<NotClearInteractionMemory>,
-    resolve_in_flight_tool_rx: mpsc::Receiver<synapto_interface::types::ToolCallId>,
+    resolve_in_flight_tool_rx: mpsc::Receiver<synapto_interface::tool::ToolCallId>,
 ) {
     let (not_clear_tx, not_clear_rx) = mpsc::channel::<NotClearInteraction>(100);
 

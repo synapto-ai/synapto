@@ -1,3 +1,4 @@
+use crate::plugin::Plugin;
 use derive_more::{Deref, DerefMut, IntoIterator};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -50,3 +51,10 @@ impl From<PeerInputAudio> for [i32; PEER_INPUT_AUDIO_CHUNK_SIZE] {
 //         peer_input_audio
 //     }
 // }
+
+use crate::sync::mpsc;
+use async_trait::async_trait;
+#[async_trait]
+pub trait AudioInputPlugin: Plugin + Send + Sync {
+    async fn start(&self, tx: mpsc::Sender<PeerInputAudio>) -> Result<(), String>;
+}

@@ -1,8 +1,8 @@
 use std::sync::Arc;
+use synapto_interface::cognitive::CognitiveOutputSpeech;
 use synapto_interface::cognitive_output_audio::CognitiveOutputAudio;
 use synapto_interface::sync::{OwnedSemaphorePermit, Semaphore};
 use synapto_interface::sync::{broadcast, mpsc, watch};
-use synapto_interface::types::CognitiveOutputSpeech;
 use tracing::instrument;
 
 use crate::cognitive::CognitiveDirectInterrupt;

@@ -25,10 +25,11 @@ mod side;
 
 mod types;
 use std::sync::Arc;
+use synapto_interface::cognitive::{CognitiveOutputSpeech, CognitiveStateUpdate};
 use synapto_interface::cognitive_output_text::CognitiveOutputText;
+use synapto_interface::peer_input::PeerInputSpeech;
 use synapto_interface::peer_input_text::PeerInputText;
 use synapto_interface::sync::{broadcast, mpsc, watch};
-use synapto_interface::types::{CognitiveOutputSpeech, CognitiveStateUpdate, PeerInputSpeech};
 
 use synapto_llm::Instruction;
 
@@ -54,16 +55,16 @@ pub(crate) async fn start<P: CognitivePromptProvider>(
     interaction_memory_rx: watch::Receiver<InteractionMemory>,
     cognitive_speech_tx: broadcast::Sender<CognitiveOutputSpeech>,
     new_interaction_tx: mpsc::Sender<Interaction>,
-    video_rx: Option<watch::Receiver<synapto_interface::types::CameraInputFrame>>,
+    video_rx: Option<watch::Receiver<synapto_interface::camera::CameraInputFrame>>,
 
-    registries: Arc<synapto_interface::types::ContextRegistries>,
-    tools: Arc<synapto_interface::types::ToolRegistryBuilder>,
-    commands: Arc<synapto_interface::types::CommandRegistryBuilder>,
+    registries: Arc<synapto_interface::context::ContextRegistries>,
+    tools: Arc<synapto_interface::tool::ToolRegistryBuilder>,
+    commands: Arc<synapto_interface::command::CommandRegistryBuilder>,
 
     cognitive_output_text_tx: Option<mpsc::Sender<CognitiveOutputText>>,
 
     cognitive_state_tx: broadcast::Sender<CognitiveStateUpdate>,
-    resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::types::ToolCallId>,
+    resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::tool::ToolCallId>,
 ) {
     if cognitive_output_text_tx.is_some() && !config.disable_cognitive_side {
         tokio::spawn(cognitive_side_task::<P>(

@@ -1,6 +1,6 @@
 use synapto_interface::{
+    interaction::{NotClearInteraction, NotClearInteractionMemory},
     sync::{mpsc, watch},
-    types::{NotClearInteraction, NotClearInteractionMemory},
 };
 use tracing::instrument;
 

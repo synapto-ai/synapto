@@ -1,11 +1,13 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use synapto_interface::cognitive::{CognitiveState, CognitiveStateUpdate};
 use synapto_interface::cognitive_output_text::CognitiveOutputText;
+use synapto_interface::interaction::AiWritten;
 use synapto_interface::llm::LLMSafe;
+use synapto_interface::peer_input::PeerInput;
 use synapto_interface::peer_input_text::PeerInputText;
 use synapto_interface::sync::{broadcast, mpsc, watch};
-use synapto_interface::types::{AiWritten, CognitiveState, CognitiveStateUpdate, PeerInput};
 use synapto_llm::LLM;
 use synapto_llm::LLMClient;
 use tracing::instrument;
@@ -35,7 +37,7 @@ struct CognitiveSideCommands {
 
 struct SideOutputProcessor<'a> {
     cognitive_output_text_tx: Option<&'a mpsc::Sender<CognitiveOutputText>>,
-    commands_registry: &'a Arc<synapto_interface::types::CommandRegistryBuilder>,
+    commands_registry: &'a Arc<synapto_interface::command::CommandRegistryBuilder>,
 }
 
 impl<'a> CognitiveOutputProcessor<CognitiveSideCommands> for SideOutputProcessor<'a> {
@@ -109,15 +111,15 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
     mut text_rx: broadcast::Receiver<PeerInputText>,
     mut interaction_memory_rx: watch::Receiver<InteractionMemory>,
     new_interaction_tx: mpsc::Sender<Interaction>,
-    registries: Arc<synapto_interface::types::ContextRegistries>,
-    tools: Arc<synapto_interface::types::ToolRegistryBuilder>,
-    commands: Arc<synapto_interface::types::CommandRegistryBuilder>,
+    registries: Arc<synapto_interface::context::ContextRegistries>,
+    tools: Arc<synapto_interface::tool::ToolRegistryBuilder>,
+    commands: Arc<synapto_interface::command::CommandRegistryBuilder>,
 
     cognitive_output_text_tx: Option<mpsc::Sender<CognitiveOutputText>>,
 
     cognitive_state_tx: broadcast::Sender<CognitiveStateUpdate>,
     llm_executor: std::sync::Arc<dyn synapto_interface::llm::LlmExecutor>,
-    resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::types::ToolCallId>,
+    resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::tool::ToolCallId>,
 ) {
     let (tool_resolved_tx, mut tool_resolved_rx) = tokio::sync::mpsc::channel(10);
 
@@ -139,7 +141,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
     );
 
     let mut historical_rx =
-        registries.subscribe(synapto_interface::types::TemporalScope::Historical);
+        registries.subscribe(synapto_interface::context::TemporalScope::Historical);
 
     tokio::try_join!(interaction_memory_rx.changed(), async {
         if !registries
@@ -180,7 +182,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
 
                 // Remove the in-flight tool from memory since it has resolved
                 if let Err(e) = resolve_in_flight_tool_tx
-                    .send(synapto_interface::types::ToolCallId(
+                    .send(synapto_interface::tool::ToolCallId(
                         tool_call.call_id.clone(),
                     ))
                     .await
@@ -227,13 +229,13 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
                 .map(|spoken| spoken.0.clone())
                 .or_else(|| i.ai_written.as_ref().map(|written| written.text.clone()));
 
-            recent_interactions.push(synapto_interface::types::ContextInteraction {
+            recent_interactions.push(synapto_interface::context::ContextInteraction {
                 peer_input,
                 ai_reasoning: i.ai_reasoning.as_ref().map(|r| r.0.clone()),
                 ai_output,
             });
         }
-        let request = synapto_interface::types::ContextRequest {
+        let request = synapto_interface::context::ContextRequest {
             recent_interactions,
             ..Default::default()
         };

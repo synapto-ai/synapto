@@ -3,8 +3,9 @@ use crate::interactions::{InFlightTool, Interaction};
 use schemars::JsonSchema;
 use serde::Serialize;
 use synapto_interface::{
+    interaction::{AiSpoken, AiWritten},
+    peer_input::PeerInput,
     sync::mpsc,
-    types::{AiSpoken, AiWritten, PeerInput},
 };
 use synapto_llm::LLMResult;
 

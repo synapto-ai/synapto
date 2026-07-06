@@ -1,4 +1,6 @@
-use crate::types::{DocumentId, MessageChannel, MessageText, SenderId};
+use crate::document::DocumentId;
+use crate::peer_input::MessageText;
+use crate::plugin::MessageChannel;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -16,3 +18,18 @@ pub struct PeerInputText {
     /// Whether the assistant was explicitly mentioned or addressed.
     pub explicitly_addressed: bool,
 }
+
+#[doc = " A unique identifier for a message sender."]
+#[derive(
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    PartialEq,
+    Eq,
+    Debug,
+    Clone,
+    derive_more :: Display,
+    derive_more :: From,
+    derive_more :: Deref,
+)]
+pub struct SenderId(pub String);

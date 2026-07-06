@@ -109,8 +109,8 @@ plugins/tts-google/
 ```rust
 use std::fs;
 use tts_google::TtsGooglePlugin;
-use synapto_interface::{Plugin, TTSPlugin};
-use synapto_interface::types::CognitiveOutputSpeech;
+use synapto_interface::plugin::{Plugin, TTSPlugin};
+use synapto_interface::cognitive::CognitiveOutputSpeech;
 
 #[tokio::test]
 #[ignore] // MUST ignore integration tests by default to keep standard offline compiles clean
@@ -159,7 +159,7 @@ async fn test_google_tts_live_synthesis() {
 
     // 5. Inject payload containing XML unsafe characters
     speech_tx.send(CognitiveOutputSpeech {
-        target_channel: synapto_interface::types::MessageChannel {
+        target_channel: synapto_interface::plugin::MessageChannel {
             context: serde_json::Value::Null,
         },
         text: "Ahoj & čau, toto je integrační test.".to_string(),

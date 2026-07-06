@@ -1,15 +1,16 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
+use synapto_interface::cognitive::CognitiveReasoning;
+use synapto_interface::document::DocumentId;
+use synapto_interface::interaction::AiSpoken;
+use synapto_interface::peer_input::MessageText;
+use synapto_interface::peer_input::{PeerInput, Speaker};
+use synapto_interface::peer_input_text::SenderId;
+use synapto_interface::plugin::MessageChannel;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use synapto_interface::{
-    llm::{LLMSafe, genai::chat::ToolCall},
-    types::{
-        AiSpoken, CognitiveReasoning, DocumentId, MessageChannel, MessageText, PeerInput, SenderId,
-        Speaker,
-    },
-};
+use synapto_interface::llm::{LLMSafe, genai::chat::ToolCall};
 use synapto_llm::{LLM, ToolExecutor, ToolOutput};
 
 use crate::{
@@ -28,13 +29,13 @@ use crate::{
 /// task is hard-wired to wake up only the loop that spawned it.
 pub(super) struct RegistryToolExecutor {
     pub tool_resolved_tx: tokio::sync::mpsc::Sender<(ToolOutput, ToolCall)>,
-    pub tools: Arc<synapto_interface::types::ToolRegistryBuilder>,
+    pub tools: Arc<synapto_interface::tool::ToolRegistryBuilder>,
 }
 
 impl ToolExecutor for RegistryToolExecutor {
     fn execute(
         &self,
-        ctx_request: synapto_interface::types::ContextRequest,
+        ctx_request: synapto_interface::context::ContextRequest,
         tool_calls: Vec<ToolCall>,
     ) -> impl std::future::Future<Output = ()> + Send {
         let tool_resolved_tx = self.tool_resolved_tx.clone();
@@ -319,8 +320,8 @@ impl<CognitiveCommands: LLMSafe + Clone + DeserializeOwned + JsonSchema> LLM
 }
 
 pub(super) async fn evaluate_dynamic_tools(
-    tools: &synapto_interface::types::ToolRegistryBuilder,
-    request: &synapto_interface::types::ContextRequest,
+    tools: &synapto_interface::tool::ToolRegistryBuilder,
+    request: &synapto_interface::context::ContextRequest,
     content_value: &serde_json::Value,
 ) -> Vec<synapto_interface::llm::genai::chat::Tool> {
     let available_tools_erased = tools.get_all();

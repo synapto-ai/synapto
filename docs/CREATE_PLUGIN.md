@@ -66,11 +66,11 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use synapto_interface::{Plugin, PluginRegistry, ChatPlugin};
+use synapto_interface::plugin::{Plugin, PluginRegistry, ChatPlugin};
 use synapto_interface::sync::{mpsc, broadcast};
 use synapto_interface::peer_input_text::types::PeerInputText;
 use synapto_interface::cognitive_output_text::types::CognitiveOutputText;
-use synapto_interface::types::CognitiveStateUpdate;
+use synapto_interface::cognitive::CognitiveStateUpdate;
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]
 pub struct MyChatConfig {
@@ -95,7 +95,7 @@ impl Plugin for MyChatPlugin {
     // Optional: Compile-time semantic description for LLM tools/capabilities
     const CAPABILITY: Option<&'static str> = Some("my-chat-service");
 
-    async fn create(context: synapto_interface::types::PluginContext) -> Result<Self, String> {
+    async fn create(context: synapto_interface::plugin::PluginContext) -> Result<Self, String> {
         let config: MyChatConfig = context.config()?;
         if config.api_token.is_empty() {
             return Err("api_token must not be empty".to_string());
@@ -145,7 +145,7 @@ impl ChatPlugin for MyChatPlugin {
         peer_input_text_tx: mpsc::Sender<PeerInputText>,
         mut cognitive_output_text_rx: mpsc::Receiver<CognitiveOutputText>,
         _cognitive_state_rx: broadcast::Receiver<CognitiveStateUpdate>,
-        _add_document_tx: Option<mpsc::Sender<synapto_interface::types::AddDocumentRequest>>,
+        _add_document_tx: Option<mpsc::Sender<synapto_interface::document::AddDocumentRequest>>,
     ) -> Result<(), String> {
         let token = self.config.api_token.clone();
         let room = self.config.default_room.clone();
@@ -197,7 +197,7 @@ pub struct MyVoipPlugin {
 }
 
 impl Plugin for MyVoipPlugin {
-    async fn create(context: synapto_interface::types::PluginContext) -> Result<Self, String> {
+    async fn create(context: synapto_interface::plugin::PluginContext) -> Result<Self, String> {
         let config: VoipConfig = context.config()?;
         let client = Arc::new(VoipClient::new(config));
         Ok(Self { client })
@@ -257,7 +257,7 @@ use async_trait::async_trait;
 use schemars::JsonSchema;
 use serde::Serialize;
 use synapto_interface::llm::LLMSafe;
-use synapto_interface::types::{ContextProvider, TemporalScope, ContextRequest};
+use synapto_interface::core::{ContextProvider, TemporalScope, ContextRequest};
 use synapto_interface::sync::watch;
 
 #[derive(Serialize, JsonSchema, Clone, Debug, LLMSafe)]
@@ -327,8 +327,8 @@ Implement the specialized `InteractionObserver` trait, and register it inside yo
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use synapto_interface::{Plugin, PluginRegistry, sync::watch, sync::mpsc};
-use synapto_interface::types::{Interaction, Timestamp, InteractionMemory};
+use synapto_interface::plugin::{Plugin, PluginRegistry, sync::watch, sync::mpsc};
+use synapto_interface::core::{Interaction, Timestamp, InteractionMemory};
 
 pub struct MyObserverPlugin {
     // A private sender to populate your internal state
@@ -336,7 +336,7 @@ pub struct MyObserverPlugin {
 }
 
 impl Plugin for MyObserverPlugin {
-    async fn create(context: synapto_interface::types::PluginContext) -> Result<Self, String> {
+    async fn create(context: synapto_interface::plugin::PluginContext) -> Result<Self, String> {
         // let config: MyObserverConfig = context.config()?; // Load config if needed
         let (memory_tx, memory_rx) = watch::channel(MyCustomState::default());
         Ok(Self {
@@ -354,10 +354,10 @@ impl Plugin for MyObserverPlugin {
 }
 
 #[async_trait]
-impl synapto_interface::InteractionObserver for MyObserverPlugin {
+impl synapto_interface::interaction::InteractionObserver for MyObserverPlugin {
     async fn start(
         &self,
-        mut interaction_rx: mpsc::Receiver<synapto_interface::types::ObservedInteraction>,
+        mut interaction_rx: mpsc::Receiver<synapto_interface::interaction::ObservedInteraction>,
     ) -> Result<(), String> {
         let memory_tx = self.memory_tx.lock().unwrap().take().unwrap();
 
@@ -472,7 +472,7 @@ Define your deserializable argument DTO, implement `LLMSafe`, and implement `Com
 use async_trait::async_trait;
 use schemars::JsonSchema;
 use serde::Deserialize;
-use synapto_interface::types::{Command};
+use synapto_interface::core::{Command};
 use synapto_interface::llm::LLMSafe;
 
 #[derive(Deserialize, JsonSchema, Clone, Debug, LLMSafe)]
@@ -565,7 +565,7 @@ To expose this tool, register it within your `Plugin` trait implementation:
 
 ```rust
 impl Plugin for MyPlugin {
-    fn register<R: synapto_interface::PluginRegistry + ?Sized>(self: Arc<Self>, registry: &mut R) {
+    fn register<R: synapto_interface::plugin::PluginRegistry + ?Sized>(self: Arc<Self>, registry: &mut R) {
         registry.register_tool(ReadDocumentPluginTool { ... });
     }
 }

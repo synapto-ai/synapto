@@ -1,4 +1,4 @@
-use crate::types::MessageChannel;
+use crate::plugin::MessageChannel;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

@@ -1,4 +1,7 @@
+use crate::cognitive::CognitiveOutputSpeech;
+use crate::cognitive_output_audio::CognitiveOutputAudio;
 use crate::peer_input_audio::{PEER_INPUT_AUDIO_CHUNK_DURATION, PeerInputAudio};
+use crate::plugin::Plugin;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -156,15 +159,15 @@ impl std::hash::Hash for InternalSpeaker {
     }
 }
 
-impl From<InternalSpeaker> for crate::types::Speaker {
+impl From<InternalSpeaker> for crate::peer_input::Speaker {
     fn from(val: InternalSpeaker) -> Self {
         match val {
-            InternalSpeaker::Unknown(None) => crate::types::Speaker::Unknown(None),
-            InternalSpeaker::Unknown(Some((id, _))) => {
-                crate::types::Speaker::Unknown(Some(SpeakerId(format!("Maybe {}", id).to_string())))
-            }
+            InternalSpeaker::Unknown(None) => crate::peer_input::Speaker::Unknown(None),
+            InternalSpeaker::Unknown(Some((id, _))) => crate::peer_input::Speaker::Unknown(Some(
+                SpeakerId(format!("Maybe {}", id).to_string()),
+            )),
             InternalSpeaker::Recognized(id) => {
-                crate::types::Speaker::Recognized(SpeakerId(id.to_string()))
+                crate::peer_input::Speaker::Recognized(SpeakerId(id.to_string()))
             }
         }
     }
@@ -190,5 +193,37 @@ impl From<InputVoiceAudio> for [i32; crate::peer_input_audio::PEER_INPUT_AUDIO_C
     fn from(input_voice_audio: InputVoiceAudio) -> Self {
         let peer_input_audio: PeerInputAudio = input_voice_audio.into();
         peer_input_audio.into()
+    }
+}
+
+use crate::sync::{broadcast, mpsc};
+use async_trait::async_trait;
+#[async_trait]
+pub trait STTPlugin: Plugin + Send + Sync {
+    async fn start(
+        &self,
+        audio_rx: mpsc::Receiver<InputVoiceAudio>,
+        transcript_tx: mpsc::Sender<SpeechTranscript>,
+        speech_detected: SpeechDetected,
+    ) -> Result<(), String>;
+}
+#[async_trait]
+pub trait TTSPlugin: Plugin + Send + Sync {
+    async fn start(
+        &self,
+        speech_rx: broadcast::Receiver<CognitiveOutputSpeech>,
+        audio_tx: mpsc::Sender<CognitiveOutputAudio>,
+    ) -> Result<(), String>;
+}
+#[async_trait]
+pub trait DiarizationPlugin: Plugin + Send + Sync {
+    async fn start(
+        &self,
+        audio_rx: broadcast::Receiver<InputVoiceAudio>,
+        segment_tx: mpsc::Sender<SpeakerSegment>,
+    ) -> Result<(), String>;
+
+    fn heuristic(&self) -> Option<crate::speech_to_text::SpeakerHeuristicCallback> {
+        None
     }
 }

@@ -1,16 +1,22 @@
 use std::sync::Arc;
+use synapto_interface::cognitive::{CognitiveOutputSpeech, CognitiveStateUpdate};
 use synapto_interface::cognitive_output_audio::CognitiveOutputAudio;
 use synapto_interface::cognitive_output_text::CognitiveOutputText;
+use synapto_interface::interaction::NotClearInteractionMemory;
+use synapto_interface::interaction::Timestamp;
+use synapto_interface::peer_input::PeerInputSpeech;
 use synapto_interface::peer_input_audio::PeerInputAudio;
 use synapto_interface::peer_input_text::PeerInputText;
-use synapto_interface::types::{
-    CognitiveOutputSpeech, CognitiveStateUpdate, NotClearInteractionMemory, PeerInputSpeech,
-    Timestamp,
-};
-use synapto_interface::{
-    AudioInputPlugin, AudioOutputPlugin, AudioRecorderPlugin, CallPlugin, ChatPlugin,
-    DiarizationPlugin, Plugin, STTPlugin, TTSPlugin, speech_to_text::SpeakerSegment,
-};
+//
+use synapto_interface::audio_recorder::AudioRecorderPlugin;
+use synapto_interface::call::CallPlugin;
+use synapto_interface::chat::ChatPlugin;
+use synapto_interface::cognitive_output_audio::AudioOutputPlugin;
+use synapto_interface::peer_input_audio::AudioInputPlugin;
+use synapto_interface::plugin::Plugin;
+use synapto_interface::speech_to_text::{DiarizationPlugin, STTPlugin, TTSPlugin};
+//
+use synapto_interface::speech_to_text::SpeakerSegment;
 
 use crate::{
     cognitive::{CognitiveDirectInterrupt, CognitiveDirectTrigger},
@@ -63,7 +69,7 @@ macro_rules! impl_plugin_tuple {
             D: config::DataDirProvider,
             C: config::ConfigProvider,
             PR: prompt_provider::CognitivePromptProvider,
-            $($T: synapto_interface::Plugin),+
+            $($T: synapto_interface::plugin::Plugin),+
         > PluginTuple<D, C, PR> for ($($T,)+) {
             fn register_plugins(synapto: Synapto<D, C, PR>) -> Synapto<D, C, PR> {
                 synapto
@@ -114,12 +120,12 @@ type ChatSpawner = Box<
             mpsc::Sender<PeerInputText>,
             mpsc::Receiver<CognitiveOutputText>,
             broadcast::Receiver<CognitiveStateUpdate>,
-            Option<mpsc::Sender<synapto_interface::types::AddDocumentRequest>>,
+            Option<mpsc::Sender<synapto_interface::document::AddDocumentRequest>>,
         ) + Send,
 >;
 
 type DocumentsSpawner =
-    Box<dyn FnOnce(mpsc::Receiver<synapto_interface::types::AddDocumentRequest>) + Send>;
+    Box<dyn FnOnce(mpsc::Receiver<synapto_interface::document::AddDocumentRequest>) + Send>;
 
 type DiarizationSpawner =
     Box<dyn FnOnce(broadcast::Receiver<InputVoiceAudio>, mpsc::Sender<SpeakerSegment>) + Send>;
@@ -139,13 +145,13 @@ type RecorderSpawner =
 
 type GuiSpawner = Box<
     dyn FnOnce(
-            std::sync::Arc<synapto_interface::types::ContextRegistries>,
+            std::sync::Arc<synapto_interface::context::ContextRegistries>,
             std::sync::mpsc::Receiver<String>,
         ) + Send,
 >;
 
 type CameraSpawner =
-    Box<dyn FnOnce(&mut Option<watch::Sender<synapto_interface::types::CameraInputFrame>>) + Send>;
+    Box<dyn FnOnce(&mut Option<watch::Sender<synapto_interface::camera::CameraInputFrame>>) + Send>;
 
 struct CoreStorageConfigResolver<C: crate::config::ConfigProvider> {
     provider: std::sync::Arc<C>,
@@ -183,34 +189,35 @@ pub struct Synapto<
     chat_spawner: Option<ChatSpawner>,
     documents_spawner: Option<DocumentsSpawner>,
     diarization_spawner: Option<DiarizationSpawner>,
-    diarization_heuristic:
-        Option<synapto_interface::speech_to_text::SpeakerHeuristicCallback>,
+    diarization_heuristic: Option<synapto_interface::speech_to_text::SpeakerHeuristicCallback>,
     call_spawner: Option<CallSpawner>,
     audio_recorder_spawners: Vec<RecorderSpawner>,
     plugins_names: Vec<String>,
     plugins: std::collections::HashMap<std::any::TypeId, Arc<dyn std::any::Any + Send + Sync>>,
-    registries: Arc<synapto_interface::types::ContextRegistries>,
-    tools: Arc<synapto_interface::types::ToolRegistryBuilder>,
-    commands: Arc<synapto_interface::types::CommandRegistryBuilder>,
+    registries: Arc<synapto_interface::context::ContextRegistries>,
+    tools: Arc<synapto_interface::tool::ToolRegistryBuilder>,
+    commands: Arc<synapto_interface::command::CommandRegistryBuilder>,
     storage: Arc<synapto_interface::storage::StorageRegistry>,
     #[allow(clippy::type_complexity)]
     interaction_observer_spawners: Vec<(
         String,
         Box<
-            dyn FnOnce(mpsc::Receiver<synapto_interface::types::ObservedInteraction>) + Send + Sync,
+            dyn FnOnce(mpsc::Receiver<synapto_interface::interaction::ObservedInteraction>)
+                + Send
+                + Sync,
         >,
     )>,
     #[allow(clippy::type_complexity)]
     rollout_controller_spawners: Vec<(
         String,
-        Box<dyn FnOnce(watch::Sender<synapto_interface::types::Timestamp>) + Send + Sync>,
+        Box<dyn FnOnce(watch::Sender<synapto_interface::interaction::Timestamp>) + Send + Sync>,
     )>,
     #[allow(clippy::type_complexity)]
     retrospective_consolidation_spawners: Vec<
         Box<
             dyn FnOnce(
-                    watch::Receiver<synapto_interface::types::NotClearInteractionMemory>,
-                    mpsc::Sender<synapto_interface::types::Timestamp>,
+                    watch::Receiver<synapto_interface::interaction::NotClearInteractionMemory>,
+                    mpsc::Sender<synapto_interface::interaction::Timestamp>,
                 ) + Send
                 + Sync,
         >,
@@ -264,9 +271,9 @@ impl<
 
         let (current_context_tx, current_context_rx) = watch::channel(serde_json::Value::Null);
 
-        let registries = Arc::new(synapto_interface::types::ContextRegistries::default());
-        let tools = Arc::new(synapto_interface::types::ToolRegistryBuilder::default());
-        let commands = Arc::new(synapto_interface::types::CommandRegistryBuilder::default());
+        let registries = Arc::new(synapto_interface::context::ContextRegistries::default());
+        let tools = Arc::new(synapto_interface::tool::ToolRegistryBuilder::default());
+        let commands = Arc::new(synapto_interface::command::CommandRegistryBuilder::default());
         let storage = Arc::new(synapto_interface::storage::StorageRegistry::default());
 
         Self {
@@ -337,7 +344,7 @@ impl<
             // Generate the safe, unique database namespace based on the Rust type
             let safe_namespace = base_path.replace("::", "_").replace(" ", "");
 
-            let plugin_context = synapto_interface::types::PluginContext::new(
+            let plugin_context = synapto_interface::plugin::PluginContext::new(
                 self.config.data_dir.clone(),
                 self.llm_executor.clone(),
                 plugin_config,
@@ -455,11 +462,11 @@ impl<
         let (new_interaction_tx, new_interaction_rx) = mpsc::channel::<Interaction>(10);
 
         let (add_document_tx, add_document_rx) =
-            mpsc::channel::<synapto_interface::types::AddDocumentRequest>(10);
+            mpsc::channel::<synapto_interface::document::AddDocumentRequest>(10);
 
         let (mut video_tx_opt, video_rx_opt) = if self.camera_spawner.is_some() {
             let (video_tx, video_rx) =
-                watch::channel(synapto_interface::types::CameraInputFrame { data: Vec::new() });
+                watch::channel(synapto_interface::camera::CameraInputFrame { data: Vec::new() });
             (Some(video_tx), Some(video_rx))
         } else {
             (None, None)
@@ -535,21 +542,21 @@ impl<
 
         for (name, spawner) in self.rollout_controller_spawners {
             let (rollout_tx, rollout_rx) =
-                watch::channel(synapto_interface::types::Timestamp(i64::MAX));
+                watch::channel(synapto_interface::interaction::Timestamp(i64::MAX));
             interaction_rollout_receivers.push((name, rollout_rx));
             spawner(rollout_tx);
         }
 
         for (_name, spawner) in self.interaction_observer_spawners {
             let (observer_tx, observer_rx) =
-                mpsc::channel::<synapto_interface::types::ObservedInteraction>(100);
+                mpsc::channel::<synapto_interface::interaction::ObservedInteraction>(100);
             observers_tx.push(observer_tx);
 
             spawner(observer_rx);
         }
 
         let (resolve_in_flight_tool_tx, resolve_in_flight_tool_rx) =
-            mpsc::channel::<synapto_interface::types::ToolCallId>(100);
+            mpsc::channel::<synapto_interface::tool::ToolCallId>(100);
 
         interactions::start(
             self.config.clone(),
@@ -581,7 +588,7 @@ impl<
             tokio::spawn(async move {
                 while current_update_rx.changed().await.is_ok() {
                     let mut current_contexts = std::collections::BTreeMap::new();
-                    let request = synapto_interface::types::ContextRequest::default();
+                    let request = synapto_interface::context::ContextRequest::default();
                     let providers: Vec<_> = registries
                         .current
                         .providers
@@ -750,7 +757,7 @@ impl<
     D: config::DataDirProvider,
     C: config::ConfigProvider,
     PR: prompt_provider::CognitivePromptProvider,
-> synapto_interface::PluginRegistry for Synapto<D, C, PR>
+> synapto_interface::plugin::PluginRegistry for Synapto<D, C, PR>
 {
     fn register_audio_input<P: AudioInputPlugin>(&mut self, plugin: Arc<P>) {
         self.audio_input_spawners.push(Box::new(move |tx_opt| {
@@ -840,7 +847,10 @@ impl<
         tracing::info!("  Chat capability registered.");
     }
 
-    fn register_documents<P: synapto_interface::DocumentsPlugin>(&mut self, plugin: Arc<P>) {
+    fn register_documents<P: synapto_interface::document::DocumentsPlugin>(
+        &mut self,
+        plugin: Arc<P>,
+    ) {
         self.documents_spawner = Some(Box::new(move |add_document_rx| {
             let p = plugin.clone();
             tokio::spawn(async move {
@@ -853,7 +863,7 @@ impl<
         tracing::info!("  Documents capability registered.");
     }
 
-    fn register_interaction_observer<P: synapto_interface::InteractionObserver>(
+    fn register_interaction_observer<P: synapto_interface::interaction::InteractionObserver>(
         &mut self,
         plugin: Arc<P>,
     ) {
@@ -876,7 +886,7 @@ impl<
         tracing::info!("  InteractionObserver capability registered.");
     }
 
-    fn register_rollout_controller<P: synapto_interface::RolloutController>(
+    fn register_rollout_controller<P: synapto_interface::rollout::RolloutController>(
         &mut self,
         plugin: Arc<P>,
     ) {
@@ -900,7 +910,7 @@ impl<
     }
 
     fn register_retrospective_consolidation<
-        P: synapto_interface::RetrospectiveConsolidationPlugin,
+        P: synapto_interface::interaction::RetrospectiveConsolidationPlugin,
     >(
         &mut self,
         plugin: Arc<P>,
@@ -918,18 +928,18 @@ impl<
         tracing::info!("  Retrospective consolidation capability registered.");
     }
 
-    fn register_context_provider<P: synapto_interface::types::ContextProvider>(
+    fn register_context_provider<P: synapto_interface::context::ContextProvider>(
         &mut self,
         provider: Arc<P>,
     ) {
         match P::SCOPE {
-            synapto_interface::types::TemporalScope::Historical => {
+            synapto_interface::context::TemporalScope::Historical => {
                 self.registries.historical.register_erased(provider.clone());
             }
-            synapto_interface::types::TemporalScope::Current => {
+            synapto_interface::context::TemporalScope::Current => {
                 self.registries.current.register_erased(provider.clone());
             }
-            synapto_interface::types::TemporalScope::Prospective => {
+            synapto_interface::context::TemporalScope::Prospective => {
                 self.registries
                     .prospective
                     .register_erased(provider.clone());
@@ -938,13 +948,13 @@ impl<
         tracing::info!("  Context provider capability '{}' registered.", P::NAME);
     }
 
-    fn register_command<Cmd: synapto_interface::types::Command>(&mut self, command: Cmd) {
-        let command_arc: Arc<dyn synapto_interface::types::ErasedCommand> = Arc::new(command);
+    fn register_command<Cmd: synapto_interface::command::Command>(&mut self, command: Cmd) {
+        let command_arc: Arc<dyn synapto_interface::command::ErasedCommand> = Arc::new(command);
         self.commands.register_erased(command_arc);
     }
 
-    fn register_tool<T: synapto_interface::types::Tool>(&mut self, tool: T) {
-        let tool_arc: Arc<dyn synapto_interface::types::ErasedTool> = Arc::new(tool);
+    fn register_tool<T: synapto_interface::tool::Tool>(&mut self, tool: T) {
+        let tool_arc: Arc<dyn synapto_interface::tool::ErasedTool> = Arc::new(tool);
         self.tools.register_erased(tool_arc);
     }
 
@@ -1006,7 +1016,7 @@ impl<
         tracing::info!("  Audio recorder capability registered.");
     }
 
-    fn register_gui<P: synapto_interface::GuiPlugin>(&mut self, plugin: Arc<P>) {
+    fn register_gui<P: synapto_interface::gui::GuiPlugin>(&mut self, plugin: Arc<P>) {
         self.gui_spawner = Some(Box::new(move |registries, error_rx| {
             let p = plugin.clone();
             tokio::spawn(async move {
@@ -1018,7 +1028,7 @@ impl<
         tracing::info!("  GUI capability registered.");
     }
 
-    fn register_camera<P: synapto_interface::CameraPlugin>(&mut self, plugin: Arc<P>) {
+    fn register_camera<P: synapto_interface::camera::CameraPlugin>(&mut self, plugin: Arc<P>) {
         self.camera_spawner = Some(Box::new(move |tx_opt| {
             if let Some(tx) = tx_opt.take() {
                 let p = plugin.clone();

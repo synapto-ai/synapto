@@ -1,9 +1,10 @@
+use synapto_interface::cognitive::CognitiveReasoning;
+use synapto_interface::interaction::{AiSpoken, AiWritten, NotClearInteraction};
+use synapto_interface::peer_input::PeerInput;
 use synapto_interface::{
+    interaction::ObservedInteraction,
+    interaction::Timestamp,
     sync::{mpsc, watch},
-    types::{
-        AiSpoken, AiWritten, CognitiveReasoning, NotClearInteraction, ObservedInteraction,
-        PeerInput, Timestamp,
-    },
 };
 use tracing::instrument;
 
@@ -167,10 +168,10 @@ pub(super) async fn interaction_memory_task(
     config: Config,
     mut new_interaction_rx: mpsc::Receiver<Interaction>,
     mut rollout_receivers: Vec<(String, watch::Receiver<Timestamp>)>,
-    observers_tx: Vec<mpsc::Sender<synapto_interface::types::ObservedInteraction>>,
+    observers_tx: Vec<mpsc::Sender<synapto_interface::interaction::ObservedInteraction>>,
     interaction_memory_tx: watch::Sender<InteractionMemory>,
     not_clear_tx: mpsc::Sender<NotClearInteraction>,
-    mut resolve_in_flight_tool_rx: mpsc::Receiver<synapto_interface::types::ToolCallId>,
+    mut resolve_in_flight_tool_rx: mpsc::Receiver<synapto_interface::tool::ToolCallId>,
 ) {
     let memory_dir = config.data_dir.join("memory");
     if let Err(e) = tokio::fs::create_dir_all(&memory_dir).await {
@@ -297,8 +298,8 @@ pub(super) async fn interaction_memory_task(
                 };
                 if is_new {
                     for tx in &observers_tx {
-                        tx.send(synapto_interface::types::ObservedInteraction::from(
-                            interaction,
+                        tx.send(synapto_interface::interaction::ObservedInteraction::from(
+                            &*interaction,
                         ))
                         .await
                         .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
@@ -364,15 +365,15 @@ pub(super) async fn interaction_memory_task(
 // }
 
 // #[async_trait::async_trait]
-// impl synapto_interface::types::ContextProvider for InteractionMemoryContextProvider {
+// impl synapto_interface::context::ContextProvider for InteractionMemoryContextProvider {
 //     type Context = LLMInteractionMemory;
 //     const NAME: &'static str = "interaction_memory";
-//     const SCOPE: synapto_interface::types::TemporalScope =
-//         synapto_interface::types::TemporalScope::Current;
+//     const SCOPE: synapto_interface::context::TemporalScope =
+//         synapto_interface::context::TemporalScope::Current;
 
 //     async fn context(
 //         &self,
-//         _request: &synapto_interface::types::ContextRequest,
+//         _request: &synapto_interface::context::ContextRequest,
 //     ) -> Result<Self::Context, String> {
 //         let mem = self.interaction_memory_rx.borrow().clone();
 //         Ok(LLMInteractionMemory::from(mem))

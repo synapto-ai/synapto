@@ -1,13 +1,14 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use synapto_interface::cognitive::CognitiveOutputSpeech;
 use synapto_interface::cognitive_output_text::CognitiveOutputText;
+use synapto_interface::interaction::{AiSpoken, AiWritten};
 use synapto_interface::llm::LLMSafe;
+use synapto_interface::peer_input::{PeerInput, PeerInputSpeech};
 use synapto_interface::sync::{Notify, futures::Notified};
 use synapto_interface::sync::{broadcast, mpsc, watch};
-use synapto_interface::types::{
-    AiSpoken, AiWritten, CognitiveOutputSpeech, PeerInput, PeerInputSpeech,
-};
+//
 use synapto_llm::LLM;
 use synapto_llm::LLMClient;
 use tracing::instrument;
@@ -79,7 +80,7 @@ struct DirectOutputProcessor<'a> {
     cognitive_speech_tx: &'a broadcast::Sender<CognitiveOutputSpeech>,
     cognitive_output_text_tx: Option<&'a mpsc::Sender<CognitiveOutputText>>,
     initial_cognitive_trigger: &'a mut bool,
-    commands_registry: &'a Arc<synapto_interface::types::CommandRegistryBuilder>,
+    commands_registry: &'a Arc<synapto_interface::command::CommandRegistryBuilder>,
 }
 
 impl<'a> CognitiveOutputProcessor<CognitiveDirectCommands> for DirectOutputProcessor<'a> {
@@ -174,13 +175,13 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
     mut interaction_memory_rx: watch::Receiver<InteractionMemory>,
     cognitive_speech_tx: broadcast::Sender<CognitiveOutputSpeech>,
     new_interaction_tx: mpsc::Sender<Interaction>,
-    video_rx: Option<watch::Receiver<synapto_interface::types::CameraInputFrame>>,
-    registries: Arc<synapto_interface::types::ContextRegistries>,
-    tools: Arc<synapto_interface::types::ToolRegistryBuilder>,
-    commands: Arc<synapto_interface::types::CommandRegistryBuilder>,
+    video_rx: Option<watch::Receiver<synapto_interface::camera::CameraInputFrame>>,
+    registries: Arc<synapto_interface::context::ContextRegistries>,
+    tools: Arc<synapto_interface::tool::ToolRegistryBuilder>,
+    commands: Arc<synapto_interface::command::CommandRegistryBuilder>,
     cognitive_output_text_tx: Option<mpsc::Sender<CognitiveOutputText>>,
     llm_executor: std::sync::Arc<dyn synapto_interface::llm::LlmExecutor>,
-    resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::types::ToolCallId>,
+    resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::tool::ToolCallId>,
 ) {
     let (tool_resolved_tx, mut tool_resolved_rx) = tokio::sync::mpsc::channel(10);
 
@@ -238,7 +239,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
     let mut run_after_unpaused = false;
 
     let mut historical_rx =
-        registries.subscribe(synapto_interface::types::TemporalScope::Historical);
+        registries.subscribe(synapto_interface::context::TemporalScope::Historical);
 
     // wait for all memories are loaded
     tokio::try_join!(
@@ -308,7 +309,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
 
                             // Remove the in-flight tool from memory since it has resolved
                             if let Err(e) = resolve_in_flight_tool_tx
-                                .send(synapto_interface::types::ToolCallId(
+                                .send(synapto_interface::tool::ToolCallId(
                                     tool_call.call_id.clone(),
                                 ))
                                 .await
@@ -367,13 +368,13 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                 i.ai_written.as_ref().map(|written| written.text.clone())
             };
 
-            recent_interactions.push(synapto_interface::types::ContextInteraction {
+            recent_interactions.push(synapto_interface::context::ContextInteraction {
                 peer_input,
                 ai_reasoning: i.ai_reasoning.as_ref().map(|r| r.0.clone()),
                 ai_output,
             });
         }
-        let request = synapto_interface::types::ContextRequest {
+        let request = synapto_interface::context::ContextRequest {
             recent_interactions,
             initial_run: initial_cognitive_trigger,
         };

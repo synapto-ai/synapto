@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use synapto_interface::types::SpeakerId;
+use synapto_interface::speech_to_text::SpeakerId;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 struct UserId(String);

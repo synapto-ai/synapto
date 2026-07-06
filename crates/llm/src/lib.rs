@@ -30,7 +30,7 @@ pub struct LLMClientConfig {
 pub trait ToolExecutor: Send + Sync {
     fn execute(
         &self,
-        ctx: synapto_interface::types::ContextRequest,
+        ctx: synapto_interface::context::ContextRequest,
         tool_calls: Vec<ToolCall>,
     ) -> impl Future<Output = ()> + Send;
 }
@@ -81,7 +81,7 @@ pub trait ToolMode: Send + Sync {
     ) -> Result<Self::CallResult<Output>, anyhow::Error>;
     fn execute(
         &self,
-        ctx: synapto_interface::types::ContextRequest,
+        ctx: synapto_interface::context::ContextRequest,
         tool_calls: Vec<ToolCall>,
     ) -> impl Future<Output = ()> + Send;
 }
@@ -100,7 +100,7 @@ impl ToolMode for WithoutTools {
     }
     async fn execute(
         &self,
-        _ctx: synapto_interface::types::ContextRequest,
+        _ctx: synapto_interface::context::ContextRequest,
         _tool_calls: Vec<ToolCall>,
     ) {
         unreachable!("WithoutTools executor should never be called");
@@ -121,7 +121,7 @@ impl<E: ToolExecutor> ToolMode for WithTools<E> {
     }
     async fn execute(
         &self,
-        ctx: synapto_interface::types::ContextRequest,
+        ctx: synapto_interface::context::ContextRequest,
         tool_calls: Vec<ToolCall>,
     ) {
         self.0.execute(ctx, tool_calls).await;
@@ -157,7 +157,7 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
         override_reasoning_effort: Option<ReasoningEffort>,
         resolved_tools: Option<ResolvedTools>,
         override_tools: Option<Vec<Tool>>,
-        ctx: Option<synapto_interface::types::ContextRequest>,
+        ctx: Option<synapto_interface::context::ContextRequest>,
     ) -> Result<Tools::CallResult<Output>, anyhow::Error> {
         #[allow(dead_code)]
         struct ResolvedToolsFmt<'a>(&'a Option<ResolvedTools>);
@@ -330,7 +330,7 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Executor: T
         override_reasoning_effort: Option<ReasoningEffort>,
         resolved_tools: Option<ResolvedTools>,
         override_tools: Option<Vec<Tool>>,
-        ctx: synapto_interface::types::ContextRequest,
+        ctx: synapto_interface::context::ContextRequest,
     ) -> Result<LLMResult<Output>, anyhow::Error> {
         self.call_inner(
             content,
@@ -359,7 +359,7 @@ pub trait LLM {
         impl ToolExecutor for NoopExecutor {
             async fn execute(
                 &self,
-                _ctx: synapto_interface::types::ContextRequest,
+                _ctx: synapto_interface::context::ContextRequest,
                 _calls: Vec<ToolCall>,
             ) {
             }

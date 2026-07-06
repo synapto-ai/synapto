@@ -3,8 +3,11 @@ use synapto_interface::sync::mpsc;
 
 use crate::cognitive::CognitiveDirectTrigger;
 use crate::speech_to_text::SpeechTranscript;
+use synapto_interface::peer_input::MessageText;
+use synapto_interface::peer_input::PeerInputSpeech;
+use synapto_interface::plugin::MessageChannel;
+use synapto_interface::speech_to_text::SpeakerId;
 use synapto_interface::speech_to_text::{InternalSpeaker, SpeakerSegment, Word};
-use synapto_interface::types::{MessageChannel, MessageText, PeerInputSpeech, SpeakerId};
 
 pub(super) async fn start(
     mut transcript_rx: mpsc::Receiver<SpeechTranscript>,
