@@ -591,49 +591,6 @@ impl ToolRegistryBuilder {
 )]
 pub struct Timestamp(pub i64);
 
-#[derive(
-    Serialize,
-    Deserialize,
-    JsonSchema,
-    PartialEq,
-    Eq,
-    Debug,
-    Clone,
-    derive_more::Display,
-    derive_more::From,
-    derive_more::Deref,
-)]
-pub struct SpaceId(pub String);
-
-#[derive(
-    Serialize,
-    Deserialize,
-    JsonSchema,
-    PartialEq,
-    Eq,
-    Debug,
-    Clone,
-    derive_more::Display,
-    derive_more::From,
-    derive_more::Deref,
-)]
-pub struct ThreadId(pub String);
-
-#[derive(
-    Serialize,
-    Deserialize,
-    JsonSchema,
-    PartialEq,
-    Eq,
-    Debug,
-    Clone,
-    derive_more::Display,
-    derive_more::From,
-    derive_more::Deref,
-    Default,
-)]
-pub struct MessageId(pub String);
-
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
 pub struct AiSpoken(pub String);
 
