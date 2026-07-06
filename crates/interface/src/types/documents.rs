@@ -18,6 +18,3 @@ pub struct Document {
     pub name: String,
     pub summary: Option<String>,
 }
-
-crate::register_channel_name!(ReadDocumentRequest, "read_document_request");
-crate::register_channel_name!(ReadUrlRequest, "read_url_request");

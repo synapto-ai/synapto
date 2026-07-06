@@ -16,4 +16,3 @@ pub struct PeerInputText {
     /// Whether the assistant was explicitly mentioned or addressed.
     pub explicitly_addressed: bool,
 }
-crate::register_channel_name!(PeerInputText, "peer_input_text");

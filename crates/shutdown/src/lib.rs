@@ -7,7 +7,6 @@ pub type FatalError = Box<dyn Error + Send + Sync + 'static>;
 
 #[derive(Debug)]
 pub struct ShutdownResult(pub Result<(), FatalError>);
-synapto_interface::register_channel_name!(ShutdownResult, "shutdown_result");
 
 static SHUTDOWN_TX: OnceLock<mpsc::UnboundedSender<ShutdownResult>> = OnceLock::new();
 pub static IS_SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);

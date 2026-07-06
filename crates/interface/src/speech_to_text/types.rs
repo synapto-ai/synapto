@@ -77,7 +77,6 @@ pub struct SpeechTranscript {
     /// Individual words with their respective timing and metadata.
     pub words: Vec<Word>,
 }
-crate::register_channel_name!(SpeechTranscript, "speech_transcript");
 
 /// Represents an audio chunk with its associated voice activity status.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -87,7 +86,6 @@ pub enum InputVoiceAudio {
     /// The chunk contains silence or non-voice background noise.
     NoVoice(PeerInputAudioIndexed),
 }
-crate::register_channel_name!(InputVoiceAudio, "input_voice_audio");
 
 /// A raw audio chunk bundled with its sequence sequence index.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -178,7 +176,6 @@ pub struct SpeakerSegment {
     pub start_index: u64,
     pub end_index: u64,
 }
-crate::register_channel_name!(SpeakerSegment, "speaker_segment");
 
 impl From<InputVoiceAudio> for PeerInputAudio {
     fn from(input_voice_audio: InputVoiceAudio) -> Self {

@@ -14,7 +14,6 @@ pub const PEER_INPUT_AUDIO_CHUNK_DURATION: Duration = Duration::from_millis(
 /// Represents a chunk of raw audio input from a peer.
 #[derive(Deref, DerefMut, IntoIterator, Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct PeerInputAudio(Vec<i16>);
-crate::register_channel_name!(PeerInputAudio, "peer_input_audio");
 
 impl PeerInputAudio {
     pub fn new(data: [i16; PEER_INPUT_AUDIO_CHUNK_SIZE]) -> Self {

@@ -33,8 +33,6 @@ pub(crate) struct Interaction {
     pub in_flight_tools: Vec<InFlightTool>,
 }
 
-synapto_interface::register_channel_name!(Interaction, "interaction");
-
 impl Interaction {
     pub(crate) fn new(
         user_messages: Vec<PeerInput>,

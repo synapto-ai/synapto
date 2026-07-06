@@ -10,4 +10,3 @@ pub struct CognitiveOutputText {
     /// The text content to be written.
     pub text: String,
 }
-crate::register_channel_name!(CognitiveOutputText, "cognitive_output_text");

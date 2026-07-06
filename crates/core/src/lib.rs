@@ -169,7 +169,7 @@ impl<C: crate::config::ConfigProvider> synapto_interface::storage::StorageConfig
 pub struct Synapto<
     D: crate::config::DataDirProvider,
     C: crate::config::ConfigProvider,
-    PR: prompt_provider::CognitivePromptProvider,
+    PR: prompt_provider::CognitivePromptProvider = prompt_provider::EmptyPromptProvider,
 > {
     config: config::Config,
     config_provider: Arc<C>,

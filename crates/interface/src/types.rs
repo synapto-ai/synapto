@@ -24,7 +24,6 @@ pub struct AddDocumentRequest {
     pub request: DocumentRegistrationRequest,
     pub reply_tx: tokio::sync::oneshot::Sender<DocumentId>,
 }
-crate::register_channel_name!(AddDocumentRequest, "add_document_request");
 
 #[derive(
     Serialize,
@@ -39,7 +38,6 @@ crate::register_channel_name!(AddDocumentRequest, "add_document_request");
     derive_more::Deref,
 )]
 pub struct ToolCallId(pub String);
-crate::register_channel_name!(ToolCallId, "tool_call_id");
 
 /// A unique identifier for a message sender.
 #[derive(
@@ -85,7 +83,6 @@ pub struct MessageText(pub String);
     derive_more::Deref,
 )]
 pub struct DocumentId(pub String);
-crate::register_channel_name!(DocumentId, "document_id");
 
 /// An opaque channel identifier used to route messages within the system.
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
@@ -115,7 +112,6 @@ pub struct PeerInputSpeech {
     /// The transcribed text.
     pub transcript: MessageText,
 }
-crate::register_channel_name!(PeerInputSpeech, "peer_input_speech");
 
 /// Unified input message type for the cognitive loop.
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, JsonSchema)]
@@ -134,7 +130,6 @@ pub struct CognitiveOutputSpeech {
     /// The text to be spoken.
     pub text: String,
 }
-crate::register_channel_name!(CognitiveOutputSpeech, "ai_output_speech");
 
 /// Current operational state of the cognitive loop.
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
@@ -157,7 +152,6 @@ pub struct CognitiveStateUpdate {
     /// The new cognitive state.
     pub state: CognitiveState,
 }
-crate::register_channel_name!(CognitiveStateUpdate, "cognitive_state");
 
 /// A generic envelope wrapping a payload with its source plugin identity.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
@@ -177,13 +171,6 @@ impl<T> Enveloped<T> {
         }
     }
 }
-
-crate::register_channel_name!(Enveloped<PeerInputText>, "peer_input_text_enveloped");
-crate::register_channel_name!(
-    Enveloped<CognitiveOutputText>,
-    "cognitive_output_text_enveloped"
-);
-crate::register_channel_name!(Enveloped<CognitiveStateUpdate>, "cognitive_state_enveloped");
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TemporalScope {
@@ -604,7 +591,6 @@ impl ToolRegistryBuilder {
     Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone, PartialOrd, Ord, Copy,
 )]
 pub struct Timestamp(pub i64);
-crate::register_channel_name!(Timestamp, "timestamp");
 
 #[derive(
     Serialize,
@@ -683,8 +669,6 @@ pub struct ObservedInteraction {
     pub ai_reasoning: Option<CognitiveReasoning>,
 }
 
-crate::register_channel_name!(ObservedInteraction, "observed_interaction");
-
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, schemars::JsonSchema)]
 pub struct NotClearInteraction {
     pub timestamp: Timestamp,
@@ -692,7 +676,6 @@ pub struct NotClearInteraction {
     pub ai_spoken: Option<AiSpoken>,
     pub ai_written: Option<AiWritten>,
 }
-crate::register_channel_name!(NotClearInteraction, "not_clear_interaction");
 
 #[derive(
     Serialize,
@@ -721,5 +704,3 @@ pub struct CameraInputFrame {
     /// JPEG encoded binary frame data.
     pub data: Vec<u8>,
 }
-
-crate::register_channel_name!(CameraInputFrame, "camera_input_frame");
