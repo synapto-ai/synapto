@@ -1,6 +1,6 @@
 use crate::cognitive::CognitiveDirectTrigger;
-use synapto_interface::peer_input_audio::types::PeerInputAudio;
-use synapto_interface::speech_to_text::types::{InputVoiceAudio, SpeechTranscript};
+use synapto_interface::peer_input_audio::PeerInputAudio;
+use synapto_interface::speech_to_text::{InputVoiceAudio, SpeechTranscript};
 use synapto_interface::sync::{broadcast, mpsc, watch};
 use synapto_interface::types::PeerInputSpeech;
 
@@ -11,9 +11,9 @@ pub(super) async fn start(
     peer_input_audio_rx: mpsc::Receiver<PeerInputAudio>,
     peer_input_speech_tx: mpsc::Sender<PeerInputSpeech>,
     speaker_segment_rx: Option<
-        mpsc::Receiver<synapto_interface::speech_to_text::types::SpeakerSegment>,
+        mpsc::Receiver<synapto_interface::speech_to_text::SpeakerSegment>,
     >,
-    heuristic: Option<synapto_interface::speech_to_text::types::SpeakerHeuristicCallback>,
+    heuristic: Option<synapto_interface::speech_to_text::SpeakerHeuristicCallback>,
     trigger_cognitive_direct: CognitiveDirectTrigger,
     last_voice_time_tx: watch::Sender<std::time::Instant>,
 ) -> (

@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use synapto_interface::cognitive_output_text::types::CognitiveOutputText;
+use synapto_interface::cognitive_output_text::CognitiveOutputText;
 use synapto_interface::llm::LLMSafe;
 use synapto_interface::sync::{Notify, futures::Notified};
 use synapto_interface::sync::{broadcast, mpsc, watch};

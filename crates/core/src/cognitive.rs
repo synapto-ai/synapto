@@ -25,8 +25,8 @@ mod side;
 
 mod types;
 use std::sync::Arc;
-use synapto_interface::cognitive_output_text::types::CognitiveOutputText;
-use synapto_interface::peer_input_text::types::PeerInputText;
+use synapto_interface::cognitive_output_text::CognitiveOutputText;
+use synapto_interface::peer_input_text::PeerInputText;
 use synapto_interface::sync::{broadcast, mpsc, watch};
 use synapto_interface::types::{CognitiveOutputSpeech, CognitiveStateUpdate, PeerInputSpeech};
 

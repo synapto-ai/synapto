@@ -1,15 +1,15 @@
 use std::sync::Arc;
-use synapto_interface::cognitive_output_audio::types::CognitiveOutputAudio;
-use synapto_interface::cognitive_output_text::types::CognitiveOutputText;
-use synapto_interface::peer_input_audio::types::PeerInputAudio;
-use synapto_interface::peer_input_text::types::PeerInputText;
+use synapto_interface::cognitive_output_audio::CognitiveOutputAudio;
+use synapto_interface::cognitive_output_text::CognitiveOutputText;
+use synapto_interface::peer_input_audio::PeerInputAudio;
+use synapto_interface::peer_input_text::PeerInputText;
 use synapto_interface::types::{
     CognitiveOutputSpeech, CognitiveStateUpdate, NotClearInteractionMemory, PeerInputSpeech,
     Timestamp,
 };
 use synapto_interface::{
     AudioInputPlugin, AudioOutputPlugin, AudioRecorderPlugin, CallPlugin, ChatPlugin,
-    DiarizationPlugin, Plugin, STTPlugin, TTSPlugin, speech_to_text::types::SpeakerSegment,
+    DiarizationPlugin, Plugin, STTPlugin, TTSPlugin, speech_to_text::SpeakerSegment,
 };
 
 use crate::{
@@ -35,7 +35,7 @@ mod speech_to_text;
 
 mod users;
 
-use synapto_interface::speech_to_text::types::{InputVoiceAudio, SpeechDetected, SpeechTranscript};
+use synapto_interface::speech_to_text::{InputVoiceAudio, SpeechDetected, SpeechTranscript};
 
 pub trait PluginTuple<
     D: config::DataDirProvider,
@@ -184,7 +184,7 @@ pub struct Synapto<
     documents_spawner: Option<DocumentsSpawner>,
     diarization_spawner: Option<DiarizationSpawner>,
     diarization_heuristic:
-        Option<synapto_interface::speech_to_text::types::SpeakerHeuristicCallback>,
+        Option<synapto_interface::speech_to_text::SpeakerHeuristicCallback>,
     call_spawner: Option<CallSpawner>,
     audio_recorder_spawners: Vec<RecorderSpawner>,
     plugins_names: Vec<String>,

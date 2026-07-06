@@ -1,5 +1,4 @@
-use crate::peer_input_text::types::PeerInputText;
-use crate::{cognitive_output_text::types::CognitiveOutputText, llm::LLMSafe};
+use crate::llm::LLMSafe;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -90,7 +89,7 @@ pub struct MessageChannel {
     pub context: serde_json::Value,
 }
 
-pub use crate::speech_to_text::types::SpeakerId;
+pub use crate::speech_to_text::SpeakerId;
 
 /// Represents the identity of a speaker.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, JsonSchema)]
@@ -118,7 +117,7 @@ pub enum PeerInput {
     /// Input from a speech source.
     Speech(PeerInputSpeech),
     /// Input from a text source (e.g. chat).
-    Text(crate::peer_input_text::types::PeerInputText),
+    Text(crate::peer_input_text::PeerInputText),
 }
 
 /// Output message intended to be spoken by the system.

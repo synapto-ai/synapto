@@ -14,8 +14,8 @@ pub trait CognitivePromptProvider: Send + Sync + 'static {
     /// Generates the static system prompt at boot. This is fed into `LLMClient::new`
     /// and represents the foundational, unmoving identity and rules of the agent.
     fn get_system_prompt(
-        data_dir: &Path,
-        prompt_config: &Self::Config,
+        _data_dir: &Path,
+        _prompt_config: &Self::Config,
     ) -> Vec<synapto_llm::Instruction> {
         Vec::new()
     }
@@ -23,10 +23,10 @@ pub trait CognitivePromptProvider: Send + Sync + 'static {
     /// Generates dynamic instructions for the current turn based on the compiled context.
     /// This is fed into `LLMClient::call` on every cycle, overriding or steering immediate behavior.
     fn get_dynamic_instructions(
-        prompt_config: &Self::Config,
-        compiled_context: &CognitiveLLMContent,
-        is_initial_run: bool,
-        target: CognitiveTarget,
+        _prompt_config: &Self::Config,
+        _compiled_context: &CognitiveLLMContent,
+        _is_initial_run: bool,
+        _target: CognitiveTarget,
     ) -> Vec<synapto_llm::Instruction> {
         Vec::new()
     }

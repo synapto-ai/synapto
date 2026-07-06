@@ -3,13 +3,13 @@ use synapto_interface::sync::mpsc;
 
 use crate::cognitive::CognitiveDirectTrigger;
 use crate::speech_to_text::SpeechTranscript;
-use synapto_interface::speech_to_text::types::{InternalSpeaker, SpeakerSegment, Word};
+use synapto_interface::speech_to_text::{InternalSpeaker, SpeakerSegment, Word};
 use synapto_interface::types::{MessageChannel, MessageText, PeerInputSpeech, SpeakerId};
 
 pub(super) async fn start(
     mut transcript_rx: mpsc::Receiver<SpeechTranscript>,
     mut speaker_rx: Option<mpsc::Receiver<SpeakerSegment>>,
-    heuristic_callback: Option<synapto_interface::speech_to_text::types::SpeakerHeuristicCallback>,
+    heuristic_callback: Option<synapto_interface::speech_to_text::SpeakerHeuristicCallback>,
     peer_input_speech_tx: mpsc::Sender<PeerInputSpeech>,
     trigger_cognitive_direct: CognitiveDirectTrigger,
 ) {
@@ -245,7 +245,7 @@ pub(super) async fn start(
                             }
 
                             precomputed_overlaps.push(
-                                synapto_interface::speech_to_text::types::WordOverlap {
+                                synapto_interface::speech_to_text::WordOverlap {
                                     start_index: w_start,
                                     end_index: w_end,
                                     overlaps: w_overlaps,
@@ -333,7 +333,7 @@ enum InternalSpeakerCategory {
 }
 
 fn fallback_heuristic(
-    precomputed_overlaps: &[synapto_interface::speech_to_text::types::WordOverlap],
+    precomputed_overlaps: &[synapto_interface::speech_to_text::WordOverlap],
     speaker_segments: &[SpeakerSegment],
 ) -> Vec<Option<SpeakerId>> {
     let mut resolved_speakers = Vec::with_capacity(precomputed_overlaps.len());

@@ -1,9 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use synapto_interface::cognitive_output_text::types::CognitiveOutputText;
+use synapto_interface::cognitive_output_text::CognitiveOutputText;
 use synapto_interface::llm::LLMSafe;
-use synapto_interface::peer_input_text::types::PeerInputText;
+use synapto_interface::peer_input_text::PeerInputText;
 use synapto_interface::sync::{broadcast, mpsc, watch};
 use synapto_interface::types::{AiWritten, CognitiveState, CognitiveStateUpdate, PeerInput};
 use synapto_llm::LLM;

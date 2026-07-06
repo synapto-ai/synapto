@@ -14,9 +14,9 @@ pub mod llm;
 
 use async_trait::async_trait;
 
-use crate::cognitive_output_audio::types::CognitiveOutputAudio;
-use crate::peer_input_audio::types::PeerInputAudio;
-use crate::speech_to_text::types::{
+use crate::cognitive_output_audio::CognitiveOutputAudio;
+use crate::peer_input_audio::PeerInputAudio;
+use crate::speech_to_text::{
     InputVoiceAudio, SpeakerSegment, SpeechDetected, SpeechTranscript,
 };
 use crate::sync::{broadcast, mpsc, watch};
@@ -59,7 +59,7 @@ pub trait DiarizationPlugin: Plugin + Send + Sync {
         segment_tx: mpsc::Sender<SpeakerSegment>,
     ) -> Result<(), String>;
 
-    fn heuristic(&self) -> Option<crate::speech_to_text::types::SpeakerHeuristicCallback> {
+    fn heuristic(&self) -> Option<crate::speech_to_text::SpeakerHeuristicCallback> {
         None
     }
 }
@@ -75,9 +75,9 @@ pub trait ChatPlugin: Plugin + Send + Sync {
 
     async fn start(
         &self,
-        peer_input_text_tx: mpsc::Sender<crate::peer_input_text::types::PeerInputText>,
+        peer_input_text_tx: mpsc::Sender<crate::peer_input_text::PeerInputText>,
         cognitive_output_text_rx: mpsc::Receiver<
-            crate::cognitive_output_text::types::CognitiveOutputText,
+            crate::cognitive_output_text::CognitiveOutputText,
         >,
         cognitive_state_rx: broadcast::Receiver<crate::types::CognitiveStateUpdate>,
         add_document_tx: Option<mpsc::Sender<crate::types::AddDocumentRequest>>,
@@ -169,9 +169,9 @@ pub trait Plugin: Send + Sync + 'static {
 pub trait CallPlugin: Plugin + Send + Sync {
     async fn start(
         &self,
-        peer_input_text_rx: sync::broadcast::Receiver<crate::peer_input_text::types::PeerInputText>,
+        peer_input_text_rx: sync::broadcast::Receiver<crate::peer_input_text::PeerInputText>,
         cognitive_output_text_tx: sync::mpsc::Sender<
-            crate::cognitive_output_text::types::CognitiveOutputText,
+            crate::cognitive_output_text::CognitiveOutputText,
         >,
         last_voice_time_rx: sync::watch::Receiver<std::time::Instant>,
         ai_speaking_rx: sync::watch::Receiver<bool>,
