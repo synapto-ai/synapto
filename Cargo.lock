@@ -4709,18 +4709,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "stt-test"
-version = "0.1.0-dev.1"
-dependencies = [
- "async-trait",
- "serde",
- "serde_json",
- "synapto-interface",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4924,7 +4912,6 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "storage-local",
- "stt-test",
  "synapto",
  "synapto-interface",
  "tokio",
