@@ -72,6 +72,6 @@ cargo run --bin my-custom-assistant
 
 ## How It Works Under the Hood
 
-When you initialize `Synapto::new()`, the engine prepares the cognitive loop, channel networks, and telemetry infrastructure. Every time you call `.register_plugin::<T>()`, the core instantiates the plugin via its `Plugin::new` method, loads its deserialized configuration from your config provider, and calls `Plugin::register` to attach its specialized traits to the system's `PluginRegistry`.
+When you call `Synapto::<...>::run::<...>()`, the engine prepares the cognitive loop, channel networks, and telemetry infrastructure. It instantiates the listed plugins by passing the loaded configurations to their setup methods, and registers their specialized traits with the system's registries.
 
 During startup, the core maps these registered capabilities directly to the corresponding direct channel ends (e.g. passing text senders/receivers to `ChatPlugin` implementations) and boots their execution loops concurrently.

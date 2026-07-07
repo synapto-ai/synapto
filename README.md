@@ -1,4 +1,4 @@
-# AI 🧠
+# Synapto 🧠
 
 > The Universal, Rust-Powered Cognitive Brain for Robots, Assistants, and Beyond.
 
@@ -13,7 +13,7 @@ Whether you're looking to power a small desktop companion, run a robust organiza
 - 🦀 **Built in Rust (Hard to Break):** Designed to run indefinitely without memory leaks or unexpected crashes. It provides safe concurrency and a robust core execution engine.
 - 🪫 **Extremely Resource Efficient:** The core has a tiny memory footprint and optimizations to prevent battery drain, meaning the base system can run on edge devices like a Raspberry Pi Zero, or you can scale up full-featured bundles in a cloud VM.
 - 🧩 **Pluggable & Extensible:** Built on an open-core architecture, the core intelligence is decoupled from inputs/outputs. You can easily write plugins or compose them into custom bundles.
-- 💸 **Free Forever:** Open-source and freely available to use, modify, and distribute.
+- 💸 **Free Forever:** Open-source (MPL-2.0) and freely available to use, modify, and distribute.
 
 ## 🎭 Roles (Composition Bundles)
 
@@ -24,6 +24,7 @@ The system is highly configurable via **Composition Bundles**. Instead of monoli
 - 🧳 **`personal-assistant`**: A localized, personal assistant to manage your day-to-day tasks.
 - 🎓 **`teacher`**: An educational assistant with advanced speech-to-text integration for interactive learning.
 - 🎲 **`rpg`**: A Game Master that maintains world state, manages story arcs (Sagas, Chapters, Scenes), and interacts dynamically with players.
+- 🤖 **`robot`**: A hardware-focused bundle to run on edge devices like Raspberry Pi to control and interact with physical robot components.
 
 ### 🧱 Create Your Own Custom Bundle
 
@@ -32,20 +33,24 @@ Need something specific? Creating a new custom bundle is ridiculously easy. A bu
 Here is what a complete, working custom bundle looks like:
 
 ```rust
-use ai_core::Synapto;
-use host_audio::HostAudioPlugin;
+use synapto::Synapto;
+use host_audio::{HostAudioInputPlugin, HostAudioOutputPlugin};
 use std::process::ExitCode;
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    // 1. Initialize the core with your bundle's name
-    Synapto::new("my-custom-assistant")
-        // 2. Snap in the plugins you need
-        .register::<HostAudioPlugin>()
-        // .register::<MyCustomPlugin>()
-        // 3. Let it run forever!
-        .run()
-        .await
+    // 1. Initialize the core with the chosen configuration provider and profile
+    Synapto::<
+        datadir_local::DataLocalDir<"my-custom-assistant">,
+        (synapto::config::ConfigJson, synapto::config::DotEnv, synapto::config::Env),
+        prompt_file::FilePromptProvider
+    >::run::<(
+        HostAudioInputPlugin,
+        HostAudioOutputPlugin,
+        // MyCustomPlugin
+    )>()
+    // 2. Let it run forever!
+    .await
 }
 ```
 
@@ -111,7 +116,7 @@ To keep our architecture robust, reliable, and decoupled:
 - **How to Start:** Open an issue on GitHub using our **Feature Proposal & RFC Request** template. This template will help gather high-level feedback before drafting the markdown RFC under `docs/rfcs/`.
 - **Small Changes:** Localized bug fixes, documentation updates, typo corrections, or adding/refining tests **do not** require an RFC. Simply proceed to opening a Pull Request!
 
-### Using AI for contribution
+### 🚷 Using AI for contribution
 
 It is not allowed to use LLMs to generate contributions other than RFCs. Treat all AI-generated code as legally "tainted" or untrusted because there is no assurance the code is not GPL / Proprietary / AGPL / Business Licensed.
 

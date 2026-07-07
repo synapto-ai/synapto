@@ -69,7 +69,7 @@ A practical step-by-step guide for creating composition roots and bootstrapping 
 - **Responsibility:** Walks developers through building custom deployment agents by registering plugins.
 - **What it MUST contain:**
   - Cargo configuration for a new bundle crate.
-  - Minimal registration and async-runtime bootstrapping boilerplate (`Synapto::new().register::<T>()`).
+  - Minimal registration and async-runtime bootstrapping boilerplate (`Synapto::<...>::run::<...>()`).
 - **What it MUST NOT contain:**
   - Low-level plugin I/O rules or interface design rules.
 
