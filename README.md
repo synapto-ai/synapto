@@ -105,29 +105,12 @@ Ready to start hacking? Read the complete guide on [How to Create a Custom Plugi
 
 ## 🤝 Contributing
 
-We welcome contributors of all skill levels! Whether you're fixing a typo, optimizing async tasks, or building a brand-new plugin, we'd love to see your pull requests.
-
-### 📋 RFC Requirements for Significant Changes
-
-To keep our architecture robust, reliable, and decoupled:
-
-- **Significant Changes / New Features:** Any significant change, major new feature, or architectural shift (e.g., introducing a new plugin type, changing cross-boundary interfaces, modifying the core loop) **MUST have a formal Request for Comments (RFC)** and be driven by the lifecycle detailed in [`AGENTS.md`](AGENTS.md) before any code is merged.
-- **Using AI to Write RFCs:** You are highly encouraged to use AI coding assistants (such as the Zed coding agent, Claude, or GPT) to author, review, and refine your RFC document. However 
-- **How to Start:** Open an issue on GitHub using our **Feature Proposal & RFC Request** template. This template will help gather high-level feedback before drafting the markdown RFC under `docs/rfcs/`.
-- **Small Changes:** Localized bug fixes, documentation updates, typo corrections, or adding/refining tests **do not** require an RFC. Simply proceed to opening a Pull Request!
+We welcome contributions through issues and pull requests! Please see our [Contribution Guidelines](CONTRIBUTION.md) for details on how to report issues, submit pull requests, and sign your commits (DCO).
 
 ### 🚷 Using AI for contribution
 
 > [!IMPORTANT]
 > It is not allowed to use LLMs to generate contributions other than RFCs. Treat all AI-generated code as legally "tainted" or untrusted because there is no assurance the code is not GPL / Proprietary / AGPL / Business Licensed.
-
-### 📬 Pull Request Workflow
-
-1. Fork the repo.
-2. Create your feature branch (`git checkout -b feature/amazing-plugin`).
-3. Commit your changes (`git commit -m 'Add amazing plugin'`).
-4. Push to the branch (`git push origin feature/amazing-plugin`).
-5. Open a Pull Request.
 
 ## 📜 License
 
