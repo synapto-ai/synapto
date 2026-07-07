@@ -587,19 +587,8 @@ impl<
             let registries = registries.clone();
             tokio::spawn(async move {
                 while current_update_rx.changed().await.is_ok() {
-                    let mut current_contexts = std::collections::BTreeMap::new();
                     let request = synapto_interface::context::ContextRequest::default();
-                    let providers: Vec<_> = registries
-                        .current
-                        .providers
-                        .read()
-                        .unwrap_or_else(|e| panic!("Current providers lock poisoned: {:?}", e))
-                        .clone();
-                    for provider in providers {
-                        if let Ok(value) = provider.erased_context(&request).await {
-                            current_contexts.insert(provider.name().to_string(), value);
-                        }
-                    }
+                    let current_contexts = registries.current.gather_contexts(&request).await;
                     if let Ok(value) = serde_json::to_value(current_contexts) {
                         current_context_tx
                             .send(value)

@@ -72,7 +72,7 @@ where
 }
 
 pub struct ContextRegistryBuilder {
-    pub providers: std::sync::RwLock<Vec<std::sync::Arc<dyn ErasedContextProvider>>>,
+    providers: std::sync::RwLock<Vec<std::sync::Arc<dyn ErasedContextProvider>>>,
     change_tx: tokio::sync::watch::Sender<()>,
     change_rx: tokio::sync::watch::Receiver<()>,
 }
@@ -89,6 +89,36 @@ impl Default for ContextRegistryBuilder {
 }
 
 impl ContextRegistryBuilder {
+    pub async fn gather_contexts(
+        &self,
+        request: &ContextRequest,
+    ) -> std::collections::BTreeMap<String, serde_json::Value> {
+        let providers: Vec<_> = self
+            .providers
+            .read()
+            .unwrap_or_else(|e| panic!("Providers lock poisoned: {:?}", e))
+            .clone();
+
+        let futures = providers.into_iter().map(|provider| {
+            let request = request.clone();
+            async move {
+                let name = provider.name().to_string();
+                let res = provider.erased_context(&request).await;
+                (name, res)
+            }
+        });
+
+        let results = futures::future::join_all(futures).await;
+
+        let mut contexts = std::collections::BTreeMap::new();
+        for (name, res) in results {
+            if let Ok(val) = res {
+                contexts.insert(name, val);
+            }
+        }
+        contexts
+    }
+
     pub fn register<T>(&self, provider: T)
     where
         T: ErasedContextProvider + 'static,
@@ -96,6 +126,14 @@ impl ContextRegistryBuilder {
         let provider_arc: std::sync::Arc<dyn ErasedContextProvider> = std::sync::Arc::new(provider);
         self.register_erased(provider_arc);
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.providers
+            .read()
+            .unwrap_or_else(|e| panic!("Providers lock poisoned: {:?}", e))
+            .is_empty()
+    }
+
     pub fn register_erased(&self, provider: std::sync::Arc<dyn ErasedContextProvider>) {
         self.providers
             .write()

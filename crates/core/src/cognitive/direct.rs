@@ -245,13 +245,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
     tokio::try_join!(
         interaction_memory_rx.changed(),
         async {
-            if !registries
-                .historical
-                .providers
-                .read()
-                .unwrap_or_else(|e| panic!("Historical providers lock poisoned: {:?}", e))
-                .is_empty()
-            {
+            if !registries.historical.is_empty() {
                 historical_rx.changed().await
             } else {
                 Ok(())
@@ -379,44 +373,9 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
             initial_run: initial_cognitive_trigger,
         };
 
-        let mut historical_contexts = std::collections::BTreeMap::new();
-        let providers: Vec<_> = registries
-            .historical
-            .providers
-            .read()
-            .unwrap_or_else(|e| panic!("Historical providers lock poisoned: {:?}", e))
-            .clone();
-        for provider in providers {
-            if let Ok(val) = provider.erased_context(&request).await {
-                historical_contexts.insert(provider.name().to_string(), val);
-            }
-        }
-
-        let mut current_contexts = std::collections::BTreeMap::new();
-        let providers: Vec<_> = registries
-            .current
-            .providers
-            .read()
-            .unwrap_or_else(|e| panic!("Current providers lock poisoned: {:?}", e))
-            .clone();
-        for provider in providers {
-            if let Ok(val) = provider.erased_context(&request).await {
-                current_contexts.insert(provider.name().to_string(), val);
-            }
-        }
-
-        let mut prospective_contexts = std::collections::BTreeMap::new();
-        let providers: Vec<_> = registries
-            .prospective
-            .providers
-            .read()
-            .unwrap_or_else(|e| panic!("Prospective providers lock poisoned: {:?}", e))
-            .clone();
-        for provider in providers {
-            if let Ok(val) = provider.erased_context(&request).await {
-                prospective_contexts.insert(provider.name().to_string(), val);
-            }
-        }
+        let historical_contexts = registries.historical.gather_contexts(&request).await;
+        let current_contexts = registries.current.gather_contexts(&request).await;
+        let prospective_contexts = registries.prospective.gather_contexts(&request).await;
 
         let content = CognitiveLLMContent {
             historical_contexts,

@@ -3,7 +3,7 @@ resolver = "2"
 
 members = [
     "crates/*",
-    # "test-harness",
+    "test-harness",
 ]
 
 [workspace.package]
