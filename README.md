@@ -4,7 +4,7 @@
 
 Welcome to **Synapto**, an open-source, highly concurrent, and event-driven cognitive architecture built in Rust.
 
-Whether you're looking to power a small desktop companion, run a robust organizational assistant in the cloud, or give life to a hardware robot on a Raspberry Pi Zero, **Synapto** provides a rock-solid, pluggable, and battery-optimized brain that just works—and runs forever.
+Whether you're looking to power a small desktop companion, run a robust organizational assistant in the cloud, or give life to a hardware robot on a Raspberry Pi Zero, **Synapto** provides a rock-solid, pluggable, and battery-optimized brain that just works and runs forever.
 
 ---
 
@@ -23,8 +23,8 @@ The system is highly configurable via **Composition Bundles**. Instead of monoli
 - 🏢 **`org-assistant`**: Your organizational companion for managing Google Meet, Chat, and scheduling.
 - 🧳 **`personal-assistant`**: A localized, personal assistant to manage your day-to-day tasks.
 - 🎓 **`teacher`**: An educational assistant with advanced speech-to-text integration for interactive learning.
-- 🎲 **`rpg`**: A Game Master that maintains world state, manages story arcs (Sagas, Chapters, Scenes), and interacts dynamically with players.
-- 🤖 **`robot`**: A hardware-focused bundle to run on edge devices like Raspberry Pi to control and interact with physical robot components.
+- 🎲 **`rpg`**: A Game Master that maintains world state, manages story arcs, game state and interacts dynamically with players.
+- 🤖 **`robot`**: A hardware-focused bundle to run on edge devices like Raspberry Pi to control and interact with physical robot components and physical world.
 
 ### 🧱 Create Your Own Custom Bundle
 
