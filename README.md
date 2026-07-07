@@ -118,7 +118,8 @@ To keep our architecture robust, reliable, and decoupled:
 
 ### 🚷 Using AI for contribution
 
-It is not allowed to use LLMs to generate contributions other than RFCs. Treat all AI-generated code as legally "tainted" or untrusted because there is no assurance the code is not GPL / Proprietary / AGPL / Business Licensed.
+> [!IMPORTANT]
+> It is not allowed to use LLMs to generate contributions other than RFCs. Treat all AI-generated code as legally "tainted" or untrusted because there is no assurance the code is not GPL / Proprietary / AGPL / Business Licensed.
 
 ### 📬 Pull Request Workflow
 
