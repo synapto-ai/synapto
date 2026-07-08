@@ -23,6 +23,8 @@ Search existing issues before creating a new one.
 
 Every commit needs to be signed. By adding a `Signed-off-by` line to your commit message (`git commit -s -m "message"`), you certify the following:
 
+[Developer Certificate of Origin (https://developercertificate.org/)](https://developercertificate.org/)
+
 ```text
 Developer Certificate of Origin
 Version 1.1

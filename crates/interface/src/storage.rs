@@ -135,7 +135,21 @@ pub trait FileStore: Send + Sync + 'static {
 }
 #[async_trait]
 pub trait VectorStore: Send + Sync + 'static {
-    async fn setup_index(&self, collection: &str, dimension: u32) -> Result<(), String>;
+    /// Ensures a collection is ready for vector operations.
+    ///
+    /// This method is typically called during the application boot sequence or when a service starts up.
+    /// It should be idempotent.
+    ///
+    /// Depending on the underlying database, this method might:
+    /// - Define a schema or table if it doesn't exist.
+    /// - Create necessary vector search indexes (e.g., M-Tree, HNSW).
+    /// - Do absolutely nothing if the database manages indexing transparently (e.g., Firestore).
+    ///
+    /// By default, this does nothing and returns `Ok(())`. Storage providers that require
+    /// explicit schema or index definition must override this implementation.
+    async fn setup_collection(&self, _collection: &str, _dimension: u32) -> Result<(), String> {
+        Ok(())
+    }
 
     async fn insert_vectors<T>(&self, collection: &str, records: Vec<T>) -> Result<(), String>
     where
