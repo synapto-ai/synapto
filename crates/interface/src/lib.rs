@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 pub mod cognitive_output_audio;
 pub mod cognitive_output_text;
 pub mod peer_input_audio;

@@ -41,7 +41,7 @@ To create a new provider (e.g., to load configurations from a PostgreSQL databas
 
 ### 1. Create the Struct and Implement `ConfigProvider`
 
-```rust
+```rust,ignore
 use synapto::config::ConfigProvider;
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -88,7 +88,7 @@ impl ConfigProvider for DatabaseConfigProvider {
 
 Instead of opting out of environment variables directly, you can strictly control them by modifying the `ConfigProvider` tuple in your composition root:
 
-```rust
+```rust,ignore
 // Secure deployment without environment variable overrides:
 Synapto::<
     datadir_cwd::CurrentWorkDir,
@@ -99,7 +99,7 @@ Synapto::<
 
 If you do want layered overrides (File -> .env -> Real Env Variables):
 
-```rust
+```rust,ignore
 Synapto::<
     datadir_cwd::CurrentWorkDir,
     (ConfigJson, DotEnv, Env),

@@ -1,3 +1,5 @@
+#![doc = include_str!("context.md")]
+
 use crate::llm::LLMSafe;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

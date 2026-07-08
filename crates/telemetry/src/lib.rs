@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 //! # Telemetry and Logging Architecture
 //!
 //! This module provides the central telemetry and logging configuration for the AI system.

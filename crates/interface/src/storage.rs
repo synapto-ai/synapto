@@ -1,3 +1,5 @@
+#![doc = include_str!("storage.md")]
+
 use async_trait::async_trait;
 
 /// A marker trait for safe DB connection pooling

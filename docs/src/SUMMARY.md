@@ -1,0 +1,15 @@
+# Summary
+
+- [Architecture & Invariants](ARCHITECTURE.md)
+- [Documentation Standards](DOCUMENTATION.md)
+- [Creating a Plugin](plugin/basics.md)
+  - [Context Providers](plugin/context.md)
+  - [Commands](plugin/command.md)
+  - [Tools](plugin/tool.md)
+  - [Interaction Observers](plugin/interaction.md)
+  - [Storage](plugin/storage.md)
+- [Config Providers](config_providers.md)
+- [Creating a Bundle](creating_bundles.md)
+- [Testing & Telemetry](testing_telemetry.md)
+  - [Testing](TESTING.md)
+  - [Telemetry](telemetry.md)

@@ -1,3 +1,5 @@
+#![doc = include_str!("tool.md")]
+
 use crate::context::ContextRequest;
 use crate::llm::LLMSafe;
 use schemars::JsonSchema;

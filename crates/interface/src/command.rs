@@ -1,3 +1,5 @@
+#![doc = include_str!("command.md")]
+
 use crate::llm::LLMSafe;
 
 #[async_trait::async_trait]

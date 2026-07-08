@@ -1,6 +1,8 @@
 use crate::cognitive::CognitiveReasoning;
 use crate::peer_input::PeerInput;
 use crate::plugin::MessageChannel;
+#![doc = include_str!("interaction.md")]
+
 use crate::plugin::Plugin;
 use crate::sync::{mpsc, watch};
 use async_trait::async_trait;

@@ -1,3 +1,5 @@
+#![doc = include_str!("provider.md")]
+
 pub trait ConfigProvider: Send + Sync + Sized + 'static {
     /// Initializes the config provider.
     /// Provider-specific contexts (like use cases) must be handled internally
