@@ -12,6 +12,7 @@ workspace = true
 
 [features]
 default = []
+log-to-file = ["dep:tracing-appender", "dep:file-rotate", "dep:chrono"]
 rerun = ["dep:rerun"]
 tracy = ["dep:tracing-tracy", "dep:tracy-client"]
 
@@ -22,9 +23,9 @@ synapto-shutdown.workspace = true
 tokio = { workspace = true, features = ["sync", "time", "rt"] }
 
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-tracing-appender = "0.2"
-file-rotate = "0.8"
-chrono = { version = "0.4" }
+tracing-appender = { version = "0.2", optional = true }
+file-rotate = { version = "0.8", optional = true }
+chrono = { version = "0.4", optional = true }
 dashmap = "6"
 rerun = { version = "0.33", optional = true, default-features=false, features=["sdk"] }
 tracing-tracy = { version = "0.11", optional = true, features = ["manual-lifetime"] }

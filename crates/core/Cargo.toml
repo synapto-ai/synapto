@@ -13,6 +13,7 @@ workspace = true
 [features]
 default = []
 
+log-to-file = ["synapto-telemetry/log-to-file"]
 rerun = ["synapto-telemetry/rerun", "synapto-llm/rerun"]
 tracy = ["synapto-telemetry/tracy"]
 

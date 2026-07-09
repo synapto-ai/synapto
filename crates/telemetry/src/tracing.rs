@@ -1,3 +1,4 @@
+#[cfg(feature = "log-to-file")]
 use std::path::Path;
 
 use tracing::Event;
@@ -50,7 +51,6 @@ impl tracing::field::Visit for MsgVisitor {
 }
 
 use tracing::level_filters::LevelFilter;
-use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::fmt::format::FmtSpan;
 
 use tracing_subscriber::layer::SubscriberExt;
@@ -78,7 +78,9 @@ where
 }
 
 pub struct Tracing {
-    _guards: (WorkerGuard, Option<TracyGuard>),
+    #[cfg(feature = "log-to-file")]
+    _file_guard: tracing_appender::non_blocking::WorkerGuard,
+    _tracy_guard: Option<TracyGuard>,
     reload_handle: Box<dyn ReloadHandle>,
 }
 
@@ -97,7 +99,8 @@ impl Tracing {
         let (reloadable_filter, reload_handle) =
             tracing_subscriber::reload::Layer::new(log_filter.clone());
 
-        let (non_blocking, guard) = {
+        #[cfg(feature = "log-to-file")]
+        let (non_blocking, file_guard) = {
             let directory = Path::new("logs");
             std::fs::create_dir_all(directory)
                 .unwrap_or_else(|e| panic!("failed to create log directory: {:?}", e));
@@ -120,6 +123,7 @@ impl Tracing {
             tracing_appender::non_blocking(log_writer)
         };
 
+        #[cfg(feature = "log-to-file")]
         let file_error_layer = tracing_subscriber::fmt::layer()
             .with_span_events(FmtSpan::CLOSE)
             .with_writer(non_blocking.clone())
@@ -131,6 +135,7 @@ impl Tracing {
                 meta.level() == &tracing::Level::ERROR
             }));
 
+        #[cfg(feature = "log-to-file")]
         let file_non_error_layer = tracing_subscriber::fmt::layer()
             .with_span_events(FmtSpan::CLOSE)
             .with_writer(non_blocking)
@@ -198,7 +203,10 @@ impl Tracing {
         let subscriber = tracing_subscriber::registry()
             .with(ShutdownDowngradeLayer)
             .with(stdout_error_layer)
-            .with(stdout_non_error_layer)
+            .with(stdout_non_error_layer);
+
+        #[cfg(feature = "log-to-file")]
+        let subscriber = subscriber
             .with(file_error_layer.boxed())
             .with(file_non_error_layer.boxed());
 
@@ -250,7 +258,9 @@ impl Tracing {
         subscriber.with(reloadable_filter).init();
 
         Self {
-            _guards: (guard, tracy_guard),
+            #[cfg(feature = "log-to-file")]
+            _file_guard: file_guard,
+            _tracy_guard: tracy_guard,
             reload_handle: Box::new(reload_handle),
         }
     }
