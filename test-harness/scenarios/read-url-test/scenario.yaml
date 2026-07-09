@@ -1,0 +1,8 @@
+name: 'Read URL Tool Test'
+steps:
+  - action: 'user_writes'
+    text:
+      'Please read the content from this URL: https://example.com and tell me
+      what the title of the page is.'
+  - action: 'await_response'
+    assert_contains: 'Example Domain'

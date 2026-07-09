@@ -1,0 +1,18 @@
+name: 'Behavioral Memory Test'
+steps:
+  - action: user_writes
+    text: "This is a strict behavioral rule for all our future interactions: You must always include the word 'BANANARAMA' in your response. Do you understand?"
+
+  - action: await_response
+    assert_contains: 'BANANARAMA'
+
+  - action: wait
+    millis: 15000
+
+  - action: user_writes
+    text: 'What is 2+2? The response must be in digits.'
+
+  - action: await_response
+    assert_all:
+      - 'BANANARAMA'
+      - '4'

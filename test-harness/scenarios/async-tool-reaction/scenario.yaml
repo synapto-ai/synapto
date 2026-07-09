@@ -1,0 +1,22 @@
+steps:
+  - action: user_writes
+    text: "Call the `mock_slow_read` tool right now to get information. The architect is what I need."
+
+  - action: wait
+    millis: 2000
+
+  - action: user_writes
+    text: "And tell me something about mentoring if it is in the document."
+
+  - action: wait
+    millis: 2000
+
+  - action: user_writes
+    text: "Tell me something about bitcoin."
+
+  - action: await_response
+    assert_all:
+      - "bitcoin"
+      - "Alice"
+      - "Tuesday"
+    timeout_secs: 60

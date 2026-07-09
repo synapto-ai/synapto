@@ -1,0 +1,26 @@
+name: Multi-assertion Test Scenario
+steps:
+  - action: user_writes
+    text: 'Please answer exactly with these words in separate lines: Hello, World, Apple, Banana'
+
+  - action: await_response
+    assert_all:
+      - 'Hello'
+      - 'World'
+    assert_any:
+      - 'Apple'
+      - 'Orange' # Apple matches
+    timeout_secs: 30
+
+  - action: user_writes
+    text: 'Now say: The quick brown fox jumps over the lazy dog.'
+
+  - action: await_response
+    assert_contains: 'quick'
+    assert_all:
+      - 'brown'
+      - 'fox'
+    assert_any:
+      - 'cat'
+      - 'dog' # dog matches
+    timeout_secs: 30

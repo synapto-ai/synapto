@@ -1,0 +1,28 @@
+name: 'Edge Cases Flow Test (Unintelligible & Uncomplete)'
+steps:
+  # 1. Test Unintelligible Input
+  # We send a completely nonsensical text. The cognitive task wakes up, the LLM evaluates
+  # UnintelligibleInput, performs `continue` and gives no response.
+  - action: user_says
+    transcript: 'uhm... hmmm... [unintelligible] grrrr blablabla asdfghjkl'
+
+  # Right after that we send a valid query. If UnintelligibleInput broke the buffer
+  # or failed to clear it properly, the LLM would be confused or wouldn't respond.
+  - action: user_says
+    transcript: 'What is the capital of France? Please answer with just one word.'
+
+  - action: await_response
+    assert_contains: 'Paris'
+
+  # 2. Test Uncomplete Thought
+  # We send an incomplete sentence. The LLM should return UncompleteThought and leave the message
+  # in pending_user_messages for later use. No reaction.
+  - action: user_says
+    transcript: 'Hi, I would like to order for dinner tonight...'
+
+  # We complete the thought. The models should now have both parts in context and understand the whole.
+  - action: user_says
+    transcript: '...a large cheese pizza. Can you confirm my order?'
+
+  - action: await_response
+    assert_contains: 'pizz'

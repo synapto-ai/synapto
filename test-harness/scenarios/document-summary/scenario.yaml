@@ -1,0 +1,17 @@
+name: 'Bitcoin Whitepaper Summary Test'
+steps:
+  - action: inject_text
+    text: |
+      Please read the attached document and provide a concise summary.
+    attachments:
+      - 'platform.md'
+  - action: await_response
+    assert_all:
+      - 'GitOps'
+
+  - action: inject_text
+    text: |
+      Explain how the mentoring methodology is called there in familiar way.
+  - action: await_response
+    assert_all:
+      - 'Throw someone in at the deep end'

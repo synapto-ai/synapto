@@ -1,0 +1,23 @@
+[package]
+name = "test-bundle"
+version = "0.1.0-dev.1"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+better_tokio_select = { workspace = true }
+synapto = { workspace = true, features = ["rerun"] }
+synapto-interface.workspace = true
+serde.workspace = true
+schemars.workspace = true
+serde_json.workspace = true
+serde_yaml = { version = "*" }
+async-trait = { version = "*" }
+tracing.workspace = true
+clap = { version = "*", features = ["derive", "env"] }
+claxon = "0.4"
+tokio.workspace = true
+
+datadir-ephemeral = { path = "datadir-providers/ephemeral" }
+storage-local = { path = "storage-providers/local" }

@@ -1,0 +1,13 @@
+[package]
+name = "datadir-ephemeral"
+version = "0.1.0-dev.1"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+synapto.workspace = true
+tempfile = "3"

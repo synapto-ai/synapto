@@ -1,0 +1,15 @@
+steps:
+  - action: user_says
+    transcript: "Call the `mock_slow_read` tool right now to get information. The architect is what I need."
+
+  - action: wait
+    millis: 2000
+
+  - action: user_writes
+    text: "Can you quickly write down the definition of Bitcoin here in the chat?"
+
+  - action: await_response
+    assert_all:
+      - "bitcoin"
+      - "Alice"
+    timeout_secs: 60

@@ -1,0 +1,9 @@
+name: 'Google Chat Plugin Refactoring Test'
+timeout_secs: 60
+steps:
+  - action: user_writes
+    text: 'Hi AI, can you help me?'
+
+  - action: await_response
+    assert_contains: 'help'
+    timeout_secs: 15
