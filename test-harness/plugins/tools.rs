@@ -22,9 +22,7 @@ impl Plugin for MockSlowReadPlugin {
 pub struct MockSlowReadTool;
 
 #[derive(serde::Deserialize, schemars::JsonSchema, LLMSafe)]
-pub struct MockSlowReadArgs {
-    pub document_name: String,
-}
+pub struct MockSlowReadArgs {}
 
 #[async_trait::async_trait]
 impl Tool for MockSlowReadTool {

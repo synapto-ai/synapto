@@ -8,7 +8,12 @@ test-scenarios filter="*":
             echo "========================================================================"
             echo "RUNNING SCENARIO: $scenario"
             echo "========================================================================"
-            cargo run -p test-bundle -- "$scenario"
+            if ! cargo run -p test-bundle -- "$scenario"; then
+                echo ""
+                echo "❌ SCENARIO FAILED: $scenario"
+                echo "========================================================================"
+                exit 1
+            fi
             found=1
         fi
     done
@@ -19,7 +24,12 @@ test-scenarios filter="*":
                 echo "========================================================================"
                 echo "RUNNING SCENARIO: $scenario"
                 echo "========================================================================"
-                cargo run -p test-bundle -- "$scenario"
+                if ! cargo run -p test-bundle -- "$scenario"; then
+                    echo ""
+                    echo "❌ SCENARIO FAILED: $scenario"
+                    echo "========================================================================"
+                    exit 1
+                fi
                 found=1
             fi
         done
