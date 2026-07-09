@@ -63,6 +63,7 @@ impl CognitiveDirectTrigger {
 pub(crate) struct CognitiveDirectInterrupt(Arc<Notify>);
 
 impl CognitiveDirectInterrupt {
+    #[allow(unused)]
     fn interrupt(&self) {
         self.0.notify_waiters();
     }
