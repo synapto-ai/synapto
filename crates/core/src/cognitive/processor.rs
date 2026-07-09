@@ -23,7 +23,12 @@ pub(super) trait CognitiveOutputProcessor<Cmd>: Send
 where
     Cmd: Send + Clone + Default + Serialize + JsonSchema + std::fmt::Debug,
 {
-    fn sanitize_commands(&self, commands: &mut Cmd, evaluation: &UsersMessagesEvaluation);
+    fn sanitize_commands(
+        &self,
+        commands: &mut Cmd,
+        evaluation: &UsersMessagesEvaluation,
+        has_resolved_tools: bool,
+    );
 
     // Returns None if the cycle should be aborted without creating an Interaction.
     fn execute_side_effects(
@@ -46,6 +51,7 @@ pub(super) async fn process_llm_output<Cmd, P>(
     new_interaction_tx: &mpsc::Sender<Interaction>,
     discard_interaction: bool,
     in_flight_tools: Vec<InFlightTool>,
+    has_resolved_tools: bool,
 ) where
     P: CognitiveOutputProcessor<Cmd>,
     Cmd: Send + Clone + Default + Serialize + JsonSchema + std::fmt::Debug,
@@ -84,6 +90,7 @@ pub(super) async fn process_llm_output<Cmd, P>(
             processor.sanitize_commands(
                 &mut model_response.commands,
                 &model_response.users_messages_evaluation,
+                has_resolved_tools,
             );
 
             let reasoning = model_response.reasoning.clone();
@@ -151,20 +158,40 @@ pub(super) async fn process_llm_output<Cmd, P>(
         Ok(LLMResult::Output(mut model_response)) => {
             tracing::debug!("Response: {:?}", model_response);
 
+            let mut messages_for_interaction = pending_user_messages.clone();
+            let mut clear_pending_at_end = true;
+
             match model_response.users_messages_evaluation {
                 UsersMessagesEvaluation::Actionable | UsersMessagesEvaluation::NonActionable => {
-                    // Valid evaluation, proceed to extend buffer and process output
                     pending_user_messages.extend(new_messages);
+                    messages_for_interaction = pending_user_messages.clone();
                 }
                 UsersMessagesEvaluation::WaitingForMoreInput => {
-                    tracing::info!("Waiting for more input or uncomplete sentence...");
-                    pending_user_messages.extend(new_messages);
-                    return;
+                    if has_resolved_tools {
+                        tracing::info!(
+                            "User mid-sentence but tool resolved. Processing tool result, delaying input."
+                        );
+                        pending_user_messages.extend(new_messages);
+                        messages_for_interaction.clear();
+                        clear_pending_at_end = false;
+                    } else {
+                        tracing::info!("Waiting for more input or uncomplete sentence...");
+                        pending_user_messages.extend(new_messages);
+                        return;
+                    }
                 }
                 UsersMessagesEvaluation::Unintelligible => {
-                    tracing::info!("Unintelligible input, discarding current turn.");
-                    processor.on_unintelligible_input();
-                    return;
+                    if has_resolved_tools {
+                        tracing::info!(
+                            "Unintelligible input but tool resolved. Dropping input, processing tool."
+                        );
+                        pending_user_messages.clear();
+                        messages_for_interaction.clear();
+                    } else {
+                        tracing::info!("Unintelligible input, discarding current turn.");
+                        processor.on_unintelligible_input();
+                        return;
+                    }
                 }
             }
 
@@ -172,6 +199,7 @@ pub(super) async fn process_llm_output<Cmd, P>(
             processor.sanitize_commands(
                 &mut model_response.commands,
                 &model_response.users_messages_evaluation,
+                has_resolved_tools,
             );
 
             let reasoning = model_response.reasoning.clone();
@@ -190,7 +218,7 @@ pub(super) async fn process_llm_output<Cmd, P>(
                     );
 
                     let interaction = Interaction::new(
-                        pending_user_messages.clone(),
+                        messages_for_interaction,
                         metadata.ai_spoken,
                         metadata.ai_written,
                         Some(reasoning),
@@ -210,7 +238,9 @@ pub(super) async fn process_llm_output<Cmd, P>(
                     );
                 }
 
-                pending_user_messages.clear();
+                if clear_pending_at_end {
+                    pending_user_messages.clear();
+                }
                 processor.on_cycle_finished();
             } else {
                 tracing::info!(

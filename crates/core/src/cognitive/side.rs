@@ -45,8 +45,9 @@ impl<'a> CognitiveOutputProcessor<CognitiveSideCommands> for SideOutputProcessor
         &self,
         commands: &mut CognitiveSideCommands,
         evaluation: &super::types::UsersMessagesEvaluation,
+        has_resolved_tools: bool,
     ) {
-        if evaluation != &super::types::UsersMessagesEvaluation::Actionable {
+        if evaluation != &super::types::UsersMessagesEvaluation::Actionable && !has_resolved_tools {
             commands.write = None;
         }
 
@@ -304,6 +305,8 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
             _ => vec![],
         };
 
+        let has_resolved_tools = resolved_tools.is_some();
+
         process_llm_output(
             new_messages.clone(),
             &mut pending_user_messages,
@@ -312,6 +315,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
             &new_interaction_tx,
             false,
             in_flight_tools,
+            has_resolved_tools,
         )
         .await;
 

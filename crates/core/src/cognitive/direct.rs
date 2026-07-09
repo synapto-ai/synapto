@@ -89,8 +89,9 @@ impl<'a> CognitiveOutputProcessor<CognitiveDirectCommands> for DirectOutputProce
         &self,
         commands: &mut CognitiveDirectCommands,
         evaluation: &super::types::UsersMessagesEvaluation,
+        has_resolved_tools: bool,
     ) {
-        if evaluation != &super::types::UsersMessagesEvaluation::Actionable {
+        if evaluation != &super::types::UsersMessagesEvaluation::Actionable && !has_resolved_tools {
             commands.say = None;
             commands.write = None;
         }
@@ -451,6 +452,8 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
             _ => vec![],
         };
 
+        let has_resolved_tools = resolved_tools.is_some();
+
         process_llm_output(
             new_speech_messages
                 .into_iter()
@@ -462,6 +465,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
             &new_interaction_tx,
             current_is_initial_run && config.initial_run.discard_interaction,
             in_flight_tools,
+            has_resolved_tools,
         )
         .await;
     }
