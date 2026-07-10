@@ -18,7 +18,6 @@ use synapto_interface::speech_to_text::{DiarizationPlugin, STTPlugin, TTSPlugin}
 //
 use synapto_interface::speech_to_text::SpeakerSegment;
 
-use crate::google_credentials::GoogleServiceAccountCredentials;
 use crate::{
     cognitive::{CognitiveDirectInterrupt, CognitiveDirectTrigger},
     interactions::Interaction,

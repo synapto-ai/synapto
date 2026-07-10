@@ -57,10 +57,6 @@ pub struct Config {
     #[serde(default)]
     pub barge_in: bool,
 
-    // FIXME
-    #[serde(default)]
-    speakers: Vec<String>,
-
     #[serde(default)]
     pub initial_run: InitialRunConfig,
 
