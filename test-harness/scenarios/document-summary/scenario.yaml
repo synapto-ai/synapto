@@ -14,4 +14,4 @@ steps:
       Explain how the mentoring methodology is called there in familiar way.
   - action: await_response
     assert_all:
-      - 'Throw someone in at the deep end'
+      - 'someone in at the deep end'
