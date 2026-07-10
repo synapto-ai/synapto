@@ -28,7 +28,9 @@ use crate::{
 /// Side effects produced by the AI. Omit not used fields.
 struct CognitiveSideCommands {
     #[serde(skip_serializing_if = "Option::is_none")]
-    /// Write something to the chat. Snippets, code, links. Everything that is not natural to say. Mention it in the speech when you have written something in the chat. Null if you have nothing to write now.
+    #[schemars(
+        description = "Write a text response back to the user. If you are fulfilling a past request because a tool has resolved, you MUST use this command. To do so, extract the 'channel' object from the corresponding past interaction in 'interaction_memory' and provide it as 'target_channel'. Null if you have nothing to write now."
+    )]
     write: Option<CognitiveOutputText>,
 
     #[serde(flatten)]
@@ -202,7 +204,32 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
         let mut current_messages = pending_user_messages.clone();
         current_messages.extend(new_messages.clone());
 
-        let interaction_memory = interaction_memory_rx.borrow().clone();
+        let mut interaction_memory = interaction_memory_rx.borrow().clone();
+
+        // Wait for the tool resolution to hit the interaction memory watch channel
+        if let Some(resolved) = &resolved_tools {
+            for (call, _) in resolved {
+                let call_id = &call.call_id;
+                // Check if the memory already knows it is resolved
+                if !interaction_memory
+                    .iter()
+                    .any(|i| i.resolved_tools.iter().any(|t| t.id == *call_id))
+                {
+                    // Wait for the update
+                    let mut rx = interaction_memory_rx.clone();
+                    while let Ok(()) = rx.changed().await {
+                        let new_mem = rx.borrow().clone();
+                        if new_mem
+                            .iter()
+                            .any(|i| i.resolved_tools.iter().any(|t| t.id == *call_id))
+                        {
+                            interaction_memory = new_mem;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
 
         let mut recent_interactions = Vec::new();
         for i in interaction_memory.iter() {
@@ -244,7 +271,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
             current_contexts,
             prospective_contexts,
 
-            interaction_memory: interaction_memory.into(),
+            interaction_memory: interaction_memory.clone().into(),
 
             user_messages: current_messages
                 .clone()

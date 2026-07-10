@@ -210,6 +210,13 @@ impl From<&InFlightTool> for LlmSafeInFlightTool {
 #[serde(rename = "Interaction")]
 struct CognitiveLLMInteraction {
     user_messages: Vec<LLMUserMessage>,
+
+    #[schemars(
+        description = "The communication channel context for this interaction. Use this for the 'write' command target_channel when responding to resolved_tools from this interaction."
+    )]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    channel: Option<MessageChannel>,
+
     #[schemars(description = "What AI says to human")]
     ai_spoken: Option<AiSpoken>,
     ai_reasoning: Option<CognitiveReasoning>,
@@ -229,6 +236,11 @@ struct CognitiveLLMInteraction {
 
 impl From<&Interaction> for CognitiveLLMInteraction {
     fn from(interaction: &Interaction) -> Self {
+        let channel = interaction.user_messages.iter().find_map(|msg| match msg {
+            PeerInput::Text(t) => Some(t.channel.clone()),
+            _ => None,
+        });
+
         Self {
             user_messages: interaction
                 .user_messages
@@ -236,6 +248,7 @@ impl From<&Interaction> for CognitiveLLMInteraction {
                 .into_iter()
                 .map(Into::into)
                 .collect(),
+            channel,
             ai_spoken: interaction.ai_spoken.clone(),
             ai_reasoning: interaction.ai_reasoning.clone(),
             in_flight_tools: interaction.in_flight_tools.iter().map(Into::into).collect(),
@@ -280,21 +293,21 @@ pub struct CognitiveLLMContent {
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, PartialEq, Eq)]
 #[schemars(transform = flatten_enum)]
 #[schemars(
-    description = "Only on SemanticallyClear should the LLM respond. Check that in other cases the write to chat and say commands are not used."
+    description = "Evaluation of active user_messages. Determines if the newly arrived messages require a response."
 )]
 pub(super) enum UsersMessagesEvaluation {
     #[schemars(
-        description = "All messages are clearly understandable and actionable. The underlying meaning is unambiguous. You will respond and the input buffer will be cleared."
+        description = "All active messages are clearly understandable and actionable. The underlying meaning is unambiguous."
     )]
     Actionable,
 
     #[schemars(
-        description = "Use this when the user's input is a complete thought but requires no action or response from you. This includes ambient discussion, self-talk, when you are not explicitly addressed, or when a response would merely be an acknowledgment."
+        description = "The active user_messages require no action or response from you. Use this when the user buffer is empty, or if they are just ambient discussion/self-talk."
     )]
     NonActionable,
 
     #[schemars(
-        description = "Discontinued sentence, incomplete thought, OR you are deliberately waiting for other users to speak before acting. The current input will be held in the buffer to be combined with future inputs."
+        description = "Discontinued sentence, incomplete thought, OR you are deliberately waiting for other users to speak before acting."
     )]
     WaitingForMoreInput,
 
@@ -310,7 +323,7 @@ pub(super) struct CognitiveLLMOutput<CognitiveCommands> {
     pub reasoning: CognitiveReasoning,
 
     #[schemars(
-        description = "Evaluation of the users' messages based on their semantic clarity, completeness, and overall intelligibility. Only on Actionable should the LLM respond. Check that in other cases the write to chat and say commands are not used."
+        description = "Evaluation of the active user_messages. If there are no active messages, this should be NonActionable or WaitingForMoreInput. NOTE: You can and MUST still use the write command if you are fulfilling a request from a tool that just resolved, regardless of this evaluation."
     )]
     pub users_messages_evaluation: UsersMessagesEvaluation,
 }

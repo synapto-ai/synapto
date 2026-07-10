@@ -225,6 +225,8 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
             }
         );
 
+        tracing::trace!("full prompt: {}", prompt);
+
         let reasoning_effort = override_reasoning_effort.map(|e| match e {
             ReasoningEffort::None => genai::chat::ReasoningEffort::None,
             ReasoningEffort::Minimal => genai::chat::ReasoningEffort::Minimal,
