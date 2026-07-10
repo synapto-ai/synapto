@@ -88,11 +88,11 @@ impl Tracing {
     pub fn setup(gui_layer: GuiErrorLayer) -> Self {
         // --- GLOBAL FILTER CONFIGURATION ---
         // By default, all unlisted crates are restricted to WARN level.
-        // `synapto` gets DEBUG access explicitly.
-        // Plugins get DEBUG access dynamically via `add_plugin_to_log()`.
+        // `synapto` and `synapto_*` workspace crates get TRACE access explicitly.
+        // Plugins get TRACE access dynamically via `add_plugin_to_log()`.
         //
-        // HOW TO ADD ANOTHER WORKSPACE CRATE (e.g., `ai-llm-client`):
-        // Append `,crate_name_with_underscores=debug` to the format string below.
+        // HOW TO ADD ANOTHER WORKSPACE CRATE (e.g., `synapto-something`):
+        // Append `,synapto_something=trace` to the format string below.
         // Rust's tracing replaces hyphens in crate names with underscores.
         let log_filter = EnvFilter::new(
             "warn,synapto=trace,synapto_llm=trace,synapto_shutdown=trace,synapto_interface=trace,telemetry=trace",
@@ -269,7 +269,7 @@ impl Tracing {
 
     pub fn add_plugin_to_log(&self, plugin_name: &str) {
         let plugin_name_sanitized = plugin_name.replace("-", "_");
-        let directive = format!("{}=debug,telemetry=trace", plugin_name_sanitized);
+        let directive = format!("{}=trace,telemetry=trace", plugin_name_sanitized);
         self.reload_handle.add_directive(directive);
     }
 }
