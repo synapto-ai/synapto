@@ -8,6 +8,7 @@ use genai::{
     resolver::{AuthData, AuthResolver},
 };
 use serde::{Serialize, de::DeserializeOwned};
+use synapto_interface::secrets::Secret;
 use tracing::instrument;
 
 use synapto_interface::llm::LLMSafe;
@@ -23,8 +24,8 @@ pub use instruction::Instruction;
 pub struct LLMClientConfig {
     pub google_vertex_ai_location: Option<String>,
     pub google_project_id: String,
-    pub google_service_account_credentials: Option<String>,
-    pub gemini_api_key: Option<String>,
+    pub google_service_account_credentials: Option<Secret<String>>,
+    pub gemini_api_key: Option<Secret<String>>,
 }
 
 pub trait ToolExecutor: Send + Sync {
@@ -454,10 +455,9 @@ pub struct ConcreteLlmExecutor {
 impl ConcreteLlmExecutor {
     pub fn new(config: LLMClientConfig) -> Self {
         let location = config.google_vertex_ai_location.clone();
-        let account = config
-            .google_service_account_credentials
-            .as_ref()
-            .and_then(|creds| gcp_auth::CustomServiceAccount::from_json(creds).ok());
+        let account = config.google_service_account_credentials.and_then(|creds| {
+            gcp_auth::CustomServiceAccount::from_json(creds.expose_secret()).ok()
+        });
 
         let auth_resolver = if let (Some(location), Some(account)) = (location, account) {
             let project_id = config.google_project_id.clone();
@@ -512,7 +512,9 @@ impl ConcreteLlmExecutor {
                     >,
                 > {
                     let gemini_api_key = gemini_api_key.clone();
-                    Box::pin(async move { Ok(Some(AuthData::Key(gemini_api_key))) })
+                    Box::pin(async move {
+                        Ok(Some(AuthData::Key(gemini_api_key.expose_secret().into())))
+                    })
                 },
             )
         };

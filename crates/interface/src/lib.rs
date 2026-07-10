@@ -23,5 +23,6 @@ pub mod llm;
 pub mod peer_input;
 pub mod plugin;
 pub mod rollout;
+pub mod secrets;
 pub mod sync;
 pub mod tool;

@@ -18,6 +18,7 @@ use synapto_interface::speech_to_text::{DiarizationPlugin, STTPlugin, TTSPlugin}
 //
 use synapto_interface::speech_to_text::SpeakerSegment;
 
+use crate::google_credentials::GoogleServiceAccountCredentials;
 use crate::{
     cognitive::{CognitiveDirectInterrupt, CognitiveDirectTrigger},
     interactions::Interaction,
@@ -261,9 +262,10 @@ impl<
         let executor_config = synapto_llm::LLMClientConfig {
             google_vertex_ai_location: config.google_vertex_ai_location.clone(),
             google_project_id: config.google_project_id.clone(),
-            google_service_account_credentials: Some(String::from(
-                config.google_service_account_credentials.clone(),
-            )),
+            google_service_account_credentials: config
+                .google_service_account_credentials
+                .clone()
+                .map(|secret| secret.into_secret()),
             gemini_api_key: config.gemini_api_key.clone(),
         };
         let llm_executor =

@@ -14,17 +14,9 @@ pub use dotenv::DotEnv;
 pub use env::Env;
 pub use json::ConfigJson;
 pub use provider::ConfigProvider;
+use synapto_interface::secrets::Secret;
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct GoogleServiceAccountCredentials(serde_json::Value);
-
-impl From<GoogleServiceAccountCredentials> for String {
-    fn from(value: GoogleServiceAccountCredentials) -> Self {
-        serde_json::to_string(&value.0).unwrap_or_else(|e| {
-            panic!("Failed to serialize GoogleServiceAccountCredentials: {}", e)
-        })
-    }
-}
+use crate::google_credentials::GoogleServiceAccountCredentials;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct InitialRunConfig {
@@ -38,7 +30,7 @@ pub struct InitialRunConfig {
     pub reasoning_effort: ReasoningEffort,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
     pub cognitive: ModelConfig,
@@ -56,7 +48,7 @@ pub struct Config {
 
     // FIXME
     #[serde(default)]
-    pub gemini_api_key: Option<String>,
+    pub gemini_api_key: Option<Secret<String>>,
 
     // FIXME pub
     #[serde(default)]
@@ -74,7 +66,7 @@ pub struct Config {
 
     // FIXME
     #[serde(default)]
-    pub google_service_account_credentials: GoogleServiceAccountCredentials,
+    pub google_service_account_credentials: Option<Secret<GoogleServiceAccountCredentials>>,
 
     #[serde(default)]
     pub disable_cognitive_direct: bool,
