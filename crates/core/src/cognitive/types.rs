@@ -219,6 +219,12 @@ struct CognitiveLLMInteraction {
     )]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     in_flight_tools: Vec<LlmSafeInFlightTool>,
+
+    #[schemars(
+        description = "Tools triggered during this interaction that have just resolved this turn. You MUST fulfill the user's original request based on these results and ongoing conversation."
+    )]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    resolved_tools: Vec<LlmSafeInFlightTool>,
 }
 
 impl From<&Interaction> for CognitiveLLMInteraction {
@@ -233,6 +239,7 @@ impl From<&Interaction> for CognitiveLLMInteraction {
             ai_spoken: interaction.ai_spoken.clone(),
             ai_reasoning: interaction.ai_reasoning.clone(),
             in_flight_tools: interaction.in_flight_tools.iter().map(Into::into).collect(),
+            resolved_tools: interaction.resolved_tools.iter().map(Into::into).collect(),
         }
     }
 }

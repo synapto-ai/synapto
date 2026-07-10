@@ -32,6 +32,8 @@ pub(crate) struct Interaction {
     is_actionable: bool,
     #[serde(skip)]
     pub in_flight_tools: Vec<InFlightTool>,
+    #[serde(skip)]
+    pub resolved_tools: Vec<InFlightTool>,
 }
 
 impl Interaction {
@@ -56,6 +58,7 @@ impl Interaction {
             ai_reasoning,
             is_actionable,
             in_flight_tools,
+            resolved_tools: Vec::new(),
         }
     }
 }
@@ -123,7 +126,8 @@ impl InteractionMemory {
                 .iter()
                 .position(|t| t.id == tool_call_id)
             {
-                interaction.in_flight_tools.remove(idx);
+                let tool = interaction.in_flight_tools.remove(idx);
+                interaction.resolved_tools.push(tool);
                 found = true;
             }
         }
