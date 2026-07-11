@@ -1,3 +1,5 @@
+# ![Synapto](/assets/synapto.png)
+
 # Synapto 🧠
 
 > The Universal, Rust-Powered Cognitive Brain for Robots, Assistants, and Beyond.
