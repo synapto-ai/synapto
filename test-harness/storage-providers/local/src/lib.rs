@@ -4,7 +4,7 @@ use serde::{Serialize, de::DeserializeOwned};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use synapto_interface::storage::{
-    CollectionStore, EmptyStorageConfig, FileStore, KeyValueStore, StorageConnection, VectorStore,
+    EmptyStorageConfig, FileStore, KeyValueStore, RecordStore, StorageConnection, VectorStore,
 };
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
@@ -12,7 +12,7 @@ use tokio::sync::RwLock;
 
 /// A local file-based JSON storage provider.
 ///
-/// Implements `StorageConnection` and `CollectionStore`.
+/// Implements `StorageConnection` and `RecordStore`.
 /// It stores data by writing full JSON arrays to `.json` files inside the plugin namespace.
 pub struct LocalStorageProvider {
     base_dir: PathBuf,
@@ -20,9 +20,9 @@ pub struct LocalStorageProvider {
 }
 
 impl LocalStorageProvider {
-    /// Helper to get the file path for a given collection.
-    fn get_collection_path(&self, collection: &str) -> PathBuf {
-        self.base_dir.join(format!("{}.json", collection))
+    /// Helper to get the file path for a given records collection.
+    fn get_records_path(&self, collection: &str) -> PathBuf {
+        self.base_dir.join(format!("{}_records.json", collection))
     }
 
     /// Helper to get or create the lock for a given collection.
@@ -90,30 +90,32 @@ impl StorageConnection for LocalStorageProvider {
 }
 
 #[async_trait]
-impl CollectionStore for LocalStorageProvider {
-    async fn push<T>(&self, collection: &str, value: T) -> Result<(), String>
+impl RecordStore for LocalStorageProvider {
+    async fn upsert_record<T>(&self, collection: &str, key: &str, value: T) -> Result<(), String>
     where
         T: Serialize + Send + Sync + 'static,
     {
-        let lock = self.get_lock(collection);
+        let lock = self.get_lock(&format!("{}_records", collection));
         let _write_guard = lock.write().await;
 
-        let path = self.get_collection_path(collection);
-        let mut items: Vec<serde_json::Value> = if path.exists() {
+        let path = self.get_records_path(collection);
+        let mut map: std::collections::BTreeMap<String, serde_json::Value> = if path.exists() {
             let content = fs::read_to_string(&path)
                 .await
-                .map_err(|e| format!("Failed to read collection file: {}", e))?;
+                .map_err(|e| format!("Failed to read records file: {}", e))?;
             serde_json::from_str(&content)
-                .map_err(|e| format!("Failed to deserialize collection: {}", e))?
+                .map_err(|e| format!("Failed to deserialize records: {}", e))?
         } else {
-            Vec::new()
+            std::collections::BTreeMap::new()
         };
 
-        let new_item = serde_json::to_value(value)
-            .map_err(|e| format!("Failed to serialize new item: {}", e))?;
-        items.push(new_item);
+        map.insert(
+            key.to_string(),
+            serde_json::to_value(value)
+                .map_err(|e| format!("Failed to serialize new record: {}", e))?,
+        );
 
-        let serialized = serde_json::to_string_pretty(&items)
+        let serialized = serde_json::to_string_pretty(&map)
             .map_err(|e| format!("Failed to serialize: {}", e))?;
 
         self.atomic_write(&path, serialized.as_bytes()).await?;
@@ -121,53 +123,104 @@ impl CollectionStore for LocalStorageProvider {
         Ok(())
     }
 
-    async fn get_all<T>(&self, collection: &str) -> Result<Vec<T>, String>
+    async fn get_ordered_records<T>(
+        &self,
+        collection: &str,
+        limit: Option<usize>,
+        reverse: bool,
+    ) -> Result<Vec<(String, T)>, String>
     where
         T: DeserializeOwned + Send + Sync + 'static,
     {
-        let lock = self.get_lock(collection);
+        let lock = self.get_lock(&format!("{}_records", collection));
         let _read_guard = lock.read().await;
 
-        let path = self.get_collection_path(collection);
+        let path = self.get_records_path(collection);
         if !path.exists() {
             return Ok(Vec::new());
         }
 
         let content = fs::read_to_string(&path)
             .await
-            .map_err(|e| format!("Failed to read collection file: {}", e))?;
+            .map_err(|e| format!("Failed to read records file: {}", e))?;
 
-        let items: Vec<T> = serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to deserialize collection items: {}", e))?;
+        let map: std::collections::BTreeMap<String, serde_json::Value> =
+            serde_json::from_str(&content)
+                .map_err(|e| format!("Failed to deserialize records items: {}", e))?;
 
-        Ok(items)
+        let mut iter: Box<dyn Iterator<Item = _>> = if reverse {
+            Box::new(map.into_iter().rev())
+        } else {
+            Box::new(map.into_iter())
+        };
+
+        if let Some(limit) = limit {
+            iter = Box::new(iter.take(limit));
+        }
+
+        let mut result = Vec::new();
+        for (k, v) in iter {
+            let item: T = serde_json::from_value(v)
+                .map_err(|e| format!("Failed to deserialize record: {}", e))?;
+            result.push((k, item));
+        }
+
+        Ok(result)
     }
 
-    async fn clear(&self, collection: &str) -> Result<(), String> {
-        let lock = self.get_lock(collection);
+    async fn delete_record(&self, collection: &str, key: &str) -> Result<(), String> {
+        let lock = self.get_lock(&format!("{}_records", collection));
         let _write_guard = lock.write().await;
 
-        let path = self.get_collection_path(collection);
+        let path = self.get_records_path(collection);
+        if !path.exists() {
+            return Ok(());
+        }
 
-        // Write an empty JSON array `[]` atomically
-        self.atomic_write(&path, b"[]").await?;
+        let content = fs::read_to_string(&path)
+            .await
+            .map_err(|e| format!("Failed to read records file: {}", e))?;
+
+        let mut map: std::collections::BTreeMap<String, serde_json::Value> =
+            serde_json::from_str(&content)
+                .map_err(|e| format!("Failed to deserialize records: {}", e))?;
+
+        if map.remove(key).is_some() {
+            let serialized = serde_json::to_string_pretty(&map)
+                .map_err(|e| format!("Failed to serialize: {}", e))?;
+
+            self.atomic_write(&path, serialized.as_bytes()).await?;
+        }
 
         Ok(())
     }
 
-    async fn replace_all<T>(&self, collection: &str, values: Vec<T>) -> Result<(), String>
-    where
-        T: Serialize + Send + Sync + 'static,
-    {
-        let lock = self.get_lock(collection);
+    async fn trim_records_before(&self, collection: &str, cutoff_key: &str) -> Result<(), String> {
+        let lock = self.get_lock(&format!("{}_records", collection));
         let _write_guard = lock.write().await;
 
-        let path = self.get_collection_path(collection);
+        let path = self.get_records_path(collection);
+        if !path.exists() {
+            return Ok(());
+        }
 
-        let serialized = serde_json::to_string_pretty(&values)
-            .map_err(|e| format!("Failed to serialize: {}", e))?;
+        let content = fs::read_to_string(&path)
+            .await
+            .map_err(|e| format!("Failed to read records file: {}", e))?;
 
-        self.atomic_write(&path, serialized.as_bytes()).await?;
+        let mut map: std::collections::BTreeMap<String, serde_json::Value> =
+            serde_json::from_str(&content)
+                .map_err(|e| format!("Failed to deserialize records: {}", e))?;
+
+        let initial_len = map.len();
+        map.retain(|k, _| k.as_str() >= cutoff_key);
+
+        if map.len() < initial_len {
+            let serialized = serde_json::to_string_pretty(&map)
+                .map_err(|e| format!("Failed to serialize: {}", e))?;
+
+            self.atomic_write(&path, serialized.as_bytes()).await?;
+        }
 
         Ok(())
     }
@@ -303,7 +356,7 @@ impl FileStore for LocalStorageProvider {
         file_id: &str,
         content: Vec<u8>,
     ) -> Result<(), String> {
-        let lock = self.get_lock(collection);
+        let lock = self.get_lock(&format!("{}_records", collection));
         let _write_guard = lock.write().await;
 
         let path = self
@@ -367,7 +420,7 @@ impl FileStore for LocalStorageProvider {
     }
 
     async fn get_file(&self, collection: &str, file_id: &str) -> Result<Option<Vec<u8>>, String> {
-        let lock = self.get_lock(collection);
+        let lock = self.get_lock(&format!("{}_records", collection));
         let _read_guard = lock.read().await;
 
         let path = self
@@ -386,7 +439,7 @@ impl FileStore for LocalStorageProvider {
     }
 
     async fn delete_file(&self, collection: &str, file_id: &str) -> Result<(), String> {
-        let lock = self.get_lock(collection);
+        let lock = self.get_lock(&format!("{}_records", collection));
         let _write_guard = lock.write().await;
 
         let path = self
@@ -487,7 +540,8 @@ impl VectorStore for LocalStorageProvider {
         T: Serialize + Send + Sync + 'static,
     {
         for record in records {
-            self.push(collection, record).await?;
+            let key = uuid::Uuid::new_v4().to_string();
+            self.upsert_record(collection, &key, record).await?;
         }
         Ok(())
     }
@@ -501,7 +555,10 @@ impl VectorStore for LocalStorageProvider {
     where
         T: DeserializeOwned + Send + Sync + 'static,
     {
-        let all: Vec<serde_json::Value> = CollectionStore::get_all(self, collection).await?;
+        let all_records =
+            RecordStore::get_ordered_records::<serde_json::Value>(self, collection, None, false)
+                .await?;
+        let all: Vec<serde_json::Value> = all_records.into_iter().map(|(_, v)| v).collect();
 
         let metric = Distance::Cosine;
         let memo_attr = get_cache_attr(metric, &vector);
@@ -549,10 +606,10 @@ impl VectorStore for LocalStorageProvider {
         filter_field: &str,
         filter_value: &str,
     ) -> Result<(), String> {
-        let lock = self.get_lock(collection);
+        let lock = self.get_lock(&format!("{}_records", collection));
         let _write_guard = lock.write().await;
 
-        let path = self.get_collection_path(collection);
+        let path = self.get_records_path(collection);
         if !path.exists() {
             return Ok(());
         }
@@ -561,11 +618,11 @@ impl VectorStore for LocalStorageProvider {
             .await
             .map_err(|e| format!("Failed to read collection file: {}", e))?;
 
-        let items: Vec<serde_json::Value> = serde_json::from_str(&content)
+        let mut map: std::collections::BTreeMap<String, serde_json::Value> = serde_json::from_str(&content)
             .map_err(|e| format!("Failed to deserialize collection: {}", e))?;
 
-        let mut new_items = Vec::new();
-        for item in items {
+        let initial_len = map.len();
+        map.retain(|_, item| {
             let mut keep = true;
             if let Some(field) = item.get(filter_field) {
                 if let Some(s) = field.as_str() {
@@ -576,15 +633,14 @@ impl VectorStore for LocalStorageProvider {
                     keep = false;
                 }
             }
-            if keep {
-                new_items.push(item);
-            }
+            keep
+        });
+
+        if map.len() < initial_len {
+            let serialized = serde_json::to_string_pretty(&map)
+                .map_err(|e| format!("Failed to serialize: {}", e))?;
+            self.atomic_write(&path, serialized.as_bytes()).await?;
         }
-
-        let serialized = serde_json::to_string_pretty(&new_items)
-            .map_err(|e| format!("Failed to serialize: {}", e))?;
-
-        self.atomic_write(&path, serialized.as_bytes()).await?;
 
         Ok(())
     }
@@ -614,9 +670,10 @@ mod tests {
         let collection = "test_items";
 
         // Initial get_all should return empty
-        let items: Vec<TestItem> = CollectionStore::get_all(&provider, collection)
-            .await
-            .unwrap();
+        let items: Vec<(String, TestItem)> =
+            RecordStore::get_ordered_records(&provider, collection, None, false)
+                .await
+                .unwrap();
         assert!(items.is_empty());
 
         // Push one item
@@ -624,37 +681,59 @@ mod tests {
             id: 1,
             name: "Item 1".to_string(),
         };
-        provider.push(collection, item1.clone()).await.unwrap();
+        provider
+            .upsert_record(collection, "key1", item1.clone())
+            .await
+            .unwrap();
 
         // Push another item
         let item2 = TestItem {
             id: 2,
             name: "Item 2".to_string(),
         };
-        provider.push(collection, item2.clone()).await.unwrap();
+        provider
+            .upsert_record(collection, "key2", item2.clone())
+            .await
+            .unwrap();
 
         // Get all should return both items
-        let items: Vec<TestItem> = CollectionStore::get_all(&provider, collection)
-            .await
-            .unwrap();
+        let items: Vec<(String, TestItem)> =
+            RecordStore::get_ordered_records(&provider, collection, None, false)
+                .await
+                .unwrap();
         assert_eq!(items.len(), 2);
-        assert_eq!(items[0], item1);
-        assert_eq!(items[1], item2);
+        assert_eq!(items[0].1, item1);
+        assert_eq!(items[1].1, item2);
 
-        // Clear should empty the collection
-        provider.clear(collection).await.unwrap();
-        let items: Vec<TestItem> = CollectionStore::get_all(&provider, collection)
-            .await
-            .unwrap();
-        assert!(items.is_empty());
-
-        // We can push after clear
-        provider.push(collection, item1.clone()).await.unwrap();
-        let items: Vec<TestItem> = CollectionStore::get_all(&provider, collection)
-            .await
-            .unwrap();
+        // Delete should remove one item
+        provider.delete_record(collection, "key1").await.unwrap();
+        let items: Vec<(String, TestItem)> =
+            RecordStore::get_ordered_records(&provider, collection, None, false)
+                .await
+                .unwrap();
         assert_eq!(items.len(), 1);
-        assert_eq!(items[0], item1);
+
+        // We can upsert after clear
+        provider
+            .upsert_record(collection, "key1", item1.clone())
+            .await
+            .unwrap();
+        let items: Vec<(String, TestItem)> =
+            RecordStore::get_ordered_records(&provider, collection, None, false)
+                .await
+                .unwrap();
+        assert_eq!(items.len(), 2);
+
+        provider
+            .trim_records_before(collection, "key2")
+            .await
+            .unwrap();
+        let items: Vec<(String, TestItem)> =
+            RecordStore::get_ordered_records(&provider, collection, None, false)
+                .await
+                .unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].1, item2);
     }
 
     #[tokio::test]
@@ -677,7 +756,10 @@ mod tests {
                     id: i,
                     name: format!("Item {}", i),
                 };
-                provider_clone.push(&collection_clone, item).await.unwrap();
+                provider_clone
+                    .upsert_record(&collection_clone, &format!("key_{:03}", i), item)
+                    .await
+                    .unwrap();
             }));
         }
 
@@ -687,12 +769,13 @@ mod tests {
         }
 
         // Verify no data was lost
-        let items: Vec<TestItem> = CollectionStore::get_all(&*provider, collection)
-            .await
-            .unwrap();
+        let items: Vec<(String, TestItem)> =
+            RecordStore::get_ordered_records(&*provider, collection, None, false)
+                .await
+                .unwrap();
         assert_eq!(items.len(), 100);
 
-        let mut ids: Vec<u32> = items.iter().map(|item| item.id).collect();
+        let mut ids: Vec<u32> = items.iter().map(|item| item.1.id).collect();
         ids.sort();
         let expected: Vec<u32> = (0..100).collect();
         assert_eq!(ids, expected);

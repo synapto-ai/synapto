@@ -39,18 +39,20 @@ impl From<&Interaction> for NotClearInteraction {
 // }
 
 #[instrument(skip_all, fields(subsystem))]
-pub(super) async fn not_clear_interactions_task<S: synapto_interface::storage::KeyValueStore>(
+pub(super) async fn not_clear_interactions_task<
+    S: synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
+>(
     _config: Config,
     mut not_clear_rx: mpsc::Receiver<NotClearInteraction>,
     mut resolve_not_clear_rx: mpsc::Receiver<Timestamp>,
     not_clear_memory_tx: watch::Sender<NotClearInteractionMemory>,
     storage: std::sync::Arc<S>,
 ) {
-    let mut not_clear_memory: NotClearInteractionMemory = if let Ok(Some(mem)) = storage
-        .get::<NotClearInteractionMemory>("memory", "not_clear_interactions")
+    let mut not_clear_memory: NotClearInteractionMemory = if let Ok(records) = storage
+        .get_ordered_records::<NotClearInteraction>("not_clear_interactions", None, false)
         .await
     {
-        mem
+        NotClearInteractionMemory(records.into_iter().map(|(_, v)| v).collect())
     } else {
         NotClearInteractionMemory::default()
     };
@@ -66,6 +68,13 @@ pub(super) async fn not_clear_interactions_task<S: synapto_interface::storage::K
                     .iter()
                     .any(|i| i.timestamp == interaction.timestamp)
                 {
+                    let key = format!("{:020}", interaction.timestamp.0);
+                    if let Err(e) = storage
+                        .upsert_record("not_clear_interactions", &key, interaction.clone())
+                        .await
+                    {
+                        tracing::error!("Failed to save not_clear_interaction: {}", e);
+                    }
                     not_clear_memory.push_back(interaction);
                     changed = true;
                 }
@@ -76,6 +85,10 @@ pub(super) async fn not_clear_interactions_task<S: synapto_interface::storage::K
                     .position(|i| i.timestamp == resolved_timestamp)
                 {
                     not_clear_memory.remove(pos);
+                    let key = format!("{:020}", resolved_timestamp.0);
+                    if let Err(e) = storage.delete_record("not_clear_interactions", &key).await {
+                        tracing::error!("Failed to delete not_clear_interaction: {}", e);
+                    }
                     changed = true;
                 }
             }
@@ -88,12 +101,6 @@ pub(super) async fn not_clear_interactions_task<S: synapto_interface::storage::K
         if changed {
             if let Err(e) = not_clear_memory_tx.send(not_clear_memory.clone()) {
                 tracing::error!("Failed to send not_clear_memory: {}", e);
-            }
-            if let Err(e) = storage
-                .set("memory", "not_clear_interactions", not_clear_memory.clone())
-                .await
-            {
-                tracing::error!("Failed to save not_clear_memory: {}", e);
             }
         }
     }

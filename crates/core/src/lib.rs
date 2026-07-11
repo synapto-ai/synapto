@@ -46,7 +46,7 @@ use synapto_interface::speech_to_text::{InputVoiceAudio, SpeechDetected, SpeechT
 pub trait PluginTuple<
     D: config::DataDirProvider,
     C: config::ConfigProvider,
-    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore,
+    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
     PR: prompt_provider::CognitivePromptProvider,
 >
 {
@@ -56,7 +56,7 @@ pub trait PluginTuple<
 impl<
     D: config::DataDirProvider,
     C: config::ConfigProvider,
-    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore,
+    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
     PR: prompt_provider::CognitivePromptProvider,
 > PluginTuple<D, C, S, PR> for ()
 {
@@ -70,7 +70,7 @@ macro_rules! impl_plugin_tuple {
         impl<
             D: config::DataDirProvider,
             C: config::ConfigProvider,
-            S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore,
+            S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
             PR: prompt_provider::CognitivePromptProvider,
             $($T: synapto_interface::plugin::Plugin),+
         > PluginTuple<D, C, S, PR> for ($($T,)+) {
@@ -178,7 +178,7 @@ impl<C: crate::config::ConfigProvider> synapto_interface::storage::StorageConfig
 pub struct Synapto<
     D: crate::config::DataDirProvider,
     C: crate::config::ConfigProvider,
-    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore,
+    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
     PR: prompt_provider::CognitivePromptProvider = prompt_provider::EmptyPromptProvider,
 > {
     config: config::Config,
@@ -238,7 +238,7 @@ pub struct Synapto<
 impl<
     D: config::DataDirProvider,
     C: config::ConfigProvider,
-    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore,
+    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
     PR: prompt_provider::CognitivePromptProvider,
 > Synapto<D, C, S, PR>
 {
@@ -774,7 +774,7 @@ fn get_dynamic_capabilities() -> Vec<String> {
 impl<
     D: config::DataDirProvider,
     C: config::ConfigProvider,
-    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore,
+    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
     PR: prompt_provider::CognitivePromptProvider,
 > synapto_interface::plugin::PluginRegistry for Synapto<D, C, S, PR>
 {

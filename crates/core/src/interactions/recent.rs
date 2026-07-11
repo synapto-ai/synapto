@@ -124,7 +124,7 @@ impl InteractionMemory {
             if let Some(idx) = interaction
                 .in_flight_tools
                 .iter()
-                .position(|t| t.id == tool_call_id)
+                .position(|t| t.id == *tool_call_id)
             {
                 let tool = interaction.in_flight_tools.remove(idx);
                 interaction.resolved_tools.push(tool);
@@ -168,7 +168,9 @@ async fn wait_for_any_rollout(
 }
 
 #[instrument(skip_all, fields(subsystem))]
-pub(super) async fn interaction_memory_task<S: synapto_interface::storage::KeyValueStore>(
+pub(super) async fn interaction_memory_task<
+    S: synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
+>(
     _config: Config,
     mut new_interaction_rx: mpsc::Receiver<Interaction>,
     mut rollout_receivers: Vec<(String, watch::Receiver<Timestamp>)>,
@@ -178,11 +180,11 @@ pub(super) async fn interaction_memory_task<S: synapto_interface::storage::KeyVa
     mut resolve_in_flight_tool_rx: mpsc::Receiver<synapto_interface::tool::ToolCallId>,
     storage: std::sync::Arc<S>,
 ) {
-    let mut interaction_memory: InteractionMemory = if let Ok(Some(mem)) = storage
-        .get::<InteractionMemory>("memory", "interactions")
+    let mut interaction_memory: InteractionMemory = if let Ok(records) = storage
+        .get_ordered_records::<Interaction>("interactions", None, false)
         .await
     {
-        mem
+        InteractionMemory(records.into_iter().map(|(_, v)| v).collect())
     } else {
         InteractionMemory::default()
     };
@@ -211,6 +213,13 @@ pub(super) async fn interaction_memory_task<S: synapto_interface::storage::KeyVa
                 .. if let res = new_interaction_rx.recv() => {
                     match res {
                         Some(new_interaction) => {
+                            let key = format!("{:020}", new_interaction.timestamp.0);
+                            if let Err(e) = storage
+                                .upsert_record("interactions", &key, new_interaction.clone())
+                                .await
+                            {
+                                tracing::error!("Failed to save new interaction: {}", e);
+                            }
                             interaction_memory.push_back(new_interaction);
                             did_add = true;
                             false
@@ -226,6 +235,24 @@ pub(super) async fn interaction_memory_task<S: synapto_interface::storage::KeyVa
                         if let Err(e) = interaction_memory.resolve_in_flight_tool(&tool_call_id) {
                             tracing::warn!("Failed to resolve in-flight tool marker: {}", e);
                         } else {
+                            // Find the interaction that got updated
+                            if let Some(interaction) = interaction_memory
+                                .0
+                                .iter()
+                                .find(|i| i.resolved_tools.iter().any(|t| t.id == *tool_call_id))
+                            {
+                                let key = format!("{:020}", interaction.timestamp.0);
+                                if let Err(e) = storage
+                                    .upsert_record("interactions", &key, interaction.clone())
+                                    .await
+                                {
+                                    tracing::error!(
+                                        "Failed to update resolved tool interaction: {}",
+                                        e
+                                    );
+                                }
+                            }
+
                             // send an update to subscribers when memory changes
                             interaction_memory_tx
                                 .send(interaction_memory.clone())
@@ -278,6 +305,13 @@ pub(super) async fn interaction_memory_task<S: synapto_interface::storage::KeyVa
 
             if interaction_memory.len() < original_len {
                 did_rollout = true;
+                let cutoff_key = format!("{:020}", timestamp.0);
+                if let Err(e) = storage
+                    .trim_records_before("interactions", &cutoff_key)
+                    .await
+                {
+                    tracing::error!("Failed to trim interaction records: {}", e);
+                }
             }
         }
 
@@ -321,12 +355,6 @@ pub(super) async fn interaction_memory_task<S: synapto_interface::storage::KeyVa
                     .send(interaction_memory.clone())
                     .inspect_err(|e| tracing::error!("{}", e))
                     .ok();
-            }
-            if let Err(e) = storage
-                .set("memory", "interactions", interaction_memory.clone())
-                .await
-            {
-                tracing::error!("Failed to save interaction memory: {:?}", e);
             }
 
             if did_dispatch {

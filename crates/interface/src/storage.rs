@@ -73,31 +73,31 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EmptyStorageConfig {}
 
-/// For data that is just a list of items with no natural key (e.g., Behavioral Insights)
-/// The database automatically handles row creation and ID generation.
 #[async_trait]
-pub trait CollectionStore: Send + Sync + 'static {
-    /// Appends a new value to the collection.
-    ///
-    /// Note: The value type `T` MUST serialize into a JSON object-like structure
-    /// (e.g. a standard struct with named fields). Tuple structs, arrays, or primitive
-    /// types are not supported and will result in errors when saving to the store.
-    async fn push<T>(&self, collection: &str, value: T) -> Result<(), String>
+pub trait RecordStore: Send + Sync + 'static {
+    /// Inserts or updates an individual record.
+    /// If the key is a Timestamp or ULID, time-based ordering is natively maintained.
+    async fn upsert_record<T>(&self, collection: &str, key: &str, value: T) -> Result<(), String>
     where
         T: Serialize + Send + Sync + 'static;
 
-    /// Retrieves all values in the collection.
-    async fn get_all<T>(&self, collection: &str) -> Result<Vec<T>, String>
+    /// Retrieves records guaranteed to be sorted by their key.
+    /// Allows pagination to avoid loading the entire history into RAM.
+    async fn get_ordered_records<T>(
+        &self,
+        collection: &str,
+        limit: Option<usize>,
+        reverse: bool,
+    ) -> Result<Vec<(String, T)>, String>
     where
         T: DeserializeOwned + Send + Sync + 'static;
 
-    /// Clears the entire collection.
-    async fn clear(&self, collection: &str) -> Result<(), String>;
+    /// Deletes a specific record.
+    async fn delete_record(&self, collection: &str, key: &str) -> Result<(), String>;
 
-    /// Replaces the entire collection with a new list of values.
-    async fn replace_all<T>(&self, collection: &str, values: Vec<T>) -> Result<(), String>
-    where
-        T: Serialize + Send + Sync + 'static;
+    /// Atomically deletes all records with a key smaller than `cutoff_key`.
+    /// This natively delegates sliding-window "VecDeque::pop_front()" operations to the DB.
+    async fn trim_records_before(&self, collection: &str, cutoff_key: &str) -> Result<(), String>;
 }
 
 /// For storing and retrieving items by a unique string ID.

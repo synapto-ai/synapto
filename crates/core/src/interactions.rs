@@ -13,7 +13,9 @@ pub(crate) use recent::{InFlightTool, Interaction, InteractionMemory, SpeakerNam
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn start<
-    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore,
+    S: synapto_interface::storage::StorageConnection
+        + synapto_interface::storage::KeyValueStore
+        + synapto_interface::storage::RecordStore,
 >(
     config: Config,
     new_interaction_rx: mpsc::Receiver<recent::Interaction>,
