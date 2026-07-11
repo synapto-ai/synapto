@@ -534,6 +534,7 @@ async fn main() -> ExitCode {
     Synapto::<
         datadir_ephemeral::EphemeralDir,
         (synapto::config::DotEnv, synapto::config::Env),
+        storage_local::LocalStorageProvider,
         synapto::prompt_provider::EmptyPromptProvider,
     >::run::<(
         MockAudioInputPlugin,

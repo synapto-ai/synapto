@@ -46,19 +46,21 @@ use synapto_interface::speech_to_text::{InputVoiceAudio, SpeechDetected, SpeechT
 pub trait PluginTuple<
     D: config::DataDirProvider,
     C: config::ConfigProvider,
+    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore,
     PR: prompt_provider::CognitivePromptProvider,
 >
 {
-    fn register_plugins(synapto: Synapto<D, C, PR>) -> Synapto<D, C, PR>;
+    fn register_plugins(synapto: Synapto<D, C, S, PR>) -> Synapto<D, C, S, PR>;
 }
 
 impl<
     D: config::DataDirProvider,
     C: config::ConfigProvider,
+    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore,
     PR: prompt_provider::CognitivePromptProvider,
-> PluginTuple<D, C, PR> for ()
+> PluginTuple<D, C, S, PR> for ()
 {
-    fn register_plugins(synapto: Synapto<D, C, PR>) -> Synapto<D, C, PR> {
+    fn register_plugins(synapto: Synapto<D, C, S, PR>) -> Synapto<D, C, S, PR> {
         synapto
     }
 }
@@ -68,10 +70,11 @@ macro_rules! impl_plugin_tuple {
         impl<
             D: config::DataDirProvider,
             C: config::ConfigProvider,
+            S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore,
             PR: prompt_provider::CognitivePromptProvider,
             $($T: synapto_interface::plugin::Plugin),+
-        > PluginTuple<D, C, PR> for ($($T,)+) {
-            fn register_plugins(synapto: Synapto<D, C, PR>) -> Synapto<D, C, PR> {
+        > PluginTuple<D, C, S, PR> for ($($T,)+) {
+            fn register_plugins(synapto: Synapto<D, C, S, PR>) -> Synapto<D, C, S, PR> {
                 synapto
                 $(.register_plugin::<$T>())+
             }
@@ -175,12 +178,14 @@ impl<C: crate::config::ConfigProvider> synapto_interface::storage::StorageConfig
 pub struct Synapto<
     D: crate::config::DataDirProvider,
     C: crate::config::ConfigProvider,
+    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore,
     PR: prompt_provider::CognitivePromptProvider = prompt_provider::EmptyPromptProvider,
 > {
     config: config::Config,
     config_provider: Arc<C>,
     _data_dir_provider: std::marker::PhantomData<D>,
     _prompt_provider: std::marker::PhantomData<PR>,
+    _storage_provider: std::marker::PhantomData<S>,
     tracing: Tracing,
     audio_input_spawners: Vec<AudioInputSpawner>,
     audio_output_spawners: Vec<AudioOutputSpawner>,
@@ -233,8 +238,9 @@ pub struct Synapto<
 impl<
     D: config::DataDirProvider,
     C: config::ConfigProvider,
+    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore,
     PR: prompt_provider::CognitivePromptProvider,
-> Synapto<D, C, PR>
+> Synapto<D, C, S, PR>
 {
     #[allow(clippy::new_without_default)]
     fn new() -> Self {
@@ -281,6 +287,7 @@ impl<
             config_provider,
             _data_dir_provider: std::marker::PhantomData,
             _prompt_provider: std::marker::PhantomData,
+            _storage_provider: std::marker::PhantomData,
             config,
             tracing,
             audio_input_spawners: Vec::new(),
@@ -401,7 +408,7 @@ impl<
         self
     }
 
-    pub async fn run<T: PluginTuple<D, C, PR>>() -> ExitCode {
+    pub async fn run<T: PluginTuple<D, C, S, PR>>() -> ExitCode {
         T::register_plugins(Self::new()).run_internal().await
     }
 
@@ -559,6 +566,26 @@ impl<
         let (resolve_in_flight_tool_tx, resolve_in_flight_tool_rx) =
             mpsc::channel::<synapto_interface::tool::ToolCallId>(100);
 
+        // TODO explore whether the "core" plugin context could be used more than for reusing storage provider initialization logic
+        let core_plugin_context = synapto_interface::plugin::PluginContext::new(
+            self.config.data_dir.clone(),
+            self.llm_executor.clone(),
+            serde_json::json!({}),
+            self.storage.clone(),
+            "core".to_string(),
+            std::sync::Arc::new(CoreStorageConfigResolver {
+                provider: self.config_provider.clone(),
+            }),
+            self.current_context_rx.clone(),
+        );
+
+        let core_storage = std::sync::Arc::new(
+            core_plugin_context
+                .store::<S>()
+                .await
+                .expect("Failed to initialize core storage"),
+        );
+
         interactions::start(
             self.config.clone(),
             new_interaction_rx,
@@ -568,6 +595,7 @@ impl<
             resolve_not_clear_rx,
             not_clear_memory_tx,
             resolve_in_flight_tool_rx,
+            core_storage,
         )
         .await;
 
@@ -746,8 +774,9 @@ fn get_dynamic_capabilities() -> Vec<String> {
 impl<
     D: config::DataDirProvider,
     C: config::ConfigProvider,
+    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore,
     PR: prompt_provider::CognitivePromptProvider,
-> synapto_interface::plugin::PluginRegistry for Synapto<D, C, PR>
+> synapto_interface::plugin::PluginRegistry for Synapto<D, C, S, PR>
 {
     fn register_audio_input<P: AudioInputPlugin>(&mut self, plugin: Arc<P>) {
         self.audio_input_spawners.push(Box::new(move |tx_opt| {

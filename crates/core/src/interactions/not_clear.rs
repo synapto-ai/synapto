@@ -39,23 +39,21 @@ impl From<&Interaction> for NotClearInteraction {
 // }
 
 #[instrument(skip_all, fields(subsystem))]
-pub(super) async fn not_clear_interactions_task(
-    config: Config,
+pub(super) async fn not_clear_interactions_task<S: synapto_interface::storage::KeyValueStore>(
+    _config: Config,
     mut not_clear_rx: mpsc::Receiver<NotClearInteraction>,
     mut resolve_not_clear_rx: mpsc::Receiver<Timestamp>,
     not_clear_memory_tx: watch::Sender<NotClearInteractionMemory>,
+    storage: std::sync::Arc<S>,
 ) {
-    let memory_dir = config.data_dir.join("memory");
-    tokio::fs::create_dir_all(&memory_dir).await.ok();
-    let memory_file = memory_dir.join("not_clear_interactions.json");
-
-    let mut not_clear_memory: NotClearInteractionMemory =
-        if let Ok(content) = tokio::fs::read_to_string(&memory_file).await {
-            serde_json::from_str::<NotClearInteractionMemory>(&content)
-                .unwrap_or_else(|e| panic!("Failed to deserialize not_clear_memory: {}", e))
-        } else {
-            NotClearInteractionMemory::default()
-        };
+    let mut not_clear_memory: NotClearInteractionMemory = if let Ok(Some(mem)) = storage
+        .get::<NotClearInteractionMemory>("memory", "not_clear_interactions")
+        .await
+    {
+        mem
+    } else {
+        NotClearInteractionMemory::default()
+    };
 
     not_clear_memory_tx.send_replace(not_clear_memory.clone());
 
@@ -91,14 +89,11 @@ pub(super) async fn not_clear_interactions_task(
             if let Err(e) = not_clear_memory_tx.send(not_clear_memory.clone()) {
                 tracing::error!("Failed to send not_clear_memory: {}", e);
             }
-            if let Err(e) = tokio::fs::write(
-                &memory_file,
-                serde_json::to_string_pretty(&not_clear_memory)
-                    .unwrap_or_else(|e| panic!("Failed to serialize not_clear_memory: {}", e)),
-            )
-            .await
+            if let Err(e) = storage
+                .set("memory", "not_clear_interactions", not_clear_memory.clone())
+                .await
             {
-                tracing::error!("Failed to write not_clear_interactions memory: {:?}", e);
+                tracing::error!("Failed to save not_clear_memory: {}", e);
             }
         }
     }

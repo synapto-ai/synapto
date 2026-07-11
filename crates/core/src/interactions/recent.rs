@@ -168,43 +168,40 @@ async fn wait_for_any_rollout(
 }
 
 #[instrument(skip_all, fields(subsystem))]
-pub(super) async fn interaction_memory_task(
-    config: Config,
+pub(super) async fn interaction_memory_task<S: synapto_interface::storage::KeyValueStore>(
+    _config: Config,
     mut new_interaction_rx: mpsc::Receiver<Interaction>,
     mut rollout_receivers: Vec<(String, watch::Receiver<Timestamp>)>,
     observers_tx: Vec<mpsc::Sender<synapto_interface::interaction::ObservedInteraction>>,
     interaction_memory_tx: watch::Sender<InteractionMemory>,
     not_clear_tx: mpsc::Sender<NotClearInteraction>,
     mut resolve_in_flight_tool_rx: mpsc::Receiver<synapto_interface::tool::ToolCallId>,
+    storage: std::sync::Arc<S>,
 ) {
-    let memory_dir = config.data_dir.join("memory");
-    if let Err(e) = tokio::fs::create_dir_all(&memory_dir).await {
-        tracing::error!("Failed to create memory directory: {:?}", e);
-    }
-    let interaction_memory_file = memory_dir.join("interactions.json");
-
-    let mut interaction_memory: InteractionMemory =
-        if let Ok(content) = tokio::fs::read_to_string(&interaction_memory_file).await {
-            serde_json::from_str::<InteractionMemory>(&content)
-                .unwrap_or_else(|e| panic!("Failed to deserialize interaction memory: {}", e))
-        } else {
-            InteractionMemory::default()
-        };
+    let mut interaction_memory: InteractionMemory = if let Ok(Some(mem)) = storage
+        .get::<InteractionMemory>("memory", "interactions")
+        .await
+    {
+        mem
+    } else {
+        InteractionMemory::default()
+    };
 
     interaction_memory_tx.send_replace(interaction_memory.clone());
 
-    let last_sent_file = memory_dir.join("last_sent_timestamp.json");
-    let mut last_sent_timestamp: Option<Timestamp> =
-        if let Ok(content) = tokio::fs::read_to_string(&last_sent_file).await {
-            serde_json::from_str(&content).ok()
+    let mut last_sent_timestamp: Option<Timestamp> = if let Ok(Some(ts)) = storage
+        .get::<Timestamp>("memory", "last_sent_timestamp")
+        .await
+    {
+        Some(ts)
+    } else {
+        // Fallback for backward compatibility
+        if interaction_memory.len() > 8 {
+            Some(interaction_memory.0[interaction_memory.len() - 8 - 1].timestamp)
         } else {
-            // Fallback for backward compatibility
-            if interaction_memory.len() > 8 {
-                Some(interaction_memory.0[interaction_memory.len() - 8 - 1].timestamp)
-            } else {
-                None
-            }
-        };
+            None
+        }
+    };
 
     loop {
         let mut did_add = false;
@@ -325,26 +322,20 @@ pub(super) async fn interaction_memory_task(
                     .inspect_err(|e| tracing::error!("{}", e))
                     .ok();
             }
-            if let Err(e) = tokio::fs::write(
-                &interaction_memory_file,
-                serde_json::to_string_pretty(&interaction_memory)
-                    .unwrap_or_else(|e| panic!("Failed to serialize interaction memory: {}", e)),
-            )
-            .await
+            if let Err(e) = storage
+                .set("memory", "interactions", interaction_memory.clone())
+                .await
             {
-                tracing::error!("Failed to write memory: {:?}", e);
+                tracing::error!("Failed to save interaction memory: {:?}", e);
             }
 
             if did_dispatch {
-                tokio::fs::write(
-                    &last_sent_file,
-                    serde_json::to_string_pretty(&last_sent_timestamp).unwrap_or_else(|e| {
-                        panic!("Failed to serialize last sent timestamp: {}", e)
-                    }),
-                )
-                .await
-                .inspect_err(|e| tracing::error!("Failed to write last_sent_timestamp: {:?}", e))
-                .ok();
+                if let Err(e) = storage
+                    .set("memory", "last_sent_timestamp", last_sent_timestamp)
+                    .await
+                {
+                    tracing::error!("Failed to save last_sent_timestamp: {:?}", e);
+                }
             }
         }
     }
