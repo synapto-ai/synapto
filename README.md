@@ -1,5 +1,9 @@
 # ![Synapto](assets/synapto-text-100.svg)
 
+[![License](https://img.shields.io/badge/License-MPL--2.0-blue.svg)](https://github.com/synapto-ai/synapto#-license)
+[![Crates.io](https://img.shields.io/crates/s/synapto.svg)](https://crates.io/crates/synapto)
+[![Docs](https://docs.rs/synapto/badge.svg)](https://docs.rs/synapto/latest/synapto/)
+
 > The Universal, Rust-Powered Cognitive Brain for Robots, Assistants, and Beyond.
 
 Welcome to **Synapto**, an open-source, highly concurrent, and event-driven cognitive architecture built in Rust.
