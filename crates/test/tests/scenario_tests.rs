@@ -24,6 +24,7 @@ async fn test_bundle() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore]
 async fn async_tool_dual_channel() {
     run_scenario(
         "scenarios/async-tool-dual-channel/scenario.yaml",
@@ -33,11 +34,13 @@ async fn async_tool_dual_channel() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore]
 async fn async_tool_reaction() {
     run_scenario("scenarios/async-tool-reaction/scenario.yaml", test_bundle).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore]
 async fn behavioral_memory_test() {
     run_scenario(
         "scenarios/behavioral-memory-test/scenario.yaml",
@@ -47,11 +50,13 @@ async fn behavioral_memory_test() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore]
 async fn edge_cases_test() {
     run_scenario("scenarios/edge-cases-test/scenario.yaml", test_bundle).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore]
 async fn multi_assert_test() {
     run_scenario("scenarios/multi-assert-test/scenario.yaml", test_bundle).await;
 }

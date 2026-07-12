@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::sync::OnceLock;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use synapto_interface::sync::mpsc;
 
@@ -8,15 +8,17 @@ pub type FatalError = Box<dyn Error + Send + Sync + 'static>;
 #[derive(Debug)]
 pub struct ShutdownResult(pub Result<(), FatalError>);
 
-static SHUTDOWN_TX: OnceLock<mpsc::UnboundedSender<ShutdownResult>> = OnceLock::new();
+// Replaced OnceLock with Mutex<Option<..>> to allow the shutdown mechanism
+// to be safely re-initialized when running multiple tests sequentially
+// in the same OS process (e.g., `cargo test --test-threads=1`).
+static SHUTDOWN_TX: Mutex<Option<mpsc::UnboundedSender<ShutdownResult>>> = Mutex::new(None);
 pub static IS_SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 
 /// Initializes the shutdown mechanism, sets a global panic hook, and returns a receiver for the orchestrator.
 pub fn init() -> mpsc::UnboundedReceiver<ShutdownResult> {
     let (tx, rx) = mpsc::unbounded_channel();
-    SHUTDOWN_TX
-        .set(tx)
-        .unwrap_or_else(|e| panic!("Shutdown mechanism must be initialized only once: {:?}", e));
+    *SHUTDOWN_TX.lock().unwrap() = Some(tx);
+    IS_SHUTTING_DOWN.store(false, Ordering::Relaxed);
 
     std::panic::set_hook(Box::new(|panic_info| {
         let msg = if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
@@ -31,6 +33,17 @@ pub fn init() -> mpsc::UnboundedReceiver<ShutdownResult> {
             .map(|l| format!(" at {}:{}:{}", l.file(), l.line(), l.column()))
             .unwrap_or_default();
         let backtrace = std::backtrace::Backtrace::capture();
+
+        // TODO consider uncommenting
+        // // We explicitly print to stderr here because during sequential test runs,
+        // // the shutdown receiver might have already been dropped. If we only relied
+        // // on `trigger_fatal`, the panic would be sent into a dead channel and
+        // // silently swallowed.
+        // eprintln!(
+        //     "!!!!!!!! FATAL PANIC: {}{}\nBacktrace:\n{}",
+        //     msg, location, backtrace
+        // );
+
         trigger_fatal(format!(
             "Panic: {}{}\nBacktrace:\n{}",
             msg, location, backtrace
@@ -48,7 +61,7 @@ pub fn is_shutting_down() -> bool {
 /// Triggers a fatal shutdown with an error.
 pub fn trigger_fatal<E: Into<FatalError>>(err: E) {
     IS_SHUTTING_DOWN.store(true, Ordering::Relaxed);
-    if let Some(tx) = SHUTDOWN_TX.get() {
+    if let Some(tx) = SHUTDOWN_TX.lock().unwrap().as_ref() {
         tx.send(ShutdownResult(Err(err.into())))
             .inspect_err(|e| tracing::trace!("Channel send failed: {:?}", e))
             .ok();
@@ -58,7 +71,7 @@ pub fn trigger_fatal<E: Into<FatalError>>(err: E) {
 /// Triggers a graceful shutdown.
 pub fn trigger_graceful() {
     IS_SHUTTING_DOWN.store(true, Ordering::Relaxed);
-    if let Some(tx) = SHUTDOWN_TX.get() {
+    if let Some(tx) = SHUTDOWN_TX.lock().unwrap().as_ref() {
         tx.send(ShutdownResult(Ok(())))
             .inspect_err(|e| tracing::trace!("Channel send failed: {:?}", e))
             .ok();

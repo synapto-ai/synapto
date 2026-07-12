@@ -68,12 +68,20 @@ where
     S: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a> + Send + Sync,
 {
     fn add_directive(&self, directive: String) {
-        self.modify(|filter| {
+        // We don't unwrap/panic on failure here because during sequential test runs,
+        // we might be trying to modify a reload handle belonging to a dropped
+        // tracing subscriber layer from a previous test.
+        if let Err(e) = self.modify(|filter| {
             if let Ok(d) = directive.parse() {
                 *filter = filter.clone().add_directive(d);
             }
-        })
-        .unwrap_or_else(|_| panic!("Failed to modify filter for directive: {}", directive));
+        }) {
+            tracing::warn!(
+                "Failed to modify tracing filter for directive '{}'. This is expected if running multiple tests sequentially: {}",
+                directive,
+                e
+            );
+        }
     }
 }
 
@@ -257,7 +265,14 @@ impl Tracing {
                 .with(super::graph_layer::RerunGraphLayer::new().boxed())
         };
 
-        subscriber.with(reloadable_filter).init();
+        // Use `try_init` instead of `init` to prevent panics when running multiple tests
+        // sequentially, as the global tracing subscriber from the first test remains active.
+        if let Err(e) = subscriber.with(reloadable_filter).try_init() {
+            eprintln!(
+                "Warning: Failed to set global tracing subscriber. This is expected during sequential test runs: {}",
+                e
+            );
+        }
 
         Self {
             #[cfg(feature = "log-to-file")]
