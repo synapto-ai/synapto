@@ -32,8 +32,8 @@ impl TTSPlugin for MockTtsPlugin {
             synapto_interface::cognitive_output_audio::CognitiveOutputAudio,
         >,
     ) -> Result<(), String> {
-        let coordinator = ACTIVE_COORDINATOR.get().ok_or_else(|| {
-            "ScenarioCoordinator is not initialized in ACTIVE_COORDINATOR OnceLock".to_string()
+        let coordinator = ACTIVE_COORDINATOR.lock().unwrap().clone().ok_or_else(|| {
+            "ScenarioCoordinator is not initialized in ACTIVE_COORDINATOR Mutex".to_string()
         })?;
 
         while let Ok(msg) = speech_rx.recv().await {

@@ -35,8 +35,8 @@ impl ChatPlugin for MockChatPlugin {
         _cognitive_state_rx: broadcast::Receiver<CognitiveStateUpdate>,
         add_document_tx: Option<mpsc::Sender<AddDocumentRequest>>,
     ) -> Result<(), String> {
-        let coordinator = ACTIVE_COORDINATOR.get().ok_or_else(|| {
-            "ScenarioCoordinator is not initialized in ACTIVE_COORDINATOR OnceLock".to_string()
+        let coordinator = ACTIVE_COORDINATOR.lock().unwrap().clone().ok_or_else(|| {
+            "ScenarioCoordinator is not initialized in ACTIVE_COORDINATOR Mutex".to_string()
         })?;
 
         coordinator.peer_input_text_tx.set(peer_input_text_tx).ok();

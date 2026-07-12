@@ -1062,14 +1062,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "datadir-ephemeral"
-version = "0.1.0-dev.1"
-dependencies = [
- "synapto",
- "tempfile",
-]
-
-[[package]]
 name = "defmt"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4645,21 +4637,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
-name = "storage-local"
-version = "0.1.0-dev.1"
-dependencies = [
- "async-trait",
- "dashmap",
- "serde",
- "serde_json",
- "synapto-interface",
- "tempfile",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4825,6 +4802,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "synapto-test"
+version = "0.1.0-dev.1"
+dependencies = [
+ "async-trait",
+ "better_tokio_select",
+ "clap",
+ "claxon",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "synapto",
+ "synapto-interface",
+ "synapto-shutdown",
+ "test-datadir-ephemeral",
+ "test-storage-local",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "sync_wrapper"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4899,23 +4897,26 @@ dependencies = [
 ]
 
 [[package]]
-name = "test-bundle"
+name = "test-datadir-ephemeral"
+version = "0.1.0-dev.1"
+dependencies = [
+ "synapto",
+ "tempfile",
+]
+
+[[package]]
+name = "test-storage-local"
 version = "0.1.0-dev.1"
 dependencies = [
  "async-trait",
- "better_tokio_select",
- "clap",
- "claxon",
- "datadir-ephemeral",
- "schemars 1.2.1",
+ "dashmap",
  "serde",
  "serde_json",
- "serde_yaml",
- "storage-local",
- "synapto",
  "synapto-interface",
+ "tempfile",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

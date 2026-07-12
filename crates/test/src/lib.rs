@@ -1,11 +1,16 @@
 #![feature(iter_array_chunks)]
-#[path = "../plugins/mod.rs"]
-mod plugins;
 
-use plugins::documents::MockDocumentsPlugin;
-use std::process::ExitCode;
+#[path = "plugins/mod.rs"]
+pub mod plugins;
+
+pub use plugins::chat::MockChatPlugin;
+pub use plugins::diarization::MockDiarizationPlugin;
+pub use plugins::documents::MockDocumentsPlugin;
+pub use plugins::stt::MockSttPlugin;
+pub use plugins::tools::MockSlowReadPlugin;
+pub use plugins::tts::MockTtsPlugin;
+
 use std::sync::Arc;
-use synapto::Synapto;
 use synapto_interface::document::{
     AddDocumentRequest, DocumentIngestionPolicy, DocumentRegistrationRequest,
 };
@@ -21,18 +26,11 @@ use synapto_interface::plugin::MessageChannel;
 use synapto_interface::speech_to_text::{SpeechDetected, SpeechTranscript};
 use synapto_interface::sync::mpsc;
 
-use plugins::chat::MockChatPlugin;
-use plugins::diarization::MockDiarizationPlugin;
-use plugins::stt::MockSttPlugin;
-use plugins::tools::MockSlowReadPlugin;
-use plugins::tts::MockTtsPlugin;
-
-pub static ACTIVE_COORDINATOR: std::sync::OnceLock<Arc<ScenarioCoordinator>> =
-    std::sync::OnceLock::new();
+pub static ACTIVE_COORDINATOR: std::sync::Mutex<Option<Arc<ScenarioCoordinator>>> =
+    std::sync::Mutex::new(None);
 
 pub struct MockAudioInputPlugin;
 
-#[async_trait::async_trait]
 #[async_trait::async_trait]
 impl synapto_interface::plugin::Plugin for MockAudioInputPlugin {
     async fn create(_context: synapto_interface::plugin::PluginContext) -> Result<Self, String> {
@@ -52,8 +50,8 @@ impl synapto_interface::plugin::Plugin for MockAudioInputPlugin {
 #[async_trait::async_trait]
 impl AudioInputPlugin for MockAudioInputPlugin {
     async fn start(&self, tx: mpsc::Sender<PeerInputAudio>) -> Result<(), String> {
-        let coordinator = ACTIVE_COORDINATOR.get().ok_or_else(|| {
-            "ScenarioCoordinator is not initialized in ACTIVE_COORDINATOR OnceLock".to_string()
+        let coordinator = ACTIVE_COORDINATOR.lock().unwrap().clone().ok_or_else(|| {
+            "ScenarioCoordinator is not initialized in ACTIVE_COORDINATOR Mutex".to_string()
         })?;
 
         coordinator.peer_input_audio_tx.set(tx).ok();
@@ -119,6 +117,65 @@ pub struct ScenarioCoordinator {
     pub speech_detected: std::sync::OnceLock<SpeechDetected>,
     pub add_document_tx: std::sync::OnceLock<mpsc::Sender<AddDocumentRequest>>,
     pub peer_input_audio_tx: std::sync::OnceLock<mpsc::Sender<PeerInputAudio>>,
+}
+
+pub async fn run_scenario<F, Fut>(
+    scenario_manifest_path: impl AsRef<std::path::Path>,
+    boot_bundle: F,
+) where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    // Load scenario manifest
+    let yaml_str = match tokio::fs::read_to_string(&scenario_manifest_path).await {
+        Ok(s) => s,
+        Err(e) => {
+            panic!(
+                "Failed to read scenario file {:?}: {}",
+                scenario_manifest_path.as_ref(),
+                e
+            );
+        }
+    };
+
+    let manifest: ScenarioManifest = match serde_yaml::from_str(&yaml_str) {
+        Ok(m) => m,
+        Err(e) => {
+            panic!("Failed to parse scenario manifest: {}", e);
+        }
+    };
+
+    // Initialize Scenario Coordinator
+    let coordinator = Arc::new(ScenarioCoordinator::new(
+        manifest.steps,
+        scenario_manifest_path.as_ref().to_path_buf(),
+    ));
+
+    *ACTIVE_COORDINATOR.lock().unwrap() = Some(coordinator.clone());
+
+    let (tx, rx) = tokio::sync::oneshot::channel();
+
+    // Spawn coordination driver thread
+    tokio::spawn(async move {
+        let result = coordinator.drive().await;
+        synapto_shutdown::trigger_graceful(); // Gracefully shutdown Synapto::run
+        let _ = tx.send(result);
+    });
+
+    // Boot the bundle which will block until shutdown
+    boot_bundle().await;
+
+    // Check the scenario result
+    let result = rx
+        .await
+        .unwrap_or_else(|_| Err("Coordinator task panicked or dropped before completing".into()));
+
+    // Clear global state so the next test can run safely
+    *ACTIVE_COORDINATOR.lock().unwrap() = None;
+
+    if let Err(e) = result {
+        panic!("Scenario Failed: {}", e);
+    }
 }
 
 impl ScenarioCoordinator {
@@ -470,80 +527,4 @@ impl ScenarioCoordinator {
         }
         Ok(())
     }
-}
-
-#[derive(clap::Parser)]
-#[clap(name = "test-mode")]
-pub struct CliArgs {
-    pub scenario_manifest_path: std::path::PathBuf,
-}
-
-#[tokio::main]
-async fn main() -> ExitCode {
-    use clap::Parser;
-    let cli = CliArgs::parse();
-
-    let scenario_manifest_path = cli.scenario_manifest_path;
-
-    // Load scenario manifest
-    let yaml_str = match tokio::fs::read_to_string(&scenario_manifest_path).await {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!(
-                "Failed to read scenario file {:?}: {}",
-                scenario_manifest_path, e
-            );
-            return ExitCode::FAILURE;
-        }
-    };
-
-    let manifest: ScenarioManifest = match serde_yaml::from_str(&yaml_str) {
-        Ok(m) => m,
-        Err(e) => {
-            eprintln!("Failed to parse scenario manifest: {}", e);
-            return ExitCode::FAILURE;
-        }
-    };
-
-    // Initialize Scenario Coordinator
-    let coordinator = Arc::new(ScenarioCoordinator::new(
-        manifest.steps,
-        scenario_manifest_path.clone(),
-    ));
-    ACTIVE_COORDINATOR.set(coordinator.clone()).ok();
-
-    // Spawn coordination driver thread
-    let coordinator_clone = coordinator.clone();
-    tokio::spawn(async move {
-        let result = coordinator_clone.drive().await;
-        match result {
-            Ok(()) => {
-                println!(
-                    "Scenario completed successfully! Total steps: {}",
-                    coordinator_clone.steps.len()
-                );
-                std::process::exit(0);
-            }
-            Err(e) => {
-                eprintln!("Scenario Failed: {}", e);
-                std::process::exit(1);
-            }
-        }
-    });
-
-    Synapto::<
-        datadir_ephemeral::EphemeralDir,
-        (synapto::config::DotEnv, synapto::config::Env),
-        storage_local::LocalStorageProvider,
-        synapto::prompt_provider::EmptyPromptProvider,
-    >::run::<(
-        MockAudioInputPlugin,
-        MockDocumentsPlugin,
-        MockChatPlugin,
-        MockSlowReadPlugin,
-        MockTtsPlugin,
-        MockSttPlugin,
-        MockDiarizationPlugin,
-    )>()
-    .await
 }

@@ -31,8 +31,8 @@ impl STTPlugin for MockSttPlugin {
         transcript_tx: mpsc::Sender<SpeechTranscript>,
         speech_detected: SpeechDetected,
     ) -> Result<(), String> {
-        let coordinator = ACTIVE_COORDINATOR.get().ok_or_else(|| {
-            "ScenarioCoordinator is not initialized in ACTIVE_COORDINATOR OnceLock".to_string()
+        let coordinator = ACTIVE_COORDINATOR.lock().unwrap().clone().ok_or_else(|| {
+            "ScenarioCoordinator is not initialized in ACTIVE_COORDINATOR Mutex".to_string()
         })?;
 
         coordinator.transcript_tx.set(transcript_tx).ok();

@@ -1,5 +1,5 @@
 [package]
-name = "test-bundle"
+name = "synapto-test"
 version = "0.1.0-dev.1"
 edition = "2024"
 license.workspace = true
@@ -19,5 +19,6 @@ clap = { version = "*", features = ["derive", "env"] }
 claxon = "0.4"
 tokio.workspace = true
 
-datadir-ephemeral = { path = "datadir-providers/ephemeral" }
-storage-local = { path = "storage-providers/local" }
+test-datadir-ephemeral = { path = "datadir-providers/ephemeral" }
+test-storage-local = { path = "storage-providers/local" }
+synapto-shutdown.workspace = true

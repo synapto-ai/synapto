@@ -1,5 +1,5 @@
 [package]
-name = "storage-local"
+name = "test-storage-local"
 version = "0.1.0-dev.1"
 edition = "2024"
 
