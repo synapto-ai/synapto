@@ -147,7 +147,6 @@ impl Plugin for MyChatPlugin {
 > To make a configuration parameter optional, use the `#[serde(default)]` attribute on the field. This instructs `serde` to fall back to the type's `Default::default()` (or a custom function) if the user omits the key from their configuration file.
 
 ### 3. Implement the Specialized `ChatPlugin` Trait
-
 Implement the specialized `ChatPlugin` trait to receive direct channels from the cognitive core. This method is called asynchronously within a spawned `tokio` task.
 
 ```rust,ignore
@@ -208,7 +207,6 @@ impl ChatPlugin for MyChatPlugin {
 ```
 
 ## Architectural Guidelines
-
 1. **Own Your I/O**: The core engine must remain completely agnostic of plugin-specific control protocols, network connection details, or authentication secrets.
 2. **Specialized, Type-Safe Start Signatures**: The parameters of `start` methods are bare, non-optional `mpsc` and `broadcast` channels. This enforces type-safe direct coupling at the compiler level and guarantees you are provided with exactly the channels required.
 3. **Never Block Ingestion Loops**: All heavy network calls, external API fetches, and synchronous procedures must run inside spawned `tokio::spawn` tasks detached from the main loops.
@@ -220,3 +218,11 @@ impl ChatPlugin for MyChatPlugin {
 To simplify debugging, use the `synapto_interface::sync` module (`mpsc`, `broadcast`, `watch`) instead of raw `tokio::sync` imports.
 
 In **Debug** mode, any message sent over these instrumented channels automatically records telemetry that can be visualized in the Rerun window. In **Release** mode, these resolve directly to standard `tokio::sync` types with **zero performance overhead**.
+
+## Integration Testing (Scenario Tests)
+
+Synapto provides a deterministic YAML-based scenario testing framework via the `synapto-test` crate. This allows you to test your real plugin within a fully booted simulated AI environment. 
+
+To test your plugin, you inject your *real* plugin into a test bundle alongside `synapto-test`'s mock plugins, simulating end-to-end multi-modal interactions.
+
+For detailed instructions on how to write `scenario.yaml` files and set up your integration tests, see the [Testing Framework Documentation](../TESTING.md#testing-plugins-external-to-synapto).
