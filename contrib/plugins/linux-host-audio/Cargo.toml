@@ -16,7 +16,7 @@ async-trait.workspace = true
 tracing.workspace = true
 
 pipewire = { version = "0.9", features = ["v0_3_44"] }
-libspa = "*"
-libspa-sys = "*"
-ogg = "*"
-opus = "*"
+libspa = "0.10"
+libspa-sys = "0.10"
+ogg = "0.9"
+opus = "0.3"

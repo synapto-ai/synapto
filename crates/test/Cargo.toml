@@ -13,10 +13,10 @@ synapto-interface.workspace = true
 serde.workspace = true
 schemars.workspace = true
 serde_json.workspace = true
-serde_yaml = { version = "*" }
-async-trait = { version = "*" }
+serde_yaml = { workspace = true }
+async-trait = { workspace = true }
 tracing.workspace = true
-clap = { version = "*", features = ["derive", "env"] }
+clap = { version = "4", features = ["derive", "env"] }
 claxon = "0.4"
 tokio.workspace = true
 

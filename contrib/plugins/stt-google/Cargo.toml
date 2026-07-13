@@ -18,6 +18,6 @@ tracing.workspace = true
 gcp_auth = "0.12"
 tonic = { version = "0.14", features = ["tls-native-roots"] }
 tokio-stream = "0.1"
-googleapis-tonic-google-cloud-speech-v1 = "*"
-googleapis-tonic-google-cloud-speech-v2 = "*"
+googleapis-tonic-google-cloud-speech-v1 = "0.34"
+googleapis-tonic-google-cloud-speech-v2 = "0.37"
 serde_json.workspace = true

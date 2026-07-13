@@ -24,6 +24,7 @@ bytes = "1"
 derive_more= {version = "2", features=["full"]}
 async-trait= "0.1"
 tracing = "0.1"
+url = "2"
 
 synapto = {path="../crates/core" }
 synapto-interface = {path="../crates/interface" }

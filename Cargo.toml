@@ -32,6 +32,7 @@ bytes = "1"
 derive_more= {version = "2", features=["full"]}
 async-trait= "0.1"
 tracing = "0.1"
+serde_yaml = "0.9"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

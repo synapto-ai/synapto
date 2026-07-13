@@ -16,8 +16,8 @@ serde.workspace = true
 tokio = { workspace = true, features = ["sync", "time", "rt", "macros"] }
 tracing.workspace = true
 tokio-tungstenite = { version = "0.26", features = ["rustls-tls-native-roots", "url"] }
-url = "*"
+url.workspace = true
 futures = "0.3"
 serde_json.workspace = true
 data-encoding = "2"
-rustls = { version = "*", features = ["ring"] }
+rustls = { version = "0.23", features = ["ring"] }

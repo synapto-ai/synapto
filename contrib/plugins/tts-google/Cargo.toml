@@ -14,7 +14,7 @@ async-trait.workspace = true
 serde.workspace = true
 tokio = { workspace = true, features = ["sync", "time", "rt", "macros"] }
 tracing.workspace = true
-google-cloud-texttospeech-v1 = "*"
+google-cloud-texttospeech-v1 = "1"
 google-cloud-auth = "1"
 unicode-segmentation = "1"
 serde_json.workspace = true
