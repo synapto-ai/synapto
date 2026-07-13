@@ -2,7 +2,7 @@
 name = "synapto"
 description = "Core orchestrator for the Synapto framework"
 
-version = "0.1.0-dev.1"
+version.workspace = true
 edition = "2024"
 license.workspace = true
 repository.workspace = true

@@ -3,13 +3,28 @@ resolver = "2"
 
 members = [
     "plugins/*",
+    "storage-providers/*",
 ]
 
 [workspace.package]
+version = "0.1.0-dev.1"
 license = "MPL-2.0"
 repository = "https://github.com/synapto-ai/synapto"
 
 [workspace.dependencies]
+schemars = "1.2"
+serde = { version = "1", default-features = false, features = [
+    "derive",
+    "alloc",
+] }
+serde_json = { version = "1", default-features = false, features = ["alloc"] }
+tokio = { version = "1", features = ["macros", "signal", "rt", "rt-multi-thread", "net", "time"] }
+better_tokio_select = "0.2.0"
+bytes = "1"
+derive_more= {version = "2", features=["full"]}
+async-trait= "0.1"
+tracing = "0.1"
+
 synapto = {path="../crates/core" }
 synapto-interface = {path="../crates/interface" }
 

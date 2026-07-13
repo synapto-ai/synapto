@@ -3,9 +3,12 @@ resolver = "2"
 
 members = [
     "crates/*",
+    "crates/test/storage-providers/*",
+    "crates/test/datadir-providers/*",
 ]
 
 [workspace.package]
+version = "0.1.0-dev.1"
 license = "MPL-2.0"
 repository = "https://github.com/synapto-ai/synapto"
 
