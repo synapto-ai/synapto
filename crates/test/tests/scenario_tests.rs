@@ -7,9 +7,9 @@ use synapto_test::{
 // Global Test Bundle Definition
 async fn test_bundle() {
     Synapto::<
-        test_datadir_ephemeral::EphemeralDir,
+        synapto_datadir_ephemeral::EphemeralDir,
         (synapto::config::DotEnv, synapto::config::Env),
-        test_storage_local::LocalStorageProvider,
+        synapto_storage_local::LocalStorageProvider,
         synapto::prompt_provider::EmptyPromptProvider,
     >::run::<(
         MockAudioInputPlugin,

@@ -1,5 +1,5 @@
 [package]
-name = "test-datadir-ephemeral"
+name = "synapto-datadir-ephemeral"
 version = "0.1.0-dev.1"
 edition = "2024"
 license.workspace = true
