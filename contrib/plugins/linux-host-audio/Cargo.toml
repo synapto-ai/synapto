@@ -1,0 +1,22 @@
+[package]
+name = "synapto-plugin-linux-host-audio"
+version = "0.1.0-dev.1"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+synapto-interface.workspace = true
+serde.workspace = true
+schemars.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+
+pipewire = { version = "0.9", features = ["v0_3_44"] }
+libspa = "*"
+libspa-sys = "*"
+ogg = "*"
+opus = "*"

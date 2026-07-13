@@ -72,7 +72,7 @@ git push --force-with-lease <remote-name> <branch-name>
 
 To keep our architecture robust, reliable, and decoupled:
 
-- **Significant Changes / New Features:** Any significant change, major new feature, or architectural shift (e.g., introducing a new plugin type, changing cross-boundary interfaces, modifying the core loop) **MUST have a formal Request for Comments (RFC)** and be driven by the lifecycle detailed in [`AGENTS.md`](AGENTS.md) before any code is merged.
+- **Significant Changes / New Features:** Any significant change, major new feature, or architectural shift (e.g., introducing a new plugin type, changing cross-boundary interfaces, modifying the core loop) **MUST have a formal Request for Comments (RFC)** and be driven by the lifecycle detailed in the [`synapto-ai/rfcs`](https://github.com/synapto-ai/rfcs) repository before any code is merged.
 - **Using AI to Write RFCs:** You are highly encouraged to use AI coding assistants (such as the Zed coding agent, Claude, or GPT) to author, review, and refine your RFC document. However
 - **How to Start:** Open an issue on GitHub using our **Feature Proposal & RFC Request** template. This template will help gather high-level feedback before drafting the markdown RFC under `docs/rfcs/`.
 - **Small Changes:** Localized bug fixes, documentation updates, typo corrections, or adding/refining tests **do not** require an RFC. Simply proceed to opening a Pull Request!

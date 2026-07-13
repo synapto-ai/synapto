@@ -1,0 +1,25 @@
+[workspace]
+resolver = "2"
+
+members = [
+    "plugins/*",
+]
+
+[workspace.package]
+license = "MPL-2.0"
+repository = "https://github.com/synapto-ai/synapto"
+
+[workspace.dependencies]
+synapto = {path="../crates/core" }
+synapto-interface = {path="../crates/interface" }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+let_underscore_must_use = "deny"
+unwrap_used = "deny"
+disallowed_methods = "deny"
+disallowed_macros = "deny"
+todo = "warn"

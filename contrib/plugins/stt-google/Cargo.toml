@@ -1,0 +1,23 @@
+[package]
+name = "synapto-plugin-stt-google"
+version = "0.1.0-dev.1"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+better_tokio_select = { workspace = true }
+synapto-interface.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+tokio = { workspace = true, features = ["sync", "time", "rt", "macros"] }
+tracing.workspace = true
+gcp_auth = "0.12"
+tonic = { version = "0.14", features = ["tls-native-roots"] }
+tokio-stream = "0.1"
+googleapis-tonic-google-cloud-speech-v1 = "*"
+googleapis-tonic-google-cloud-speech-v2 = "*"
+serde_json.workspace = true

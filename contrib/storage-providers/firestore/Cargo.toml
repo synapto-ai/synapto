@@ -1,0 +1,20 @@
+[package]
+name = "synapto-storage-firestore"
+version = "0.1.0-dev.1"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+synapto-interface.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["sync", "rt"] }
+tracing.workspace = true
+firestore = "0.43"
+uuid = { version = "1", features = ["v4"] }
+tokio-stream = "0.1"

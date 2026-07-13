@@ -1,0 +1,20 @@
+[package]
+name = "synapto-plugin-tts-google"
+version = "0.1.0-dev.1"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+synapto-interface.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+tokio = { workspace = true, features = ["sync", "time", "rt", "macros"] }
+tracing.workspace = true
+google-cloud-texttospeech-v1 = "*"
+google-cloud-auth = "1"
+unicode-segmentation = "1"
+serde_json.workspace = true
