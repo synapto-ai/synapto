@@ -14,20 +14,20 @@ graph TD
     A --> C[Developer Recipes & Onboarding]
     A --> D[Workflow & Tooling Guides]
 
-    B --> B1[docs/ARCHITECTURE.md]
+    B --> B1[docs/src/ARCHITECTURE.md]
 
-    C --> C1[docs/CREATE_PLUGIN.md]
-    C --> C2[docs/CREATE_BUNDLE.md]
+    C --> C1[docs/src/plugin/basics.md]
+    C --> C2[docs/src/creating_bundles.md]
 
-    D --> D1[docs/DEVELOPMENT.md]
-    D --> D2[docs/TESTING.md]
+    D --> D1[docs/src/telemetry.md]
+    D --> D2[docs/src/TESTING.md]
 ```
 
 ---
 
 ## 1. Structural Invariants & Enforcement
 
-### `docs/ARCHITECTURE.md`
+### `docs/src/ARCHITECTURE.md`
 
 The **Single Source of Truth (SSoT)** for system topology, design principles, structural boundaries, and interface constraints.
 
@@ -48,7 +48,7 @@ The **Single Source of Truth (SSoT)** for system topology, design principles, st
 
 These guides are task-oriented, illustrative, and developer-centric. They exist to help developers build and run components successfully using the rules established in `ARCHITECTURE.md`.
 
-### `docs/CREATE_PLUGIN.md`
+### `docs/src/plugin/basics.md` (and other `plugin/*.md`)
 
 A practical step-by-step recipe for building, testing, and registering custom plugins.
 
@@ -62,7 +62,7 @@ A practical step-by-step recipe for building, testing, and registering custom pl
 - **What it MUST NOT contain:**
   - Primary architectural rule-making. It must never declare new design invariants or establish system-wide structural constraints. It should only _link to_ or _demonstrate_ the rules established in `ARCHITECTURE.md`.
 
-### `docs/CREATE_BUNDLE.md`
+### `docs/src/creating_bundles.md`
 
 A practical step-by-step guide for creating composition roots and bootstrapping custom deployment binaries.
 
@@ -79,7 +79,7 @@ A practical step-by-step guide for creating composition roots and bootstrapping 
 
 These guides focus strictly on localized workflows, development environments, and validation procedures.
 
-### `docs/DEVELOPMENT.md`
+### `docs/src/telemetry.md` & `docs/src/testing_telemetry.md`
 
 Guides for local workspace tooling, profiling, and instrumentation.
 
@@ -88,7 +88,7 @@ Guides for local workspace tooling, profiling, and instrumentation.
   - Rerun and Tracy setup instructions.
   - Local compilation flags and run commands.
 
-### `docs/TESTING.md`
+### `docs/src/TESTING.md`
 
 The authoritative validation playbook for unit, integration, and scenario-based tests.
 
@@ -106,4 +106,4 @@ When writing or refactoring documentation, apply this binary test:
 > **Is this constraint structural (What/Why) or is it instructional (How)?**
 >
 > - **If it defines an actionable structural constraint** (e.g., _"Traits must be atomic to prevent god-objects"_): It belongs **solely in `ARCHITECTURE.md`**.
-> - **If it defines a developer recipe** (e.g., _"Here is the exact code to implement multiple traits on one struct"_): It belongs **in `CREATE_PLUGIN.md`**.
+> - **If it defines a developer recipe** (e.g., _"Here is the exact code to implement multiple traits on one struct"_): It belongs **in `plugin/basics.md`**.

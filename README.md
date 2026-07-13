@@ -28,7 +28,6 @@ The system is highly configurable via **Composition Bundles**. Instead of monoli
 - 🧳 **`personal-assistant`**: A localized, personal assistant to manage your day-to-day tasks.
 - 🎓 **`teacher`**: An educational assistant with advanced speech-to-text integration for interactive learning.
 - 🎲 **`rpg`**: A Game Master that maintains world state, manages story arcs, game state and interacts dynamically with players.
-- 🤖 **`robot`**: A hardware-focused bundle to run on edge devices like Raspberry Pi to control and interact with physical robot components and physical world.
 
 ### 🧱 Create Your Own Custom Bundle
 
@@ -58,15 +57,16 @@ async fn main() -> ExitCode {
 }
 ```
 
-That's it! You have a fully functional cognitive loop customized for your use case. For a more detailed step-by-step walkthrough, check out our guide on [How to Create a Custom Bundle](docs/CREATE_BUNDLE.md).
+That's it! You have a fully functional cognitive loop customized for your use case. For a more detailed step-by-step walkthrough, check out our guide on [How to Create a Custom Bundle](docs/src/creating_bundles.md).
 
 ## 🔌 Available Plugins
 
-Plugins operate asynchronously and securely, communicating with the core via strongly-typed JSON schemas. Our current integrations include:
+Plugins operate asynchronously and securely, communicating with the core via strongly-typed JSON schemas. The `synapto` repository is divided into workspaces: `crates` for the core architecture and `contrib` for the growing ecosystem of plugins and storage providers. Our current integrations in `contrib/plugins` include:
 
-- **`google-chat`**: Integrate seamlessly with Google Chat for organizational assistance.
 - **`mumble`**: Connect to Mumble servers for low-latency VoIP communication.
-- **`host-audio`**: Interface directly with local microphones and speakers for real-time text-to-speech and speech-to-text capabilities.
+- **`linux-host-audio`**: Interface directly with local microphones and speakers for real-time text-to-speech and speech-to-text capabilities.
+- **`clock`**: Provides time and alarm mechanisms.
+- **Speech-to-Text (STT) & Text-to-Speech (TTS)**: Dedicated plugins for ElevenLabs, Google, and Speechmatics.
 
 _(Have a new idea? Creating a plugin is easy—see below!)_
 
@@ -79,7 +79,7 @@ The Synapto project operates on a few core design principles:
 - **Hierarchical Memory:** Divides memory into temporal tiers (Interactions, Sessions, Progressions, Continuums) to simulate long-term retention without blowing up the context window.
 - **Strict I/O Boundaries:** Enforces `!LLMSafe` boundaries to prevent prompt injection and strictly control what the LLM can read or write.
 
-Read the complete [Architecture Overview](docs/ARCHITECTURE.md) to dive deeper into how the brain ticks. For a complete map of all documentation files, their respective scopes, and our metadata separation principles, refer to our [Documentation Guidelines](docs/DOCUMENTATION.md).
+Read the complete [Architecture Overview](docs/src/ARCHITECTURE.md) to dive deeper into how the brain ticks. For a complete map of all documentation files, their respective scopes, and our metadata separation principles, refer to our [Documentation Guidelines](docs/src/DOCUMENTATION.md).
 
 ## 🚀 Getting Started
 
@@ -105,7 +105,7 @@ We designed **Synapto** to be incredibly welcoming for developers. You can exten
 
 Plugins exclusively own their external sourcing (API calls, web sockets, payload downloads) and communicate with the core via generic envelopes (`MessageChannel`). This means you don't need to touch the core cognitive loops to add new integrations!
 
-Ready to start hacking? Read the complete guide on [How to Create a Custom Plugin](docs/CREATE_PLUGIN.md) to get your boilerplate up and running in minutes.
+Ready to start hacking? Read the complete guide on [How to Create a Custom Plugin](docs/src/plugin/basics.md) to get your boilerplate up and running in minutes.
 
 ## 🤝 Contributing
 

@@ -146,15 +146,21 @@ To keep the `synapto` agnostic to external environments, we isolate static promp
 
 ## Source Code Map
 
-- **`interface/`**: The stable domain vocabulary and generic envelope structures. It is logically modularized into `audio`, `text`, and `stt` domains. See [interface/README.md](../interface/README.md) for detailed implementation guidelines and modularity rules.
-- **`core`**: The Core Execution Engine and router.
-  - `cognitive/`: Core intelligence, direct and side LLM evaluation tasks.
-  - `memories/`: Hierarchical memory system implementation (episodic, semantic, behavioral, state, tasks).
-  - `scenarist/`: RPG story management (Saga, Chapter, Scene).
-  - `telemetry/`: Tracing and profiling setup.
-- **`plugins/*/`**: Independent integration crates (e.g., chat platform integrations, hardware device bridges).
-- **`bundles/*/`**: The composition roots. These are binaries that boot the AI core and register specific plugins at runtime.
-  - `main.rs`: Entry point, configuration loading, plugin registration.
+The project is organized into strictly decoupled workspaces to enforce boundaries, isolate dependencies, and separate the core engine from provider-specific integrations:
+
+- **`crates/` (Core Workspace)**: Contains the core cognitive engine (`synapto`), the LLM interface (`synapto-llm`), stable boundaries (`synapto-interface`), telemetry, and shutdown coordination. These crates have minimal dependencies and are strictly agnostic to specific providers.
+  - **`interface/`**: The stable domain vocabulary and generic envelope structures. It is logically modularized into `audio`, `text`, and `stt` domains. See `interface/README.md` for detailed implementation guidelines and modularity rules.
+  - **`core/`**: The Cognitive Execution Engine and router.
+    - `cognitive/`: Core intelligence, direct and side LLM evaluation tasks.
+    - `memories/`: Hierarchical memory system implementation (episodic, semantic, behavioral, state, tasks).
+    - `scenarist/`: RPG story management (Saga, Chapter, Scene).
+  - **`llm/`**: The provider-agnostic LLM interface layer.
+  - **`telemetry/`**: Tracing and profiling setup.
+- **`contrib/` (Ecosystem Workspace)**: Contains official and community-maintained plugins and storage providers. Code here implements the traits from `synapto-interface` (e.g., Mumble, Google STT, Firestore).
+  - **`plugins/*/`**: Independent integration crates (e.g., chat platform integrations, hardware device bridges).
+  - **`storage-providers/*/`**: Concrete database/storage integrations (e.g., Firestore).
+- **`bundles/*/` (Deployable Agents)**: Separate root directories that act as composition roots. They bring together the core and specific `contrib` crates to build standalone, deployable binaries required for a specific deployment type (e.g., `home-assistant`, `personal-assistant`).
+  - `src/main.rs`: Entry point, configuration loading, plugin registration.
 
 ## Composition Bundles
 
