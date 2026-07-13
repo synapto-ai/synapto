@@ -1,7 +1,10 @@
 [package]
 name = "synapto-storage-local"
+description = "Local filesystem storage provider for synapto"
 version.workspace = true
 edition = "2024"
+license.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true

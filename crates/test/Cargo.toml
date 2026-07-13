@@ -1,5 +1,6 @@
 [package]
 name = "synapto-test"
+description = "Testing harness and simulator for synapto"
 version.workspace = true
 edition = "2024"
 license.workspace = true

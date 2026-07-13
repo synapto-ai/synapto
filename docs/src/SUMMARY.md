@@ -2,6 +2,7 @@
 
 - [Architecture & Invariants](ARCHITECTURE.md)
 - [Documentation Standards](DOCUMENTATION.md)
+- [Release Process](RELEASE.md)
 - [Creating a Plugin](plugin/basics.md)
   - [Context Providers](plugin/context.md)
   - [Commands](plugin/command.md)

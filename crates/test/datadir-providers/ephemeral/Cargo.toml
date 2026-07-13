@@ -1,5 +1,6 @@
 [package]
 name = "synapto-datadir-ephemeral"
+description = "Ephemeral data directory provider for synapto testing"
 version.workspace = true
 edition = "2024"
 license.workspace = true
