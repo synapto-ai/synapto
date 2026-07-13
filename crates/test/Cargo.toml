@@ -20,6 +20,6 @@ clap = { version = "*", features = ["derive", "env"] }
 claxon = "0.4"
 tokio.workspace = true
 
-synapto-datadir-ephemeral = { path = "datadir-providers/ephemeral", version = "0.1.0-dev.1" }
-synapto-storage-local = { path = "storage-providers/local", version = "0.1.0-dev.1" }
+synapto-datadir-ephemeral = { path = "datadir-providers/ephemeral", version = "0.1.0-dev.2" }
+synapto-storage-local = { path = "storage-providers/local", version = "0.1.0-dev.2" }
 synapto-shutdown.workspace = true

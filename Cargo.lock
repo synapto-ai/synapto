@@ -4710,7 +4710,7 @@ dependencies = [
 
 [[package]]
 name = "synapto"
-version = "0.1.0-dev.1"
+version = "0.1.0-dev.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4735,7 +4735,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-datadir-ephemeral"
-version = "0.1.0-dev.1"
+version = "0.1.0-dev.2"
 dependencies = [
  "synapto",
  "tempfile",
@@ -4743,7 +4743,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-derive"
-version = "0.1.0-dev.1"
+version = "0.1.0-dev.2"
 dependencies = [
  "quote",
  "syn",
@@ -4751,7 +4751,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-interface"
-version = "0.1.0-dev.1"
+version = "0.1.0-dev.2"
 dependencies = [
  "async-trait",
  "derive_more",
@@ -4767,7 +4767,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-llm"
-version = "0.1.0-dev.1"
+version = "0.1.0-dev.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4785,7 +4785,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-shutdown"
-version = "0.1.0-dev.1"
+version = "0.1.0-dev.2"
 dependencies = [
  "synapto-interface",
  "tracing",
@@ -4793,7 +4793,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-storage-local"
-version = "0.1.0-dev.1"
+version = "0.1.0-dev.2"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -4808,7 +4808,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-telemetry"
-version = "0.1.0-dev.1"
+version = "0.1.0-dev.2"
 dependencies = [
  "better_tokio_select",
  "chrono",
@@ -4826,7 +4826,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-test"
-version = "0.1.0-dev.1"
+version = "0.1.0-dev.2"
 dependencies = [
  "async-trait",
  "better_tokio_select",
