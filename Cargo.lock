@@ -4734,6 +4734,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "synapto-datadir-ephemeral"
+version = "0.1.0-dev.1"
+dependencies = [
+ "synapto",
+ "tempfile",
+]
+
+[[package]]
 name = "synapto-derive"
 version = "0.1.0-dev.1"
 dependencies = [
@@ -4784,6 +4792,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "synapto-storage-local"
+version = "0.1.0-dev.1"
+dependencies = [
+ "async-trait",
+ "dashmap",
+ "serde",
+ "serde_json",
+ "synapto-interface",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "synapto-telemetry"
 version = "0.1.0-dev.1"
 dependencies = [
@@ -4814,10 +4837,10 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "synapto",
+ "synapto-datadir-ephemeral",
  "synapto-interface",
  "synapto-shutdown",
- "test-datadir-ephemeral",
- "test-storage-local",
+ "synapto-storage-local",
  "tokio",
  "tracing",
 ]
@@ -4894,29 +4917,6 @@ dependencies = [
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "test-datadir-ephemeral"
-version = "0.1.0-dev.1"
-dependencies = [
- "synapto",
- "tempfile",
-]
-
-[[package]]
-name = "test-storage-local"
-version = "0.1.0-dev.1"
-dependencies = [
- "async-trait",
- "dashmap",
- "serde",
- "serde_json",
- "synapto-interface",
- "tempfile",
- "tokio",
- "tracing",
- "uuid",
 ]
 
 [[package]]
