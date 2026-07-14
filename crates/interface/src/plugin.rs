@@ -19,7 +19,6 @@ pub struct PluginContext {
     plugin_config: serde_json::Value,
     storage: std::sync::Arc<crate::storage::StorageRegistry>,
     plugin_namespace: String,
-    data_dir: std::path::PathBuf,
     storage_config_resolver: std::sync::Arc<dyn crate::storage::StorageConfigResolver>,
     current_context_rx: tokio::sync::watch::Receiver<serde_json::Value>,
 }
@@ -27,7 +26,6 @@ pub struct PluginContext {
 impl PluginContext {
     #[doc = " Internal constructor used by the Core AI engine."]
     pub fn new(
-        data_dir: std::path::PathBuf,
         llm_executor: std::sync::Arc<dyn crate::llm::LlmExecutor>,
         plugin_config: serde_json::Value,
         storage: std::sync::Arc<crate::storage::StorageRegistry>,
@@ -36,7 +34,6 @@ impl PluginContext {
         current_context_rx: tokio::sync::watch::Receiver<serde_json::Value>,
     ) -> Self {
         Self {
-            data_dir,
             llm_executor,
             plugin_config,
             storage,
@@ -83,13 +80,7 @@ impl PluginContext {
                 crate_name, storage_type_name, e
             )
         })?;
-        S::connect(
-            config,
-            self.storage.clone(),
-            &self.data_dir,
-            &self.plugin_namespace,
-        )
-        .await
+        S::connect(config, self.storage.clone(), &self.plugin_namespace).await
     }
     #[doc = " Read-only subscription channel to receive the global state updates"]
     pub fn subscribe_context_updates(&self) -> tokio::sync::watch::Receiver<serde_json::Value> {

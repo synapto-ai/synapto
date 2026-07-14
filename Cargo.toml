@@ -28,7 +28,6 @@ serde = { version = "1", default-features = false, features = [
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
 tokio = { version = "1", features = ["macros", "signal", "rt", "rt-multi-thread", "net", "time"] }
 better_tokio_select = "0.2.0"
-bytes = "1"
 derive_more= {version = "2", features=["full"]}
 async-trait= "0.1"
 tracing = "0.1"

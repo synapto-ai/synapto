@@ -41,7 +41,6 @@ impl StorageConnection for FirestoreStorage {
     async fn connect(
         config: Self::Config,
         storage_registry: std::sync::Arc<synapto_interface::storage::StorageRegistry>,
-        _data_dir: &std::path::Path,
         plugin_namespace: &str,
     ) -> Result<Self, String> {
         let provider = storage_registry

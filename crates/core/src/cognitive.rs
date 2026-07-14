@@ -114,7 +114,7 @@ fn get_cognitive_system_prompt<P: CognitivePromptProvider>(config: &Config) -> V
 
     let prompt_config: P::Config =
         serde_json::from_value(config.prompt.clone()).unwrap_or_default();
-    let prompt_content = P::get_system_prompt(&config.data_dir, &prompt_config);
+    let prompt_content = P::get_system_prompt(&prompt_config);
 
     instructions.extend(prompt_content);
 

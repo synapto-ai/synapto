@@ -1,5 +1,4 @@
 use serde::de::DeserializeOwned;
-use std::path::Path;
 
 pub use crate::cognitive::CognitiveLLMContent;
 
@@ -13,10 +12,7 @@ pub trait CognitivePromptProvider: Send + Sync + 'static {
 
     /// Generates the static system prompt at boot. This is fed into `LLMClient::new`
     /// and represents the foundational, unmoving identity and rules of the agent.
-    fn get_system_prompt(
-        _data_dir: &Path,
-        _prompt_config: &Self::Config,
-    ) -> Vec<synapto_llm::Instruction> {
+    fn get_system_prompt(_prompt_config: &Self::Config) -> Vec<synapto_llm::Instruction> {
         Vec::new()
     }
 

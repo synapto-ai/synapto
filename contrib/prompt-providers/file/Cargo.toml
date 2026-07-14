@@ -1,0 +1,15 @@
+[package]
+name = "prompt-file"
+version = "0.1.0-dev.1"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+synapto.workspace = true
+synapto-llm.workspace = true
+serde.workspace = true
+serde_json.workspace = true

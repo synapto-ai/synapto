@@ -3,7 +3,7 @@ use serde_json::Value;
 pub struct Env;
 
 impl crate::config::ConfigProvider for Env {
-    fn init(_data_dir: std::path::PathBuf) -> Self {
+    fn init() -> Self {
         Env
     }
 

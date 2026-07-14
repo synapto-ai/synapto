@@ -1,7 +1,7 @@
 pub struct DotEnv;
 
 impl crate::config::ConfigProvider for DotEnv {
-    fn init(_data_dir: std::path::PathBuf) -> Self {
+    fn init() -> Self {
         dotenvy::dotenv().ok();
         DotEnv
     }

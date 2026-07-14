@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use synapto::config::DataDirProvider;
+use synapto_interface::data_dir::DataDirProvider;
 
 pub struct EphemeralDir;
 

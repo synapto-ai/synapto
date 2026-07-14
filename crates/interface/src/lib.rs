@@ -15,6 +15,7 @@ pub mod chat;
 pub mod cognitive;
 pub mod command;
 pub mod context;
+pub mod data_dir;
 pub mod document;
 pub mod gui;
 pub mod interaction;

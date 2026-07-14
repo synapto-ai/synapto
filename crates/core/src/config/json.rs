@@ -1,32 +1,14 @@
 use serde_json::Value;
-use std::path::PathBuf;
+use synapto_interface::data_dir::DataDirProvider;
 
-pub trait ConfigPathStrategy: Send + Sync + 'static {
-    fn resolve_path(data_dir: PathBuf) -> PathBuf;
-}
-
-pub struct DataDirStrategy;
-impl ConfigPathStrategy for DataDirStrategy {
-    fn resolve_path(data_dir: PathBuf) -> PathBuf {
-        data_dir
-    }
-}
-
-pub struct CurrentDirStrategy;
-impl ConfigPathStrategy for CurrentDirStrategy {
-    fn resolve_path(_data_dir: PathBuf) -> PathBuf {
-        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-    }
-}
-
-pub struct ConfigJson<S: ConfigPathStrategy = DataDirStrategy> {
+pub struct ConfigJson<P: DataDirProvider> {
     config: Value,
-    _marker: std::marker::PhantomData<S>,
+    _marker: std::marker::PhantomData<P>,
 }
 
-impl<S: ConfigPathStrategy> crate::config::ConfigProvider for ConfigJson<S> {
-    fn init(data_dir: PathBuf) -> Self {
-        let base_dir = S::resolve_path(data_dir);
+impl<P: DataDirProvider> crate::config::ConfigProvider for ConfigJson<P> {
+    fn init() -> Self {
+        let base_dir = P::get_data_dir();
         let config_path = base_dir.join("config.json");
 
         let config = if config_path.exists() {

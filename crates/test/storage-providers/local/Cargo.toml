@@ -19,6 +19,8 @@ tracing.workspace = true
 
 dashmap = "6"
 uuid = { version = "1", features = ["v4"] } # For temporary file naming
+synapto = { version = "0.1.0-dev.2", path = "../../../core" }
 
 [dev-dependencies]
+synapto-datadir-ephemeral = { path = "../../datadir-providers/ephemeral" }
 tempfile = "3"

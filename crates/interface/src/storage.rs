@@ -63,7 +63,6 @@ pub trait StorageConnection: Send + Sync + Sized + 'static {
     async fn connect(
         config: Self::Config,
         storage_registry: std::sync::Arc<StorageRegistry>,
-        data_dir: &std::path::Path,
         plugin_namespace: &str,
     ) -> Result<Self, String>;
 }

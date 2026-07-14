@@ -14,12 +14,13 @@ use tokio::sync::RwLock;
 ///
 /// Implements `StorageConnection` and `RecordStore`.
 /// It stores data by writing full JSON arrays to `.json` files inside the plugin namespace.
-pub struct LocalStorageProvider {
+pub struct LocalStorageProvider<P: synapto_interface::data_dir::DataDirProvider> {
     base_dir: PathBuf,
     locks: DashMap<String, Arc<RwLock<()>>>,
+    _marker: std::marker::PhantomData<P>,
 }
 
-impl LocalStorageProvider {
+impl<P: synapto_interface::data_dir::DataDirProvider> LocalStorageProvider<P> {
     /// Helper to get the file path for a given records collection.
     fn get_records_path(&self, collection: &str) -> PathBuf {
         self.base_dir.join(format!("{}_records.json", collection))
@@ -66,16 +67,15 @@ impl LocalStorageProvider {
 }
 
 #[async_trait]
-impl StorageConnection for LocalStorageProvider {
+impl<P: synapto_interface::data_dir::DataDirProvider> StorageConnection for LocalStorageProvider<P> {
     type Config = EmptyStorageConfig;
 
     async fn connect(
         _config: Self::Config,
         _storage_registry: Arc<synapto_interface::storage::StorageRegistry>,
-        data_dir: &Path,
         plugin_namespace: &str,
     ) -> Result<Self, String> {
-        let base_dir = data_dir.join("storage").join(plugin_namespace);
+        let base_dir = P::get_data_dir().join("storage").join(plugin_namespace);
 
         // Ensure the directory exists
         fs::create_dir_all(&base_dir)
@@ -85,12 +85,13 @@ impl StorageConnection for LocalStorageProvider {
         Ok(LocalStorageProvider {
             base_dir,
             locks: DashMap::new(),
+            _marker: std::marker::PhantomData,
         })
     }
 }
 
 #[async_trait]
-impl RecordStore for LocalStorageProvider {
+impl<P: synapto_interface::data_dir::DataDirProvider> RecordStore for LocalStorageProvider<P> {
     async fn upsert_record<T>(&self, collection: &str, key: &str, value: T) -> Result<(), String>
     where
         T: Serialize + Send + Sync + 'static,
@@ -227,7 +228,7 @@ impl RecordStore for LocalStorageProvider {
 }
 
 #[async_trait]
-impl KeyValueStore for LocalStorageProvider {
+impl<P: synapto_interface::data_dir::DataDirProvider> KeyValueStore for LocalStorageProvider<P> {
     async fn set<T>(&self, collection: &str, key: &str, value: T) -> Result<(), String>
     where
         T: Serialize + Send + Sync + 'static,
@@ -349,7 +350,7 @@ impl KeyValueStore for LocalStorageProvider {
 }
 
 #[async_trait]
-impl FileStore for LocalStorageProvider {
+impl<P: synapto_interface::data_dir::DataDirProvider> FileStore for LocalStorageProvider<P> {
     async fn save_file(
         &self,
         collection: &str,
@@ -535,7 +536,7 @@ impl Ord for ScoreIndex {
 }
 
 #[async_trait]
-impl VectorStore for LocalStorageProvider {
+impl<P: synapto_interface::data_dir::DataDirProvider> VectorStore for LocalStorageProvider<P> {
     // Using default implementation since LocalStorageProvider doesn't need explicit setup.
 
     async fn insert_vectors<T>(&self, collection: &str, records: Vec<T>) -> Result<(), String>
@@ -666,10 +667,12 @@ mod tests {
     #[tokio::test]
     async fn test_json_storage_provider() {
         let dir = tempdir().unwrap();
-        let provider = LocalStorageProvider {
-            base_dir: dir.path().to_path_buf(),
-            locks: DashMap::new(),
-        };
+        let provider: LocalStorageProvider<synapto_datadir_ephemeral::EphemeralDir> =
+            LocalStorageProvider {
+                base_dir: dir.path().to_path_buf(),
+                locks: DashMap::new(),
+                _marker: std::marker::PhantomData,
+            };
 
         let collection = "test_items";
 
@@ -743,10 +746,12 @@ mod tests {
     #[tokio::test]
     async fn test_concurrent_pushes() {
         let dir = tempdir().unwrap();
-        let provider = Arc::new(LocalStorageProvider {
-            base_dir: dir.path().to_path_buf(),
-            locks: DashMap::new(),
-        });
+        let provider: Arc<LocalStorageProvider<synapto_datadir_ephemeral::EphemeralDir>> =
+            Arc::new(LocalStorageProvider {
+                base_dir: dir.path().to_path_buf(),
+                locks: DashMap::new(),
+                _marker: std::marker::PhantomData,
+            });
 
         let collection = "concurrent_test";
         let mut handles = vec![];
@@ -787,10 +792,12 @@ mod tests {
     #[tokio::test]
     async fn test_file_storage() {
         let dir = tempdir().unwrap();
-        let provider = LocalStorageProvider {
-            base_dir: dir.path().to_path_buf(),
-            locks: DashMap::new(),
-        };
+        let provider: LocalStorageProvider<synapto_datadir_ephemeral::EphemeralDir> =
+            LocalStorageProvider {
+                base_dir: dir.path().to_path_buf(),
+                locks: DashMap::new(),
+                _marker: std::marker::PhantomData,
+            };
 
         let collection = "documents";
         let file_id = "test_doc";
@@ -833,10 +840,12 @@ mod tests {
     #[tokio::test]
     async fn test_kv_storage() {
         let dir = tempdir().unwrap();
-        let provider = LocalStorageProvider {
-            base_dir: dir.path().to_path_buf(),
-            locks: DashMap::new(),
-        };
+        let provider: LocalStorageProvider<synapto_datadir_ephemeral::EphemeralDir> =
+            LocalStorageProvider {
+                base_dir: dir.path().to_path_buf(),
+                locks: DashMap::new(),
+                _marker: std::marker::PhantomData,
+            };
 
         let collection = "config";
 
@@ -879,10 +888,12 @@ mod tests {
     #[tokio::test]
     async fn test_vector_storage() {
         let dir = tempdir().unwrap();
-        let provider = LocalStorageProvider {
-            base_dir: dir.path().to_path_buf(),
-            locks: DashMap::new(),
-        };
+        let provider: LocalStorageProvider<synapto_datadir_ephemeral::EphemeralDir> =
+            LocalStorageProvider {
+                base_dir: dir.path().to_path_buf(),
+                locks: DashMap::new(),
+                _marker: std::marker::PhantomData,
+            };
 
         let collection = "vectors";
 

@@ -4738,6 +4738,7 @@ name = "synapto-datadir-ephemeral"
 version = "0.1.0-dev.2"
 dependencies = [
  "synapto",
+ "synapto-interface",
  "tempfile",
 ]
 
@@ -4799,6 +4800,8 @@ dependencies = [
  "dashmap",
  "serde",
  "serde_json",
+ "synapto",
+ "synapto-datadir-ephemeral",
  "synapto-interface",
  "tempfile",
  "tokio",

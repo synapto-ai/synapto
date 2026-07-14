@@ -11,4 +11,5 @@ workspace = true
 
 [dependencies]
 synapto.workspace = true
+synapto-interface.workspace = true
 tempfile = "3"
