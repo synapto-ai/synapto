@@ -67,7 +67,9 @@ impl<P: synapto_interface::data_dir::DataDirProvider> LocalStorageProvider<P> {
 }
 
 #[async_trait]
-impl<P: synapto_interface::data_dir::DataDirProvider> StorageConnection for LocalStorageProvider<P> {
+impl<P: synapto_interface::data_dir::DataDirProvider> StorageConnection
+    for LocalStorageProvider<P>
+{
     type Config = EmptyStorageConfig;
 
     async fn connect(
