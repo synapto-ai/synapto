@@ -69,14 +69,14 @@ pub struct ScenarioManifest {
 #[derive(serde::Deserialize, Debug, Clone)]
 #[serde(tag = "action")]
 pub enum ScenarioStep {
-    #[serde(rename = "user_writes", alias = "inject_text")]
+    #[serde(rename = "user_writes")]
     UserWrites {
         #[serde(default)]
         text: String,
         #[serde(default)]
         attachments: Vec<std::path::PathBuf>,
     },
-    #[serde(rename = "user_says", alias = "inject_speech")]
+    #[serde(rename = "user_says")]
     UserSays { transcript: String },
     #[serde(rename = "await_response")]
     AwaitResponse {

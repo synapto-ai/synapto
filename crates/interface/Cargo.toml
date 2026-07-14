@@ -1,6 +1,6 @@
 [package]
 name = "synapto-interface"
-description = "Interface definitions for the Allusio AI framework"
+description = "Interface definitions for the Synapto framework"
 
 version.workspace = true
 edition = "2024"
@@ -22,4 +22,3 @@ synapto-derive.workspace = true
 
 genai = { version = "0.6" }
 futures = "0.3.32"
-
