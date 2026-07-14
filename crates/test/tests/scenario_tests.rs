@@ -1,3 +1,5 @@
+#![allow(clippy::disallowed_methods)]
+
 use synapto::Synapto;
 use synapto_test::{
     MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin,
@@ -23,8 +25,8 @@ async fn test_bundle() {
     .await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn async_tool_dual_channel() {
     run_scenario(
         "scenarios/async-tool-dual-channel/scenario.yaml",
@@ -33,14 +35,14 @@ async fn async_tool_dual_channel() {
     .await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn async_tool_reaction() {
     run_scenario("scenarios/async-tool-reaction/scenario.yaml", test_bundle).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn behavioral_memory_test() {
     run_scenario(
         "scenarios/behavioral-memory-test/scenario.yaml",
@@ -49,14 +51,14 @@ async fn behavioral_memory_test() {
     .await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn edge_cases_test() {
     run_scenario("scenarios/edge-cases-test/scenario.yaml", test_bundle).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn multi_assert_test() {
     run_scenario("scenarios/multi-assert-test/scenario.yaml", test_bundle).await;
 }

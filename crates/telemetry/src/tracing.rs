@@ -220,13 +220,10 @@ impl Tracing {
             .with(file_error_layer.boxed())
             .with(file_non_error_layer.boxed());
 
-        #[allow(unused_mut)]
-        let mut tracy_guard: Option<TracyGuard> = None;
-
-        #[cfg(feature = "tracy")]
-        {
-            tracy_guard = Some(TracyGuard::new());
-        }
+        let tracy_guard = cfg_select!(
+            feature = "tracy" => Some(TracyGuard::new()),
+            _ => None
+        );
 
         #[cfg(feature = "tracy")]
         let subscriber = subscriber.with(tracing_tracy::TracyLayer::default().boxed());

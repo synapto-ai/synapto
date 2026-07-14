@@ -43,6 +43,7 @@ where
     fn on_cycle_finished(&mut self);
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn process_llm_output<Cmd, P>(
     new_messages: Vec<PeerInput>,
     pending_user_messages: &mut Vec<PeerInput>,

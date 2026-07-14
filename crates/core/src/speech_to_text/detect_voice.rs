@@ -24,6 +24,7 @@ pub(super) async fn detect_voice_task(
         .unwrap_or_else(std::time::Instant::now);
 
     while let Some(audio) = audio_rx.recv().await {
+        #[allow(clippy::chunks_exact_to_as_chunks)]
         let sum_score: f32 = audio
             .chunks_exact(256)
             .map(|frame| detector.predict_i16(frame))

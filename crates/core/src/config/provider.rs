@@ -76,9 +76,7 @@ pub trait ConfigProvider: Send + Sync + Sized + 'static {
 }
 
 impl ConfigProvider for () {
-    fn init(_data_dir: std::path::PathBuf) -> Self {
-        ()
-    }
+    fn init(_data_dir: std::path::PathBuf) -> Self {}
 
     fn load_core_config(&self) -> serde_json::Value {
         serde_json::Value::Object(serde_json::Map::new())

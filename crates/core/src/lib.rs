@@ -46,7 +46,9 @@ use synapto_interface::speech_to_text::{InputVoiceAudio, SpeechDetected, SpeechT
 pub trait PluginTuple<
     D: config::DataDirProvider,
     C: config::ConfigProvider,
-    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
+    S: synapto_interface::storage::StorageConnection
+        + synapto_interface::storage::KeyValueStore
+        + synapto_interface::storage::RecordStore,
     PR: prompt_provider::CognitivePromptProvider,
 >
 {
@@ -56,7 +58,9 @@ pub trait PluginTuple<
 impl<
     D: config::DataDirProvider,
     C: config::ConfigProvider,
-    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
+    S: synapto_interface::storage::StorageConnection
+        + synapto_interface::storage::KeyValueStore
+        + synapto_interface::storage::RecordStore,
     PR: prompt_provider::CognitivePromptProvider,
 > PluginTuple<D, C, S, PR> for ()
 {
@@ -178,7 +182,9 @@ impl<C: crate::config::ConfigProvider> synapto_interface::storage::StorageConfig
 pub struct Synapto<
     D: crate::config::DataDirProvider,
     C: crate::config::ConfigProvider,
-    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
+    S: synapto_interface::storage::StorageConnection
+        + synapto_interface::storage::KeyValueStore
+        + synapto_interface::storage::RecordStore,
     PR: prompt_provider::CognitivePromptProvider = prompt_provider::EmptyPromptProvider,
 > {
     config: config::Config,
@@ -238,7 +244,9 @@ pub struct Synapto<
 impl<
     D: config::DataDirProvider,
     C: config::ConfigProvider,
-    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
+    S: synapto_interface::storage::StorageConnection
+        + synapto_interface::storage::KeyValueStore
+        + synapto_interface::storage::RecordStore,
     PR: prompt_provider::CognitivePromptProvider,
 > Synapto<D, C, S, PR>
 {
@@ -579,15 +587,14 @@ impl<
             self.current_context_rx.clone(),
         );
 
-        let core_storage = std::sync::Arc::new(
-            core_plugin_context
-                .store::<S>()
-                .await
-                .expect("Failed to initialize core storage"),
-        );
+        let core_storage = match core_plugin_context.store::<S>().await {
+            Ok(store) => std::sync::Arc::new(store),
+            Err(e) => {
+                panic!("Failed to initialize core storage: {e}");
+            }
+        };
 
         interactions::start(
-            self.config.clone(),
             new_interaction_rx,
             interaction_rollout_receivers,
             observers_tx,
@@ -774,7 +781,9 @@ fn get_dynamic_capabilities() -> Vec<String> {
 impl<
     D: config::DataDirProvider,
     C: config::ConfigProvider,
-    S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
+    S: synapto_interface::storage::StorageConnection
+        + synapto_interface::storage::KeyValueStore
+        + synapto_interface::storage::RecordStore,
     PR: prompt_provider::CognitivePromptProvider,
 > synapto_interface::plugin::PluginRegistry for Synapto<D, C, S, PR>
 {

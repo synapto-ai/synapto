@@ -7,8 +7,6 @@ use synapto_interface::{
     sync::{mpsc, watch},
 };
 
-use crate::config::Config;
-
 pub(crate) use recent::{InFlightTool, Interaction, InteractionMemory, SpeakerName};
 
 #[allow(clippy::too_many_arguments)]
@@ -17,7 +15,6 @@ pub(crate) async fn start<
         + synapto_interface::storage::KeyValueStore
         + synapto_interface::storage::RecordStore,
 >(
-    config: Config,
     new_interaction_rx: mpsc::Receiver<recent::Interaction>,
     rollout_receivers: Vec<(String, watch::Receiver<Timestamp>)>,
     observers_tx: Vec<mpsc::Sender<synapto_interface::interaction::ObservedInteraction>>,
@@ -30,7 +27,6 @@ pub(crate) async fn start<
     let (not_clear_tx, not_clear_rx) = mpsc::channel::<NotClearInteraction>(100);
 
     tokio::spawn(not_clear::not_clear_interactions_task(
-        config.clone(),
         not_clear_rx,
         resolve_not_clear_rx,
         not_clear_memory_tx,
@@ -38,7 +34,6 @@ pub(crate) async fn start<
     ));
 
     tokio::spawn(recent::interaction_memory_task(
-        config,
         new_interaction_rx,
         rollout_receivers,
         observers_tx,

@@ -499,7 +499,7 @@ fn dot_product(a: &[f32], b: &[f32], _: f32) -> f32 {
 pub fn normalize(vec: &[f32]) -> Vec<f32> {
     let magnitude = (vec.iter().fold(0.0, |acc, &val| val.mul_add(val, acc))).sqrt();
 
-    if magnitude > std::f32::EPSILON {
+    if magnitude > f32::EPSILON {
         vec.iter().map(|&val| val / magnitude).collect()
     } else {
         vec.to_vec()
@@ -521,13 +521,16 @@ impl Eq for ScoreIndex {}
 
 impl PartialOrd for ScoreIndex {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        other.score.partial_cmp(&self.score)
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for ScoreIndex {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap_or(std::cmp::Ordering::Equal)
+        other
+            .score
+            .partial_cmp(&self.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
     }
 }
 
@@ -566,25 +569,25 @@ impl VectorStore for LocalStorageProvider {
 
         let mut scores = Vec::new();
         for (index, item) in all.iter().enumerate() {
-            if let Some(embedding) = item.get("embedding") {
-                if let Some(embedding_vec) = embedding.as_array() {
-                    let mut vec_f32 = Vec::new();
-                    for v in embedding_vec {
-                        if let Some(f) = v.as_f64() {
-                            vec_f32.push(f as f32);
-                        }
+            if let Some(embedding_vec) = item.get("embedding").and_then(|e| e.as_array()) {
+                let mut vec_f32 = Vec::new();
+                for v in embedding_vec {
+                    if let Some(f) = v.as_f64() {
+                        vec_f32.push(f as f32);
                     }
-                    if !vec_f32.is_empty() {
-                        let score = distance_fn(&vec_f32, &vector, memo_attr);
-                        scores.push(ScoreIndex { score, index });
-                    }
+                }
+                if !vec_f32.is_empty() {
+                    let score = distance_fn(&vec_f32, &vector, memo_attr);
+                    scores.push(ScoreIndex { score, index });
                 }
             }
         }
 
         let mut heap = std::collections::BinaryHeap::new();
         for score_index in scores {
-            if heap.len() < limit as usize || score_index < *heap.peek().unwrap() {
+            let below_limit = heap.len() < limit as usize;
+            let higher_than_peek = heap.peek().is_some_and(|peeked| score_index < *peeked);
+            if below_limit || higher_than_peek {
                 heap.push(score_index);
                 if heap.len() > limit as usize {
                     heap.pop();
@@ -618,8 +621,9 @@ impl VectorStore for LocalStorageProvider {
             .await
             .map_err(|e| format!("Failed to read collection file: {}", e))?;
 
-        let mut map: std::collections::BTreeMap<String, serde_json::Value> = serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to deserialize collection: {}", e))?;
+        let mut map: std::collections::BTreeMap<String, serde_json::Value> =
+            serde_json::from_str(&content)
+                .map_err(|e| format!("Failed to deserialize collection: {}", e))?;
 
         let initial_len = map.len();
         map.retain(|_, item| {

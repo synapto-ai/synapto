@@ -114,7 +114,7 @@ We welcome contributions through issues and pull requests! Please see our [Contr
 ### 🚷 Using AI for contribution
 
 > [!IMPORTANT]
-> It is not allowed to use LLMs to generate contributions other than RFCs. Treat all AI-generated code as legally "tainted" or untrusted because there is no assurance the code is not GPL / Proprietary / AGPL / Business Licensed.
+> It is not allowed to use LLMs to generate contributions other than *RFCs* or *documentation*. Treat all AI-generated code as legally "tainted" or untrusted because there is no assurance the code is not GPL / Proprietary / AGPL / Business Licensed.
 
 ## 📜 License
 

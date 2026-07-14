@@ -8,8 +8,6 @@ use synapto_interface::{
 };
 use tracing::instrument;
 
-use crate::config::Config;
-
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -171,7 +169,6 @@ async fn wait_for_any_rollout(
 pub(super) async fn interaction_memory_task<
     S: synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
 >(
-    _config: Config,
     mut new_interaction_rx: mpsc::Receiver<Interaction>,
     mut rollout_receivers: Vec<(String, watch::Receiver<Timestamp>)>,
     observers_tx: Vec<mpsc::Sender<synapto_interface::interaction::ObservedInteraction>>,
@@ -337,7 +334,7 @@ pub(super) async fn interaction_memory_task<
                 if is_new {
                     for tx in &observers_tx {
                         tx.send(synapto_interface::interaction::ObservedInteraction::from(
-                            &*interaction,
+                            interaction,
                         ))
                         .await
                         .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
@@ -358,11 +355,12 @@ pub(super) async fn interaction_memory_task<
             }
 
             if did_dispatch {
-                if let Err(e) = storage
+                match storage
                     .set("memory", "last_sent_timestamp", last_sent_timestamp)
                     .await
                 {
-                    tracing::error!("Failed to save last_sent_timestamp: {:?}", e);
+                    Ok(_) => {}
+                    Err(e) => tracing::error!("Failed to save last_sent_timestamp: {:?}", e),
                 }
             }
         }

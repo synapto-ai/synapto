@@ -201,11 +201,11 @@ impl ScenarioCoordinator {
             return;
         }
         let step = &self.steps[idx];
-        if let &ScenarioStep::AwaitResponse {
-            ref assert_contains,
-            ref assert_all,
-            ref assert_any,
-            ref case_sensitive,
+        if let ScenarioStep::AwaitResponse {
+            assert_contains,
+            assert_all,
+            assert_any,
+            case_sensitive,
             ..
         } = step
         {

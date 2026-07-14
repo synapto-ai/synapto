@@ -19,6 +19,7 @@ pub struct CognitiveLLMAvailableDocument {
     pub filename: String,
 }
 
+#[derive(Default)]
 pub struct DocumentStore {
     documents: HashMap<String, (String, String)>, // id -> (filename, content)
 }

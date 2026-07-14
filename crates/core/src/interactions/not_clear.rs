@@ -4,8 +4,6 @@ use synapto_interface::{
 };
 use tracing::instrument;
 
-use crate::config::Config;
-
 use super::{Interaction, Timestamp};
 
 impl From<&Interaction> for NotClearInteraction {
@@ -42,7 +40,6 @@ impl From<&Interaction> for NotClearInteraction {
 pub(super) async fn not_clear_interactions_task<
     S: synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
 >(
-    _config: Config,
     mut not_clear_rx: mpsc::Receiver<NotClearInteraction>,
     mut resolve_not_clear_rx: mpsc::Receiver<Timestamp>,
     not_clear_memory_tx: watch::Sender<NotClearInteractionMemory>,
@@ -98,10 +95,8 @@ pub(super) async fn not_clear_interactions_task<
             }
         });
 
-        if changed {
-            if let Err(e) = not_clear_memory_tx.send(not_clear_memory.clone()) {
-                tracing::error!("Failed to send not_clear_memory: {}", e);
-            }
+        if changed && let Err(e) = not_clear_memory_tx.send(not_clear_memory.clone()) {
+            tracing::error!("Failed to send not_clear_memory: {}", e);
         }
     }
 }

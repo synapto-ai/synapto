@@ -1,4 +1,16 @@
 
 # Run scenarios matching a filter
 test-scenarios filter="":
-    cargo test -p synapto-test --test scenario_tests -- {{ filter }} --test-threads=1 --nocapture
+    cargo test -p synapto-test --test scenario_tests -- {{ filter }} --ignored --test-threads=1 --nocapture
+
+# Check for broken local and relative links in markdown documentation using lychee
+link-check:
+    lychee --offline "crates/**/*.md" "docs/**/*.md" "README.md"
+
+# Run all pre-release checks (lints, tests, formatting, and links) to guarantee release readiness
+pre-release-check:
+    cargo fmt --all --check
+    cargo clippy --workspace --all-targets --all-features -- -D warnings
+    cargo test --workspace --all-targets
+    just test-scenarios
+    just link-check
