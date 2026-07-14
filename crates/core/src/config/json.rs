@@ -1,13 +1,33 @@
 use serde_json::Value;
 use std::path::PathBuf;
 
-pub struct ConfigJson {
-    config: Value,
+pub trait ConfigPathStrategy: Send + Sync + 'static {
+    fn resolve_path(data_dir: PathBuf) -> PathBuf;
 }
 
-impl crate::config::ConfigProvider for ConfigJson {
+pub struct DataDirStrategy;
+impl ConfigPathStrategy for DataDirStrategy {
+    fn resolve_path(data_dir: PathBuf) -> PathBuf {
+        data_dir
+    }
+}
+
+pub struct CurrentDirStrategy;
+impl ConfigPathStrategy for CurrentDirStrategy {
+    fn resolve_path(_data_dir: PathBuf) -> PathBuf {
+        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+    }
+}
+
+pub struct ConfigJson<S: ConfigPathStrategy = DataDirStrategy> {
+    config: Value,
+    _marker: std::marker::PhantomData<S>,
+}
+
+impl<S: ConfigPathStrategy> crate::config::ConfigProvider for ConfigJson<S> {
     fn init(data_dir: PathBuf) -> Self {
-        let config_path = data_dir.join("config.json");
+        let base_dir = S::resolve_path(data_dir);
+        let config_path = base_dir.join("config.json");
 
         let config = if config_path.exists() {
             let content = std::fs::read_to_string(&config_path)
@@ -18,7 +38,10 @@ impl crate::config::ConfigProvider for ConfigJson {
             Value::Object(serde_json::Map::new())
         };
 
-        Self { config }
+        Self {
+            config,
+            _marker: std::marker::PhantomData,
+        }
     }
 
     fn load_core_config(&self) -> Value {
