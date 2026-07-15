@@ -236,7 +236,7 @@ pub struct Synapto<
     camera_spawner: Option<CameraSpawner>,
     error_rx: Option<std::sync::mpsc::Receiver<String>>,
     current_context_tx: watch::Sender<serde_json::Value>,
-    current_context_rx: watch::Receiver<serde_json::Value>,
+    
 }
 
 impl<
@@ -280,7 +280,7 @@ impl<
         let llm_executor =
             std::sync::Arc::new(synapto_llm::ConcreteLlmExecutor::new(executor_config));
 
-        let (current_context_tx, current_context_rx) = watch::channel(serde_json::Value::Null);
+        let (current_context_tx, _current_context_rx) = watch::channel(serde_json::Value::Null);
 
         let registries = Arc::new(synapto_interface::context::ContextRegistries::default());
         let tools = Arc::new(synapto_interface::tool::ToolRegistryBuilder::default());
@@ -317,7 +317,7 @@ impl<
             camera_spawner: None,
             error_rx: Some(error_rx),
             current_context_tx,
-            current_context_rx,
+            
             llm_executor,
         }
     }
@@ -356,20 +356,18 @@ impl<
             // Generate the safe, unique database namespace based on the Rust type
             let safe_namespace = base_path.replace("::", "_").replace(" ", "");
 
-            let plugin_context = synapto_interface::plugin::PluginContext::new(
+            let init_context = synapto_interface::plugin::PluginInitContext::new(
                 self.llm_executor.clone(),
-                plugin_config,
+                &plugin_config,
                 self.storage.clone(),
-                safe_namespace,
+                &safe_namespace,
                 std::sync::Arc::new(CoreStorageConfigResolver {
                     provider: self.config_provider.clone(),
                 }),
-                self.current_context_rx.clone(),
             );
 
             // Safely bridge the async initialization back into the synchronous builder
             // This is entirely safe during the application boot phase.
-            let init_context = synapto_interface::plugin::PluginInitContext::new(&plugin_context);
             let future = P::create(&init_context);
             let plugin_result =
                 tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(future));
@@ -571,15 +569,16 @@ impl<
             mpsc::channel::<synapto_interface::tool::ToolCallId>(100);
 
         // TODO explore whether the "core" plugin context could be used more than for reusing storage provider initialization logic
-        let core_plugin_context = synapto_interface::plugin::PluginContext::new(
+        let core_config = serde_json::json!({});
+        let core_namespace = "core";
+        let core_plugin_context = synapto_interface::plugin::PluginInitContext::new(
             self.llm_executor.clone(),
-            serde_json::json!({}),
+            &core_config,
             self.storage.clone(),
-            "core".to_string(),
+            core_namespace,
             std::sync::Arc::new(CoreStorageConfigResolver {
                 provider: self.config_provider.clone(),
             }),
-            self.current_context_rx.clone(),
         );
 
         let core_storage = match core_plugin_context.store::<S>().await {

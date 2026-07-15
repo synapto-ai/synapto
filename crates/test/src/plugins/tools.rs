@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use synapto_interface::context::ContextRequest;
-use synapto_interface::plugin::{PluginContext, PluginInitContext};
+use synapto_interface::plugin::{PluginInitContext};
 use synapto_interface::plugin::{Plugin, PluginRegistry};
 use synapto_interface::tool::Tool;
 

@@ -13,25 +13,22 @@ use async_trait::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone)]
-pub struct PluginContext {
+pub struct PluginInitContext<'a> {
     llm_executor: std::sync::Arc<dyn crate::llm::LlmExecutor>,
-    plugin_config: serde_json::Value,
+    plugin_config: &'a serde_json::Value,
     storage: std::sync::Arc<crate::storage::StorageRegistry>,
-    plugin_namespace: String,
+    plugin_namespace: &'a str,
     storage_config_resolver: std::sync::Arc<dyn crate::storage::StorageConfigResolver>,
-    current_context_rx: tokio::sync::watch::Receiver<serde_json::Value>,
 }
 
-impl PluginContext {
+impl<'a> PluginInitContext<'a> {
     #[doc = " Internal constructor used by the Core AI engine."]
     pub fn new(
         llm_executor: std::sync::Arc<dyn crate::llm::LlmExecutor>,
-        plugin_config: serde_json::Value,
+        plugin_config: &'a serde_json::Value,
         storage: std::sync::Arc<crate::storage::StorageRegistry>,
-        plugin_namespace: String,
+        plugin_namespace: &'a str,
         storage_config_resolver: std::sync::Arc<dyn crate::storage::StorageConfigResolver>,
-        current_context_rx: tokio::sync::watch::Receiver<serde_json::Value>,
     ) -> Self {
         Self {
             llm_executor,
@@ -39,12 +36,9 @@ impl PluginContext {
             storage,
             plugin_namespace,
             storage_config_resolver,
-            current_context_rx,
         }
     }
-    pub fn llm_executor(&self) -> std::sync::Arc<dyn crate::llm::LlmExecutor> {
-        self.llm_executor.clone()
-    }
+
     #[doc = " Deserializes the raw JSON configuration into the plugin's requested config struct."]
     #[doc = ""]
     #[doc = " **Note on Serde Configuration Defaults:**"]
@@ -59,6 +53,7 @@ impl PluginContext {
         serde_json::from_value(self.plugin_config.clone())
             .map_err(|e| format!("Failed to parse plugin config: {}", e))
     }
+
     #[doc = " Initializes and returns a database connection scoped strictly to this plugin's namespace."]
     pub async fn store<S: crate::storage::StorageConnection>(&self) -> Result<S, String> {
         let full_path = std::any::type_name::<S>();
@@ -80,35 +75,11 @@ impl PluginContext {
                 crate_name, storage_type_name, e
             )
         })?;
-        S::connect(config, self.storage.clone(), &self.plugin_namespace).await
-    }
-    #[doc = " Read-only subscription channel to receive the global state updates"]
-    pub fn subscribe_context_updates(&self) -> tokio::sync::watch::Receiver<serde_json::Value> {
-        self.current_context_rx.clone()
-    }
-}
-
-/// A restrictive proxy wrapper that explicitly prevents access to low-level
-/// core internals (e.g., routing keys, raw subscriptions).
-pub struct PluginInitContext<'a> {
-    inner: &'a PluginContext,
-}
-
-impl<'a> PluginInitContext<'a> {
-    pub fn new(inner: &'a PluginContext) -> Self {
-        Self { inner }
-    }
-
-    pub fn config<C: serde::de::DeserializeOwned>(&self) -> Result<C, String> {
-        self.inner.config()
-    }
-
-    pub async fn store<S: crate::storage::StorageConnection>(&self) -> Result<S, String> {
-        self.inner.store::<S>().await
+        S::connect(config, self.storage.clone(), self.plugin_namespace).await
     }
 
     pub fn llm_executor(&self) -> std::sync::Arc<dyn crate::llm::LlmExecutor> {
-        self.inner.llm_executor()
+        self.llm_executor.clone()
     }
 }
 
