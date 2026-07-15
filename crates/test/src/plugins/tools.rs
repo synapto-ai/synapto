@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use synapto_interface::context::ContextRequest;
-use synapto_interface::plugin::PluginContext;
+use synapto_interface::plugin::{PluginContext, PluginInitContext};
 use synapto_interface::plugin::{Plugin, PluginRegistry};
 use synapto_interface::tool::Tool;
 
@@ -10,7 +10,7 @@ pub struct MockSlowReadPlugin;
 
 #[async_trait::async_trait]
 impl Plugin for MockSlowReadPlugin {
-    async fn create(_context: PluginContext) -> Result<Self, String> {
+    async fn create(_context: &PluginInitContext<'_>) -> Result<Self, String> {
         Ok(Self)
     }
 

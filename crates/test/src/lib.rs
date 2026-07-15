@@ -33,7 +33,7 @@ pub struct MockAudioInputPlugin;
 
 #[async_trait::async_trait]
 impl synapto_interface::plugin::Plugin for MockAudioInputPlugin {
-    async fn create(_context: synapto_interface::plugin::PluginContext) -> Result<Self, String> {
+    async fn create(_context: &synapto_interface::plugin::PluginInitContext<'_>) -> Result<Self, String> {
         Ok(Self)
     }
 

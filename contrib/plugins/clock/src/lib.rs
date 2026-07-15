@@ -35,7 +35,7 @@ pub struct ClockPlugin {
 
 #[async_trait::async_trait]
 impl Plugin for ClockPlugin {
-    async fn create(_context: synapto_interface::types::PluginContext) -> Result<Self, String> {
+    async fn create(_context: &synapto_interface::plugin::PluginInitContext<'_>) -> Result<Self, String> {
         let provider = Arc::new(ClockContextProvider {});
         Ok(Self { provider })
     }

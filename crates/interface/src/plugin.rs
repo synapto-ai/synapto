@@ -3,7 +3,7 @@ use crate::call::CallPlugin;
 use crate::camera::CameraPlugin;
 use crate::chat::ChatPlugin;
 use crate::cognitive_output_audio::AudioOutputPlugin;
-use crate::document::DocumentsPlugin;
+use crate::document::{DocumentProviderPlugin, DocumentsPlugin};
 use crate::gui::GuiPlugin;
 use crate::interaction::{InteractionObserver, RetrospectiveConsolidationPlugin};
 use crate::peer_input_audio::AudioInputPlugin;
@@ -88,6 +88,30 @@ impl PluginContext {
     }
 }
 
+/// A restrictive proxy wrapper that explicitly prevents access to low-level
+/// core internals (e.g., routing keys, raw subscriptions).
+pub struct PluginInitContext<'a> {
+    inner: &'a PluginContext,
+}
+
+impl<'a> PluginInitContext<'a> {
+    pub fn new(inner: &'a PluginContext) -> Self {
+        Self { inner }
+    }
+
+    pub fn config<C: serde::de::DeserializeOwned>(&self) -> Result<C, String> {
+        self.inner.config()
+    }
+
+    pub async fn store<S: crate::storage::StorageConnection>(&self) -> Result<S, String> {
+        self.inner.store::<S>().await
+    }
+
+    pub fn llm_executor(&self) -> std::sync::Arc<dyn crate::llm::LlmExecutor> {
+        self.inner.llm_executor()
+    }
+}
+
 pub trait PluginRegistry {
     fn register_gui<P: GuiPlugin>(&mut self, plugin: std::sync::Arc<P>);
     fn register_audio_input<P: AudioInputPlugin>(&mut self, plugin: std::sync::Arc<P>);
@@ -97,6 +121,7 @@ pub trait PluginRegistry {
     fn register_diarization<P: DiarizationPlugin>(&mut self, plugin: std::sync::Arc<P>);
     fn register_chat<P: ChatPlugin>(&mut self, plugin: std::sync::Arc<P>);
     fn register_documents<P: DocumentsPlugin>(&mut self, plugin: std::sync::Arc<P>);
+    fn register_document_provider<P: DocumentProviderPlugin>(&mut self, plugin: std::sync::Arc<P>);
     fn register_interaction_observer<P: InteractionObserver>(&mut self, plugin: std::sync::Arc<P>);
     fn register_rollout_controller<P: RolloutController>(&mut self, plugin: std::sync::Arc<P>);
     fn register_retrospective_consolidation<P: RetrospectiveConsolidationPlugin>(
@@ -131,7 +156,7 @@ pub trait Plugin: Send + Sync + 'static {
     #[doc = " **Note on Configuration:** When calling `context.config()?` to extract your configuration struct,"]
     #[doc = " ensure any optional fields in your struct are marked with `#[serde(default)]`. Otherwise,"]
     #[doc = " omitted fields in the config file will cause strict deserialization errors."]
-    async fn create(context: crate::plugin::PluginContext) -> Result<Self, String>
+    async fn create(context: &crate::plugin::PluginInitContext<'_>) -> Result<Self, String>
     where
         Self: Sized;
     fn register<R: PluginRegistry + ?Sized>(self: std::sync::Arc<Self>, registry: &mut R)

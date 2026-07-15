@@ -47,3 +47,11 @@ pub trait DocumentsPlugin: Plugin + Send + Sync {
         add_document_rx: mpsc::Receiver<crate::document::AddDocumentRequest>,
     ) -> Result<(), String>;
 }
+
+#[async_trait]
+pub trait DocumentProviderPlugin: Plugin + Send + Sync {
+    async fn start_document_provider(
+        &self,
+        add_document_tx: mpsc::Sender<crate::document::AddDocumentRequest>,
+    ) -> Result<(), String>;
+}

@@ -65,7 +65,7 @@ impl Plugin for MumblePlugin {
         registry.register_audio_output(self.clone());
     }
 
-    async fn create(context: synapto_interface::types::PluginContext) -> Result<Self, String> {
+    async fn create(context: &synapto_interface::plugin::PluginInitContext<'_>) -> Result<Self, String> {
         let config: MumbleConfig = context.config()?;
         Ok(Self {
             config,
@@ -85,7 +85,6 @@ impl ChatPlugin for MumblePlugin {
         peer_input_text_tx: mpsc::Sender<PeerInputText>,
         cognitive_output_text_rx: mpsc::Receiver<CognitiveOutputText>,
         _cognitive_state_rx: broadcast::Receiver<synapto_interface::types::CognitiveStateUpdate>,
-        _add_document_tx: Option<mpsc::Sender<synapto_interface::types::AddDocumentRequest>>,
     ) -> Result<(), String> {
         let mut channels = self.channels.lock().await;
         channels.peer_input_text_tx = Some(peer_input_text_tx);

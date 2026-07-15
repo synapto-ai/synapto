@@ -34,7 +34,7 @@ impl Plugin for TtsElevenLabsPlugin {
         registry.register_tts(self);
     }
 
-    async fn create(context: synapto_interface::types::PluginContext) -> Result<Self, String> {
+    async fn create(context: &synapto_interface::plugin::PluginInitContext<'_>) -> Result<Self, String> {
         let config: ElevenLabsTtsConfig = context.config()?;
         Ok(Self { config })
     }

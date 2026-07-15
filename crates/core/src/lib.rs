@@ -124,9 +124,11 @@ type ChatSpawner = Box<
             mpsc::Sender<PeerInputText>,
             mpsc::Receiver<CognitiveOutputText>,
             broadcast::Receiver<CognitiveStateUpdate>,
-            Option<mpsc::Sender<synapto_interface::document::AddDocumentRequest>>,
         ) + Send,
 >;
+
+type DocumentProviderSpawner =
+    Box<dyn FnOnce(mpsc::Sender<synapto_interface::document::AddDocumentRequest>) + Send>;
 
 type DocumentsSpawner =
     Box<dyn FnOnce(mpsc::Receiver<synapto_interface::document::AddDocumentRequest>) + Send>;
@@ -194,6 +196,7 @@ pub struct Synapto<
     tts_spawners: Vec<TtsSpawner>,
     chat_spawner: Option<ChatSpawner>,
     documents_spawner: Option<DocumentsSpawner>,
+    document_provider_spawners: Vec<DocumentProviderSpawner>,
     diarization_spawner: Option<DiarizationSpawner>,
     diarization_heuristic: Option<synapto_interface::speech_to_text::SpeakerHeuristicCallback>,
     call_spawner: Option<CallSpawner>,
@@ -296,6 +299,7 @@ impl<
             tts_spawners: Vec::new(),
             chat_spawner: None,
             documents_spawner: None,
+            document_provider_spawners: Vec::new(),
             diarization_spawner: None,
             diarization_heuristic: None,
             call_spawner: None,
@@ -365,7 +369,8 @@ impl<
 
             // Safely bridge the async initialization back into the synchronous builder
             // This is entirely safe during the application boot phase.
-            let future = P::create(plugin_context);
+            let init_context = synapto_interface::plugin::PluginInitContext::new(&plugin_context);
+            let future = P::create(&init_context);
             let plugin_result =
                 tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(future));
 
@@ -667,24 +672,20 @@ impl<
         }
 
         let has_chat_plugin = self.chat_spawner.is_some();
-        let has_documents_plugin = self.documents_spawner.is_some();
+
+        for spawner in self.document_provider_spawners {
+            spawner(add_document_tx.clone());
+        }
 
         if let Some(spawner) = self.documents_spawner {
             spawner(add_document_rx);
         }
 
         if let Some(spawner) = self.chat_spawner {
-            let doc_tx = if has_documents_plugin {
-                Some(add_document_tx.clone())
-            } else {
-                None
-            };
-
             spawner(
                 peer_input_text_tx.clone(),
                 cognitive_output_text_rx,
                 cognitive_state_tx.subscribe(),
-                doc_tx,
             );
         }
 
@@ -843,17 +844,13 @@ impl<
 
     fn register_chat<P: ChatPlugin>(&mut self, plugin: Arc<P>) {
         self.chat_spawner = Some(Box::new(
-            move |peer_input_text_tx,
-                  cognitive_output_text_rx,
-                  cognitive_state_rx,
-                  add_document_tx| {
+            move |peer_input_text_tx, cognitive_output_text_rx, cognitive_state_rx| {
                 let p = plugin.clone();
                 tokio::spawn(async move {
                     p.start(
                         peer_input_text_tx,
                         cognitive_output_text_rx,
                         cognitive_state_rx,
-                        add_document_tx,
                     )
                     .await
                     .inspect_err(|e| tracing::error!("Chat plugin failed: {:?}", e))
@@ -862,6 +859,25 @@ impl<
             },
         ));
         tracing::info!("  Chat capability registered.");
+    }
+
+    fn register_document_provider<P: synapto_interface::document::DocumentProviderPlugin>(
+        &mut self,
+        plugin: Arc<P>,
+    ) {
+        self.document_provider_spawners
+            .push(Box::new(move |add_document_tx| {
+                let p = plugin.clone();
+                tokio::spawn(async move {
+                    p.start_document_provider(add_document_tx)
+                        .await
+                        .inspect_err(|e| {
+                            tracing::error!("Document provider plugin failed: {:?}", e)
+                        })
+                        .ok();
+                });
+            }));
+        tracing::info!("  Document provider capability registered.");
     }
 
     fn register_documents<P: synapto_interface::document::DocumentsPlugin>(

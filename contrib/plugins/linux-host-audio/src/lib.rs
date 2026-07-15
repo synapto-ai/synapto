@@ -35,7 +35,7 @@ impl Plugin for HostAudioInputPlugin {
         registry.register_audio_input(self);
     }
 
-    async fn create(context: synapto_interface::types::PluginContext) -> Result<Self, String> {
+    async fn create(context: &synapto_interface::plugin::PluginInitContext<'_>) -> Result<Self, String> {
         let config: HostAudioConfig = context.config()?;
         Ok(Self {
             config,
@@ -92,7 +92,7 @@ impl Plugin for HostAudioOutputPlugin {
         registry.register_audio_output(self);
     }
 
-    async fn create(context: synapto_interface::types::PluginContext) -> Result<Self, String> {
+    async fn create(context: &synapto_interface::plugin::PluginInitContext<'_>) -> Result<Self, String> {
         let config: HostAudioConfig = context.config()?;
         Ok(Self {
             config,

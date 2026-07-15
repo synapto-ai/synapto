@@ -8,7 +8,7 @@ use synapto_interface::document::{
     AddDocumentRequest, DocumentId, DocumentsPlugin as DocumentsPluginTrait,
 };
 use synapto_interface::llm::LLMSafe;
-use synapto_interface::plugin::{Plugin, PluginContext, PluginRegistry};
+use synapto_interface::plugin::{Plugin, PluginContext, PluginInitContext, PluginRegistry};
 use synapto_interface::sync::mpsc;
 use synapto_interface::tool::Tool;
 use tokio::sync::Mutex;
@@ -107,7 +107,7 @@ pub struct MockDocumentsPlugin {
 
 #[async_trait]
 impl Plugin for MockDocumentsPlugin {
-    async fn create(_context: PluginContext) -> Result<Self, String> {
+    async fn create(_context: &PluginInitContext<'_>) -> Result<Self, String> {
         Ok(Self {
             store: Arc::new(Mutex::new(DocumentStore::new())),
         })

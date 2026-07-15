@@ -38,7 +38,7 @@ impl Plugin for SttElevenLabsPlugin {
         registry.register_stt(self);
     }
 
-    async fn create(context: synapto_interface::types::PluginContext) -> Result<Self, String> {
+    async fn create(context: &synapto_interface::plugin::PluginInitContext<'_>) -> Result<Self, String> {
         let config: ElevenLabsSttConfig = context.config()?;
         Ok(Self { config })
     }

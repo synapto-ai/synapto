@@ -79,7 +79,7 @@ impl Plugin for SttGooglePlugin {
         registry.register_stt(self);
     }
 
-    async fn create(context: synapto_interface::types::PluginContext) -> Result<Self, String> {
+    async fn create(context: &synapto_interface::plugin::PluginInitContext<'_>) -> Result<Self, String> {
         let config: GoogleSttConfig = context.config()?;
         Ok(Self { config })
     }
