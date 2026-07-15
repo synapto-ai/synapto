@@ -11,7 +11,7 @@ use synapto_plugin_mumble::MumblePlugin;
 async fn test_bundle() {
     type TestConfig = (synapto::config::DotEnv, synapto::config::Env);
     type TestStorage =
-        test_storage_local::LocalStorageProvider<test_datadir_ephemeral::EphemeralDir>;
+        synapto_test::local_storage::LocalStorage<synapto_test::ephemeral_datadir::EphemeralDir>;
     type TestPrompt = synapto::prompt_provider::EmptyPromptProvider;
 
     Synapto::<TestConfig, TestStorage, TestPrompt>::run::<(

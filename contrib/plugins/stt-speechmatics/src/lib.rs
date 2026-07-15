@@ -2,11 +2,12 @@ use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use synapto_interface::speech_to_text::types::{
+use synapto_interface::speech_to_text::{
     InputVoiceAudio, SpeechDetected, SpeechTranscript, Word,
 };
 use synapto_interface::sync::mpsc;
-use synapto_interface::{Plugin, STTPlugin};
+use synapto_interface::plugin::Plugin;
+use synapto_interface::speech_to_text::STTPlugin;
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::handshake::client::generate_key;
@@ -59,7 +60,7 @@ pub struct SttSpeechmaticsPlugin {
 #[async_trait]
 #[async_trait::async_trait]
 impl Plugin for SttSpeechmaticsPlugin {
-    fn register<R: synapto_interface::PluginRegistry + ?Sized>(
+    fn register<R: synapto_interface::plugin::PluginRegistry + ?Sized>(
         self: std::sync::Arc<Self>,
         registry: &mut R,
     ) where
@@ -252,7 +253,7 @@ async fn emit_transcript(
         let (start_index, end_index) = if let (Some(s), Some(e)) = (item.start_time, item.end_time)
         {
             let (si, ei) =
-                synapto_interface::speech_to_text::types::calculate_chunk_indices(base_index, s, e);
+                synapto_interface::speech_to_text::calculate_chunk_indices(base_index, s, e);
             (Some(si), Some(ei))
         } else {
             (None, None)

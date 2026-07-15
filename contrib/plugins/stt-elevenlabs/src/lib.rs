@@ -3,11 +3,12 @@ use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::time::Duration;
-use synapto_interface::speech_to_text::types::{
+use synapto_interface::speech_to_text::{
     InputVoiceAudio, SpeechDetected, SpeechTranscript, Word,
 };
 use synapto_interface::sync::mpsc;
-use synapto_interface::{Plugin, STTPlugin};
+use synapto_interface::plugin::Plugin;
+use synapto_interface::speech_to_text::STTPlugin;
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::handshake::client::generate_key;
@@ -29,7 +30,7 @@ pub struct SttElevenLabsPlugin {
 
 #[async_trait]
 impl Plugin for SttElevenLabsPlugin {
-    fn register<R: synapto_interface::PluginRegistry + ?Sized>(
+    fn register<R: synapto_interface::plugin::PluginRegistry + ?Sized>(
         self: std::sync::Arc<Self>,
         registry: &mut R,
     ) where
@@ -218,7 +219,7 @@ async fn run_elevenlabs(
                                                         .or(word_obj.get("end_time"))
                                                         .and_then(|v| v.as_f64()),
                                                 ) {
-                                                    let (si, ei) = synapto_interface::speech_to_text::types::calculate_chunk_indices(base_index, s, e);
+                                                    let (si, ei) = synapto_interface::speech_to_text::calculate_chunk_indices(base_index, s, e);
                                                     (Some(si), Some(ei))
                                                 } else {
                                                     (None, None)

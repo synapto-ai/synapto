@@ -11,7 +11,7 @@ async fn test_bundle() {
     type TestConfig = (synapto::config::DotEnv, synapto::config::Env);
     // Use real datadir provider!
     type TestStorage =
-        test_storage_local::LocalStorageProvider<datadir_local::DataLocalDir>;
+        synapto_test::local_storage::LocalStorage<datadir_local::DataLocalDir<"synapto_test">>;
     type TestPrompt = synapto::prompt_provider::EmptyPromptProvider;
 
     Synapto::<TestConfig, TestStorage, TestPrompt>::run::<(

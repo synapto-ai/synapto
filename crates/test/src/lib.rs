@@ -1,5 +1,7 @@
 #![feature(iter_array_chunks)]
 
+pub mod ephemeral_datadir;
+pub mod local_storage;
 #[path = "plugins/mod.rs"]
 pub mod plugins;
 

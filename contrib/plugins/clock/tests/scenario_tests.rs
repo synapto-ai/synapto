@@ -9,12 +9,7 @@ use synapto_test::{
 use synapto_plugin_clock::ClockPlugin;
 
 async fn test_bundle() {
-    type TestConfig = (synapto::config::DotEnv, synapto::config::Env);
-    type TestStorage =
-        test_storage_local::LocalStorageProvider<test_datadir_ephemeral::EphemeralDir>;
-    type TestPrompt = synapto::prompt_provider::EmptyPromptProvider;
-
-    Synapto::<TestConfig, TestStorage, TestPrompt>::run::<(
+    Synapto::<synapto::config::DotEnv, synapto_test::local_storage::LocalStorage<synapto_test::ephemeral_datadir::EphemeralDir>>::run::<(
         MockAudioInputPlugin,
         MockDocumentsPlugin,
         MockChatPlugin,

@@ -1,7 +1,8 @@
-use synapto_interface::cognitive_output_audio::types::CognitiveOutputAudio;
+use synapto_interface::cognitive_output_audio::CognitiveOutputAudio;
 use synapto_interface::sync::mpsc;
-use synapto_interface::types::CognitiveOutputSpeech;
-use synapto_interface::{Plugin, TTSPlugin};
+use synapto_interface::cognitive::CognitiveOutputSpeech;
+use synapto_interface::plugin::Plugin;
+use synapto_interface::speech_to_text::TTSPlugin;
 use async_trait::async_trait;
 use elevenlabs_sdk::{
     ClientConfig, ElevenLabsClient,
@@ -25,7 +26,7 @@ pub struct TtsElevenLabsPlugin {
 
 #[async_trait]
 impl Plugin for TtsElevenLabsPlugin {
-    fn register<R: synapto_interface::PluginRegistry + ?Sized>(
+    fn register<R: synapto_interface::plugin::PluginRegistry + ?Sized>(
         self: std::sync::Arc<Self>,
         registry: &mut R,
     ) where

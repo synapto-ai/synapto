@@ -10,7 +10,7 @@ The AI architecture defines storage capabilities as generic traits in `synapto_i
 
 There are currently two available providers:
 
-1. **`storage-local` (`LocalStorageProvider`)**: A zero-dependency, human-readable file backend that writes JSON arrays directly to the plugin's namespace directory. Ideal for small, localized deployments or testing.
+1. **`storage-local` (`LocalStorage`)**: A zero-dependency, human-readable file backend that writes JSON arrays directly to the plugin's namespace directory. Ideal for small, localized deployments or testing.
 2. **`storage-surrealdb` (`SurrealStorage`)**: A full database backend for heavy, high-frequency logging or complex querying.
 
 ### How to Use It (Example)
@@ -50,10 +50,10 @@ In the bundle `main.rs`:
 
 ```rust,ignore
 // Using the lightweight JSON file provider
-use storage_local::LocalStorageProvider;
+use storage_local::LocalStorage;
 
 let storage = Arc::new(
-    LocalStorageProvider::connect(registries.clone(), &data_dir, "my_plugin_namespace")
+    LocalStorage::connect(registries.clone(), &data_dir, "my_plugin_namespace")
         .await
         .unwrap()
 );

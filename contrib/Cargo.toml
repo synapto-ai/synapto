@@ -31,6 +31,7 @@ url = "2"
 synapto = {path="../crates/core" }
 synapto-test = {path="../crates/test" }
 synapto-interface = {path="../crates/interface" }
+synapto-llm = {path="../crates/llm"}
 
 [workspace.lints.rust]
 unsafe_code = "deny"

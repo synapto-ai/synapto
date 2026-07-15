@@ -1,4 +1,6 @@
-use synapto_interface::{AudioInputPlugin, AudioOutputPlugin, Plugin};
+use synapto_interface::peer_input_audio::AudioInputPlugin;
+use synapto_interface::cognitive_output_audio::AudioOutputPlugin;
+use synapto_interface::plugin::Plugin;
 use async_trait::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -26,7 +28,7 @@ pub struct HostAudioInputPlugin {
 
 #[async_trait::async_trait]
 impl Plugin for HostAudioInputPlugin {
-    fn register<R: synapto_interface::PluginRegistry + ?Sized>(
+    fn register<R: synapto_interface::plugin::PluginRegistry + ?Sized>(
         self: std::sync::Arc<Self>,
         registry: &mut R,
     ) where
@@ -48,7 +50,7 @@ impl Plugin for HostAudioInputPlugin {
 impl AudioInputPlugin for HostAudioInputPlugin {
     async fn start(
         &self,
-        tx: synapto_interface::sync::mpsc::Sender<synapto_interface::peer_input_audio::types::PeerInputAudio>,
+        tx: synapto_interface::sync::mpsc::Sender<synapto_interface::peer_input_audio::PeerInputAudio>,
     ) -> Result<(), String> {
         let config = self.config.clone();
         let capture_quit_tx = self.capture_quit_tx.clone();
@@ -83,7 +85,7 @@ pub struct HostAudioOutputPlugin {
 
 #[async_trait]
 impl Plugin for HostAudioOutputPlugin {
-    fn register<R: synapto_interface::PluginRegistry + ?Sized>(
+    fn register<R: synapto_interface::plugin::PluginRegistry + ?Sized>(
         self: std::sync::Arc<Self>,
         registry: &mut R,
     ) where
@@ -105,7 +107,7 @@ impl Plugin for HostAudioOutputPlugin {
 impl AudioOutputPlugin for HostAudioOutputPlugin {
     async fn start(
         &self,
-        rx: synapto_interface::sync::mpsc::Receiver<synapto_interface::cognitive_output_audio::types::CognitiveOutputAudio>,
+        rx: synapto_interface::sync::mpsc::Receiver<synapto_interface::cognitive_output_audio::CognitiveOutputAudio>,
     ) -> Result<(), String> {
         let config = self.config.clone();
         let playback_quit_tx = self.playback_quit_tx.clone();

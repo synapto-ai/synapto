@@ -10,7 +10,7 @@ use synapto_test::{
 async fn test_bundle() {
     Synapto::<
         (synapto::config::DotEnv, synapto::config::Env),
-        synapto_storage_local::LocalStorageProvider<synapto_datadir_ephemeral::EphemeralDir>,
+        synapto_test::local_storage::LocalStorage<synapto_test::ephemeral_datadir::EphemeralDir>,
     >::run::<(
         MockAudioInputPlugin,
         MockDocumentsPlugin,

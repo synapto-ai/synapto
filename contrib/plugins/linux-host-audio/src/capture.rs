@@ -1,5 +1,5 @@
 use crate::{HostAudioConfig, Terminate};
-use synapto_interface::peer_input_audio::types::{
+use synapto_interface::peer_input_audio::{
     PEER_INPUT_AUDIO_CHUNK_SIZE, PEER_INPUT_AUDIO_SAMPLE_RATE, PeerInputAudio,
 };
 use synapto_interface::sync::mpsc;

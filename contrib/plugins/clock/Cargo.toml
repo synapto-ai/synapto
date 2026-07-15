@@ -18,7 +18,4 @@ chrono = { version = "0.4" }
 [dev-dependencies]
 synapto-test.workspace = true
 synapto.workspace = true
-test-storage-local = { package = "synapto-storage-local", path = "../../../crates/test/storage-providers/local" }
-test-datadir-ephemeral = { package = "synapto-datadir-ephemeral", path = "../../../crates/test/datadir-providers/ephemeral" }
 tokio.workspace = true
-

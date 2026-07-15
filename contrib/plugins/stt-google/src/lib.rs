@@ -2,11 +2,12 @@ use async_trait::async_trait;
 use gcp_auth::TokenProvider;
 use serde::Deserialize;
 use std::time::Duration;
-use synapto_interface::speech_to_text::types::{
+use synapto_interface::speech_to_text::{
     InputVoiceAudio, PeerInputAudioIndexed, SpeechDetected, SpeechTranscript, Word,
 };
 use synapto_interface::sync::{mpsc, watch};
-use synapto_interface::{Plugin, STTPlugin};
+use synapto_interface::plugin::Plugin;
+use synapto_interface::speech_to_text::STTPlugin;
 use tokio_stream::StreamExt;
 
 use googleapis_tonic_google_cloud_speech_v1::google::cloud::speech::v1::recognition_config::AudioEncoding as AudioEncodingV1;
@@ -19,10 +20,8 @@ use googleapis_tonic_google_cloud_speech_v1::google::cloud::speech::v1::{
 };
 
 struct StreamingRecognizeRequestV1Wrapped(StreamingRecognizeRequestV1);
-synapto_interface::register_channel_name!(StreamingRecognizeRequestV1Wrapped, "stt_v1_request");
 
 struct StreamingRecognizeRequestV2Wrapped(StreamingRecognizeRequestV2);
-synapto_interface::register_channel_name!(StreamingRecognizeRequestV2Wrapped, "stt_v2_request");
 use googleapis_tonic_google_cloud_speech_v2::google::cloud::speech::v2::explicit_decoding_config::AudioEncoding as AudioEncodingV2;
 use googleapis_tonic_google_cloud_speech_v2::google::cloud::speech::v2::recognition_config as recognition_config_v2;
 use googleapis_tonic_google_cloud_speech_v2::google::cloud::speech::v2::speech_client::SpeechClient as SpeechClientV2;
@@ -70,7 +69,7 @@ pub struct SttGooglePlugin {
 
 #[async_trait::async_trait]
 impl Plugin for SttGooglePlugin {
-    fn register<R: synapto_interface::PluginRegistry + ?Sized>(
+    fn register<R: synapto_interface::plugin::PluginRegistry + ?Sized>(
         self: std::sync::Arc<Self>,
         registry: &mut R,
     ) where
@@ -252,7 +251,7 @@ async fn run_v1(
                                     if let (Some(s), Some(e)) =
                                         (w.start_time.as_ref(), w.end_time.as_ref())
                                     {
-                                        let (si, ei) = synapto_interface::speech_to_text::types::calculate_chunk_indices(base_index, s.seconds as f64 + s.nanos as f64 / 1e9, e.seconds as f64 + e.nanos as f64 / 1e9);
+                                        let (si, ei) = synapto_interface::speech_to_text::calculate_chunk_indices(base_index, s.seconds as f64 + s.nanos as f64 / 1e9, e.seconds as f64 + e.nanos as f64 / 1e9);
                                         words.push(Word {
                                             start_index: Some(si),
                                             end_index: Some(ei),
@@ -529,7 +528,7 @@ async fn run_v2(
                                     if let (Some(s), Some(e)) =
                                         (w.start_offset.as_ref(), w.end_offset.as_ref())
                                     {
-                                        let (si, ei) = synapto_interface::speech_to_text::types::calculate_chunk_indices(base_index, s.seconds as f64 + s.nanos as f64 / 1e9, e.seconds as f64 + e.nanos as f64 / 1e9);
+                                        let (si, ei) = synapto_interface::speech_to_text::calculate_chunk_indices(base_index, s.seconds as f64 + s.nanos as f64 / 1e9, e.seconds as f64 + e.nanos as f64 / 1e9);
                                         words.push(Word {
                                             start_index: Some(si),
                                             end_index: Some(ei),

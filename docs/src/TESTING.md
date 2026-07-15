@@ -63,7 +63,7 @@ async fn test_bundle() {
     Synapto::<
         test_datadir_ephemeral::EphemeralDir,
         (synapto::config::DotEnv, synapto::config::Env),
-        test_storage_local::LocalStorageProvider,
+        test_storage_local::LocalStorage,
         synapto::prompt_provider::EmptyPromptProvider,
     >::run::<(
         MockAudioInputPlugin,
@@ -132,7 +132,7 @@ async fn test_bundle() {
     Synapto::<
         test_datadir_ephemeral::EphemeralDir,
         (synapto::config::DotEnv, synapto::config::Env),
-        test_storage_local::LocalStorageProvider,
+        test_storage_local::LocalStorage,
         synapto::prompt_provider::EmptyPromptProvider,
     >::run::<(
         MockAudioInputPlugin,

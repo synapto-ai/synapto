@@ -8,13 +8,18 @@ use mumble_protocol::voice::VoicePacketPayload;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
-use synapto_interface::cognitive_output_audio::types::CognitiveOutputAudio;
-use synapto_interface::cognitive_output_text::types::CognitiveOutputText;
-use synapto_interface::peer_input_audio::types::{PEER_INPUT_AUDIO_CHUNK_SIZE, PeerInputAudio};
-use synapto_interface::peer_input_text::types::PeerInputText;
+use synapto_interface::cognitive_output_audio::CognitiveOutputAudio;
+use synapto_interface::cognitive_output_text::CognitiveOutputText;
+use synapto_interface::peer_input_audio::{PEER_INPUT_AUDIO_CHUNK_SIZE, PeerInputAudio};
+use synapto_interface::peer_input_text::PeerInputText;
 use synapto_interface::sync::{broadcast, mpsc};
-use synapto_interface::types::{MessageChannel, MessageText, SenderId};
-use synapto_interface::{AudioInputPlugin, AudioOutputPlugin, ChatPlugin, Plugin};
+use synapto_interface::plugin::MessageChannel;
+use synapto_interface::peer_input::MessageText;
+use synapto_interface::peer_input_text::SenderId;
+use synapto_interface::peer_input_audio::AudioInputPlugin;
+use synapto_interface::cognitive_output_audio::AudioOutputPlugin;
+use synapto_interface::chat::ChatPlugin;
+use synapto_interface::plugin::Plugin;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 use tokio_native_tls::TlsConnector;
@@ -54,7 +59,7 @@ pub struct MumblePlugin {
 
 #[async_trait::async_trait]
 impl Plugin for MumblePlugin {
-    fn register<R: synapto_interface::PluginRegistry + ?Sized>(
+    fn register<R: synapto_interface::plugin::PluginRegistry + ?Sized>(
         self: std::sync::Arc<Self>,
         registry: &mut R,
     ) where
@@ -84,7 +89,7 @@ impl ChatPlugin for MumblePlugin {
         &self,
         peer_input_text_tx: mpsc::Sender<PeerInputText>,
         cognitive_output_text_rx: mpsc::Receiver<CognitiveOutputText>,
-        _cognitive_state_rx: broadcast::Receiver<synapto_interface::types::CognitiveStateUpdate>,
+        _cognitive_state_rx: broadcast::Receiver<synapto_interface::cognitive::CognitiveStateUpdate>,
     ) -> Result<(), String> {
         let mut channels = self.channels.lock().await;
         channels.peer_input_text_tx = Some(peer_input_text_tx);

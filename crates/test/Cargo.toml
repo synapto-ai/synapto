@@ -19,7 +19,6 @@ tracing.workspace = true
 clap = { version = "4", features = ["derive", "env"] }
 claxon = "0.4"
 tokio.workspace = true
+tempfile = "3"
 
-synapto-datadir-ephemeral = { path = "datadir-providers/ephemeral", version = "0.1.0-dev.2" }
-synapto-storage-local = { path = "storage-providers/local", version = "0.1.0-dev.2" }
 synapto-shutdown.workspace = true

@@ -1,5 +1,5 @@
 use crate::{HostAudioConfig, Terminate, audio_utils};
-use synapto_interface::cognitive_output_audio::types::CognitiveOutputAudio;
+use synapto_interface::cognitive_output_audio::CognitiveOutputAudio;
 use synapto_interface::sync::mpsc;
 use libspa_sys as spa_sys;
 use pipewire as pw;

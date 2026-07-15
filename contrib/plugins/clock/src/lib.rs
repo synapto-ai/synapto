@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use serde::Serialize;
 use std::sync::Arc;
 use synapto_interface::llm::LLMSafe;
-use synapto_interface::types::{ContextProvider, ContextRequest, TemporalScope};
-use synapto_interface::{Plugin, PluginRegistry};
+use synapto_interface::context::{ContextProvider, ContextRequest, TemporalScope};
+use synapto_interface::plugin::{Plugin, PluginRegistry};
 
 #[derive(Serialize, schemars::JsonSchema, Clone, Debug, LLMSafe)]
 pub struct ClockContext {
@@ -19,7 +19,7 @@ impl ContextProvider for ClockContextProvider {
     const NAME: &'static str = "clock";
     const SCOPE: TemporalScope = TemporalScope::Current;
 
-    async fn context(&self, _request: &ContextRequest) -> Result<Self::Context, String> {
+    async fn context(&self, _request: &ContextRequest) -> Result<<Self as ContextProvider>::Context, String> {
         Ok(ClockContext {
             current_timestamp: chrono::Utc::now().timestamp(),
         })

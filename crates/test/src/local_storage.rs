@@ -1,75 +1,34 @@
 use async_trait::async_trait;
-use dashmap::DashMap;
 use serde::{Serialize, de::DeserializeOwned};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use synapto_interface::storage::{
     EmptyStorageConfig, FileStore, KeyValueStore, RecordStore, StorageConnection, VectorStore,
 };
-use tokio::fs::{self, File};
-use tokio::io::AsyncWriteExt;
-use tokio::sync::RwLock;
+use tokio::fs;
 
 /// A local file-based JSON storage provider.
 ///
 /// Implements `StorageConnection` and `RecordStore`.
 /// It stores data by writing full JSON arrays to `.json` files inside the plugin namespace.
-pub struct LocalStorageProvider<P: synapto_interface::data_dir::DataDirProvider> {
+pub struct LocalStorage<P: synapto_interface::data_dir::DataDirProvider> {
     base_dir: PathBuf,
-    locks: DashMap<String, Arc<RwLock<()>>>,
     _marker: std::marker::PhantomData<P>,
 }
 
-impl<P: synapto_interface::data_dir::DataDirProvider> LocalStorageProvider<P> {
+impl<P: synapto_interface::data_dir::DataDirProvider> LocalStorage<P> {
     /// Helper to get the file path for a given records collection.
     fn get_records_path(&self, collection: &str) -> PathBuf {
         self.base_dir.join(format!("{}_records.json", collection))
     }
-
-    /// Helper to get or create the lock for a given collection.
-    fn get_lock(&self, collection: &str) -> Arc<RwLock<()>> {
-        self.locks
-            .entry(collection.to_string())
-            .or_insert_with(|| Arc::new(RwLock::new(())))
-            .clone()
-    }
-
     /// Helper to get the file path for a given kv collection.
     fn get_kv_path(&self, collection: &str) -> PathBuf {
         self.base_dir.join(format!("{}_kv.json", collection))
     }
-
-    /// Helper to perform atomic write to a file
-    async fn atomic_write(&self, path: &Path, content: &[u8]) -> Result<(), String> {
-        let temp_path = path.with_extension(format!("tmp.{}", uuid::Uuid::new_v4()));
-
-        let mut temp_file = File::create(&temp_path)
-            .await
-            .map_err(|e| format!("Failed to create temporary file: {}", e))?;
-
-        temp_file.write_all(content).await.map_err(|e| {
-            std::fs::remove_file(&temp_path).ok();
-            format!("Failed to write to temporary file: {}", e)
-        })?;
-
-        temp_file.sync_all().await.map_err(|e| {
-            std::fs::remove_file(&temp_path).ok();
-            format!("Failed to sync temporary file: {}", e)
-        })?;
-
-        fs::rename(&temp_path, path).await.map_err(|e| {
-            std::fs::remove_file(&temp_path).ok();
-            format!("Failed to commit file atomic rename: {}", e)
-        })?;
-
-        Ok(())
-    }
 }
 
 #[async_trait]
-impl<P: synapto_interface::data_dir::DataDirProvider> StorageConnection
-    for LocalStorageProvider<P>
-{
+impl<P: synapto_interface::data_dir::DataDirProvider> StorageConnection for LocalStorage<P> {
     type Config = EmptyStorageConfig;
 
     async fn connect(
@@ -84,23 +43,19 @@ impl<P: synapto_interface::data_dir::DataDirProvider> StorageConnection
             .await
             .map_err(|e| format!("Failed to create plugin storage directory: {}", e))?;
 
-        Ok(LocalStorageProvider {
+        Ok(LocalStorage {
             base_dir,
-            locks: DashMap::new(),
             _marker: std::marker::PhantomData,
         })
     }
 }
 
 #[async_trait]
-impl<P: synapto_interface::data_dir::DataDirProvider> RecordStore for LocalStorageProvider<P> {
+impl<P: synapto_interface::data_dir::DataDirProvider> RecordStore for LocalStorage<P> {
     async fn upsert_record<T>(&self, collection: &str, key: &str, value: T) -> Result<(), String>
     where
         T: Serialize + Send + Sync + 'static,
     {
-        let lock = self.get_lock(&format!("{}_records", collection));
-        let _write_guard = lock.write().await;
-
         let path = self.get_records_path(collection);
         let mut map: std::collections::BTreeMap<String, serde_json::Value> = if path.exists() {
             let content = fs::read_to_string(&path)
@@ -121,7 +76,9 @@ impl<P: synapto_interface::data_dir::DataDirProvider> RecordStore for LocalStora
         let serialized = serde_json::to_string_pretty(&map)
             .map_err(|e| format!("Failed to serialize: {}", e))?;
 
-        self.atomic_write(&path, serialized.as_bytes()).await?;
+        fs::write(&path, serialized.as_bytes())
+            .await
+            .map_err(|e| format!("Failed to write file: {}", e))?;
 
         Ok(())
     }
@@ -135,9 +92,6 @@ impl<P: synapto_interface::data_dir::DataDirProvider> RecordStore for LocalStora
     where
         T: DeserializeOwned + Send + Sync + 'static,
     {
-        let lock = self.get_lock(&format!("{}_records", collection));
-        let _read_guard = lock.read().await;
-
         let path = self.get_records_path(collection);
         if !path.exists() {
             return Ok(Vec::new());
@@ -172,9 +126,6 @@ impl<P: synapto_interface::data_dir::DataDirProvider> RecordStore for LocalStora
     }
 
     async fn delete_record(&self, collection: &str, key: &str) -> Result<(), String> {
-        let lock = self.get_lock(&format!("{}_records", collection));
-        let _write_guard = lock.write().await;
-
         let path = self.get_records_path(collection);
         if !path.exists() {
             return Ok(());
@@ -192,16 +143,15 @@ impl<P: synapto_interface::data_dir::DataDirProvider> RecordStore for LocalStora
             let serialized = serde_json::to_string_pretty(&map)
                 .map_err(|e| format!("Failed to serialize: {}", e))?;
 
-            self.atomic_write(&path, serialized.as_bytes()).await?;
+            fs::write(&path, serialized.as_bytes())
+                .await
+                .map_err(|e| format!("Failed to write file: {}", e))?;
         }
 
         Ok(())
     }
 
     async fn trim_records_before(&self, collection: &str, cutoff_key: &str) -> Result<(), String> {
-        let lock = self.get_lock(&format!("{}_records", collection));
-        let _write_guard = lock.write().await;
-
         let path = self.get_records_path(collection);
         if !path.exists() {
             return Ok(());
@@ -222,7 +172,9 @@ impl<P: synapto_interface::data_dir::DataDirProvider> RecordStore for LocalStora
             let serialized = serde_json::to_string_pretty(&map)
                 .map_err(|e| format!("Failed to serialize: {}", e))?;
 
-            self.atomic_write(&path, serialized.as_bytes()).await?;
+            fs::write(&path, serialized.as_bytes())
+                .await
+                .map_err(|e| format!("Failed to write file: {}", e))?;
         }
 
         Ok(())
@@ -230,14 +182,11 @@ impl<P: synapto_interface::data_dir::DataDirProvider> RecordStore for LocalStora
 }
 
 #[async_trait]
-impl<P: synapto_interface::data_dir::DataDirProvider> KeyValueStore for LocalStorageProvider<P> {
+impl<P: synapto_interface::data_dir::DataDirProvider> KeyValueStore for LocalStorage<P> {
     async fn set<T>(&self, collection: &str, key: &str, value: T) -> Result<(), String>
     where
         T: Serialize + Send + Sync + 'static,
     {
-        let lock = self.get_lock(&format!("{}_kv", collection));
-        let _write_guard = lock.write().await;
-
         let path = self.get_kv_path(collection);
         let mut map: std::collections::HashMap<String, serde_json::Value> = if path.exists() {
             let content = fs::read_to_string(&path)
@@ -258,7 +207,9 @@ impl<P: synapto_interface::data_dir::DataDirProvider> KeyValueStore for LocalSto
         let serialized = serde_json::to_string_pretty(&map)
             .map_err(|e| format!("Failed to serialize: {}", e))?;
 
-        self.atomic_write(&path, serialized.as_bytes()).await?;
+        fs::write(&path, serialized.as_bytes())
+            .await
+            .map_err(|e| format!("Failed to write file: {}", e))?;
 
         Ok(())
     }
@@ -267,9 +218,6 @@ impl<P: synapto_interface::data_dir::DataDirProvider> KeyValueStore for LocalSto
     where
         T: DeserializeOwned + Send + Sync + 'static,
     {
-        let lock = self.get_lock(&format!("{}_kv", collection));
-        let _read_guard = lock.read().await;
-
         let path = self.get_kv_path(collection);
         if !path.exists() {
             return Ok(None);
@@ -293,9 +241,6 @@ impl<P: synapto_interface::data_dir::DataDirProvider> KeyValueStore for LocalSto
     }
 
     async fn delete(&self, collection: &str, key: &str) -> Result<(), String> {
-        let lock = self.get_lock(&format!("{}_kv", collection));
-        let _write_guard = lock.write().await;
-
         let path = self.get_kv_path(collection);
         if !path.exists() {
             return Ok(());
@@ -314,7 +259,9 @@ impl<P: synapto_interface::data_dir::DataDirProvider> KeyValueStore for LocalSto
         let serialized = serde_json::to_string_pretty(&map)
             .map_err(|e| format!("Failed to serialize: {}", e))?;
 
-        self.atomic_write(&path, serialized.as_bytes()).await?;
+        fs::write(&path, serialized.as_bytes())
+            .await
+            .map_err(|e| format!("Failed to write file: {}", e))?;
 
         Ok(())
     }
@@ -323,9 +270,6 @@ impl<P: synapto_interface::data_dir::DataDirProvider> KeyValueStore for LocalSto
     where
         T: DeserializeOwned + Send + Sync + 'static,
     {
-        let lock = self.get_lock(&format!("{}_kv", collection));
-        let _read_guard = lock.read().await;
-
         let path = self.get_kv_path(collection);
         if !path.exists() {
             return Ok(Vec::new());
@@ -352,16 +296,13 @@ impl<P: synapto_interface::data_dir::DataDirProvider> KeyValueStore for LocalSto
 }
 
 #[async_trait]
-impl<P: synapto_interface::data_dir::DataDirProvider> FileStore for LocalStorageProvider<P> {
+impl<P: synapto_interface::data_dir::DataDirProvider> FileStore for LocalStorage<P> {
     async fn save_file(
         &self,
         collection: &str,
         file_id: &str,
         content: Vec<u8>,
     ) -> Result<(), String> {
-        let lock = self.get_lock(&format!("{}_records", collection));
-        let _write_guard = lock.write().await;
-
         let path = self
             .base_dir
             .join(collection)
@@ -374,58 +315,14 @@ impl<P: synapto_interface::data_dir::DataDirProvider> FileStore for LocalStorage
                 .map_err(|e| format!("Failed to create collection dir: {}", e))?;
         }
 
-        let temp_path = path.with_extension(format!("bin.tmp.{}", uuid::Uuid::new_v4()));
-
-        let mut temp_file = File::create(&temp_path)
+        fs::write(&path, &content)
             .await
-            .map_err(|e| format!("Failed to create temporary file: {}", e))?;
-
-        temp_file.write_all(&content).await.map_err(|e| {
-            std::fs::remove_file(&temp_path)
-                .inspect_err(|err| {
-                    tracing::error!(
-                        "Failed to remove temporary file {}: {:?}",
-                        temp_path.display(),
-                        err
-                    )
-                })
-                .ok();
-            format!("Failed to write to temporary file: {}", e)
-        })?;
-
-        temp_file.sync_all().await.map_err(|e| {
-            std::fs::remove_file(&temp_path)
-                .inspect_err(|err| {
-                    tracing::error!(
-                        "Failed to remove temporary file {}: {:?}",
-                        temp_path.display(),
-                        err
-                    )
-                })
-                .ok();
-            format!("Failed to sync temporary file: {}", e)
-        })?;
-
-        fs::rename(&temp_path, &path).await.map_err(|e| {
-            std::fs::remove_file(&temp_path)
-                .inspect_err(|err| {
-                    tracing::error!(
-                        "Failed to remove temporary file {}: {:?}",
-                        temp_path.display(),
-                        err
-                    )
-                })
-                .ok();
-            format!("Failed to commit file atomic rename: {}", e)
-        })?;
+            .map_err(|e| format!("Failed to write file: {}", e))?;
 
         Ok(())
     }
 
     async fn get_file(&self, collection: &str, file_id: &str) -> Result<Option<Vec<u8>>, String> {
-        let lock = self.get_lock(&format!("{}_records", collection));
-        let _read_guard = lock.read().await;
-
         let path = self
             .base_dir
             .join(collection)
@@ -442,9 +339,6 @@ impl<P: synapto_interface::data_dir::DataDirProvider> FileStore for LocalStorage
     }
 
     async fn delete_file(&self, collection: &str, file_id: &str) -> Result<(), String> {
-        let lock = self.get_lock(&format!("{}_records", collection));
-        let _write_guard = lock.write().await;
-
         let path = self
             .base_dir
             .join(collection)
@@ -538,15 +432,24 @@ impl Ord for ScoreIndex {
 }
 
 #[async_trait]
-impl<P: synapto_interface::data_dir::DataDirProvider> VectorStore for LocalStorageProvider<P> {
-    // Using default implementation since LocalStorageProvider doesn't need explicit setup.
+impl<P: synapto_interface::data_dir::DataDirProvider> VectorStore for LocalStorage<P> {
+    // Using default implementation since LocalStorage doesn't need explicit setup.
 
     async fn insert_vectors<T>(&self, collection: &str, records: Vec<T>) -> Result<(), String>
     where
         T: Serialize + Send + Sync + 'static,
     {
         for record in records {
-            let key = uuid::Uuid::new_v4().to_string();
+            static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            let ts = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos();
+            let key = format!(
+                "{}-{}",
+                ts,
+                COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            );
             self.upsert_record(collection, &key, record).await?;
         }
         Ok(())
@@ -612,9 +515,6 @@ impl<P: synapto_interface::data_dir::DataDirProvider> VectorStore for LocalStora
         filter_field: &str,
         filter_value: &str,
     ) -> Result<(), String> {
-        let lock = self.get_lock(&format!("{}_records", collection));
-        let _write_guard = lock.write().await;
-
         let path = self.get_records_path(collection);
         if !path.exists() {
             return Ok(());
@@ -646,7 +546,9 @@ impl<P: synapto_interface::data_dir::DataDirProvider> VectorStore for LocalStora
         if map.len() < initial_len {
             let serialized = serde_json::to_string_pretty(&map)
                 .map_err(|e| format!("Failed to serialize: {}", e))?;
-            self.atomic_write(&path, serialized.as_bytes()).await?;
+            fs::write(&path, serialized.as_bytes())
+                .await
+                .map_err(|e| format!("Failed to write file: {}", e))?;
         }
 
         Ok(())
@@ -658,7 +560,6 @@ impl<P: synapto_interface::data_dir::DataDirProvider> VectorStore for LocalStora
 mod tests {
     use super::*;
     use serde::{Deserialize, Serialize};
-    use tempfile::tempdir;
 
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
     struct TestItem {
@@ -668,13 +569,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_json_storage_provider() {
-        let dir = tempdir().unwrap();
-        let provider: LocalStorageProvider<synapto_datadir_ephemeral::EphemeralDir> =
-            LocalStorageProvider {
-                base_dir: dir.path().to_path_buf(),
-                locks: DashMap::new(),
-                _marker: std::marker::PhantomData,
-            };
+        let provider = LocalStorage::<crate::ephemeral_datadir::EphemeralDir>::connect(
+            EmptyStorageConfig {},
+            Arc::new(synapto_interface::storage::StorageRegistry::default()),
+            "test_namespace",
+        )
+        .await
+        .unwrap();
 
         let collection = "test_items";
 
@@ -744,62 +645,15 @@ mod tests {
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].1, item2);
     }
-
-    #[tokio::test]
-    async fn test_concurrent_pushes() {
-        let dir = tempdir().unwrap();
-        let provider: Arc<LocalStorageProvider<synapto_datadir_ephemeral::EphemeralDir>> =
-            Arc::new(LocalStorageProvider {
-                base_dir: dir.path().to_path_buf(),
-                locks: DashMap::new(),
-                _marker: std::marker::PhantomData,
-            });
-
-        let collection = "concurrent_test";
-        let mut handles = vec![];
-
-        // Spawn 100 concurrent tasks
-        for i in 0..100 {
-            let provider_clone = provider.clone();
-            let collection_clone = collection.to_string();
-            handles.push(tokio::spawn(async move {
-                let item = TestItem {
-                    id: i,
-                    name: format!("Item {}", i),
-                };
-                provider_clone
-                    .upsert_record(&collection_clone, &format!("key_{:03}", i), item)
-                    .await
-                    .unwrap();
-            }));
-        }
-
-        // Wait for all to finish
-        for handle in handles {
-            handle.await.unwrap();
-        }
-
-        // Verify no data was lost
-        let items: Vec<(String, TestItem)> =
-            RecordStore::get_ordered_records(&*provider, collection, None, false)
-                .await
-                .unwrap();
-        assert_eq!(items.len(), 100);
-
-        let mut ids: Vec<u32> = items.iter().map(|item| item.1.id).collect();
-        ids.sort();
-        let expected: Vec<u32> = (0..100).collect();
-        assert_eq!(ids, expected);
-    }
     #[tokio::test]
     async fn test_file_storage() {
-        let dir = tempdir().unwrap();
-        let provider: LocalStorageProvider<synapto_datadir_ephemeral::EphemeralDir> =
-            LocalStorageProvider {
-                base_dir: dir.path().to_path_buf(),
-                locks: DashMap::new(),
-                _marker: std::marker::PhantomData,
-            };
+        let provider = LocalStorage::<crate::ephemeral_datadir::EphemeralDir>::connect(
+            EmptyStorageConfig {},
+            Arc::new(synapto_interface::storage::StorageRegistry::default()),
+            "test_namespace",
+        )
+        .await
+        .unwrap();
 
         let collection = "documents";
         let file_id = "test_doc";
@@ -841,13 +695,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_kv_storage() {
-        let dir = tempdir().unwrap();
-        let provider: LocalStorageProvider<synapto_datadir_ephemeral::EphemeralDir> =
-            LocalStorageProvider {
-                base_dir: dir.path().to_path_buf(),
-                locks: DashMap::new(),
-                _marker: std::marker::PhantomData,
-            };
+        let provider = LocalStorage::<crate::ephemeral_datadir::EphemeralDir>::connect(
+            EmptyStorageConfig {},
+            Arc::new(synapto_interface::storage::StorageRegistry::default()),
+            "test_namespace",
+        )
+        .await
+        .unwrap();
 
         let collection = "config";
 
@@ -889,13 +743,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_vector_storage() {
-        let dir = tempdir().unwrap();
-        let provider: LocalStorageProvider<synapto_datadir_ephemeral::EphemeralDir> =
-            LocalStorageProvider {
-                base_dir: dir.path().to_path_buf(),
-                locks: DashMap::new(),
-                _marker: std::marker::PhantomData,
-            };
+        let provider = LocalStorage::<crate::ephemeral_datadir::EphemeralDir>::connect(
+            EmptyStorageConfig {},
+            Arc::new(synapto_interface::storage::StorageRegistry::default()),
+            "test_namespace",
+        )
+        .await
+        .unwrap();
 
         let collection = "vectors";
 

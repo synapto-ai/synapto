@@ -10,9 +10,9 @@ use synapto_test::{
 async fn test_bundle() {
     type TestConfig = (synapto::config::DotEnv, synapto::config::Env);
     type TestStorage =
-        test_storage_local::LocalStorageProvider<test_datadir_ephemeral::EphemeralDir>;
+        synapto_test::local_storage::LocalStorage<synapto_test::ephemeral_datadir::EphemeralDir>;
     // Use real prompt provider!
-    type TestPrompt = prompt_file::FilePromptProvider<test_datadir_ephemeral::EphemeralDir>;
+    type TestPrompt = prompt_file::FilePromptProvider<synapto_test::ephemeral_datadir::EphemeralDir>;
 
     Synapto::<TestConfig, TestStorage, TestPrompt>::run::<(
         MockAudioInputPlugin,

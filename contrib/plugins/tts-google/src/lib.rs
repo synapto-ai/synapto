@@ -6,10 +6,11 @@
 //!
 //! - `TtsGooglePlugin`: Connects to Google's Cloud Text-to-Speech API, handling speech synthesis requests, text normalization, shouting fixes, and robust XML/SSML escaping.
 
-use synapto_interface::cognitive_output_audio::types::CognitiveOutputAudio;
+use synapto_interface::cognitive_output_audio::CognitiveOutputAudio;
 use synapto_interface::sync::mpsc;
-use synapto_interface::types::CognitiveOutputSpeech;
-use synapto_interface::{Plugin, TTSPlugin};
+use synapto_interface::cognitive::CognitiveOutputSpeech;
+use synapto_interface::plugin::Plugin;
+use synapto_interface::speech_to_text::TTSPlugin;
 use async_trait::async_trait;
 use google_cloud_texttospeech_v1::{
     client::TextToSpeech,
@@ -48,7 +49,7 @@ pub struct TtsGooglePlugin {
 
 #[async_trait::async_trait]
 impl Plugin for TtsGooglePlugin {
-    fn register<R: synapto_interface::PluginRegistry + ?Sized>(
+    fn register<R: synapto_interface::plugin::PluginRegistry + ?Sized>(
         self: std::sync::Arc<Self>,
         registry: &mut R,
     ) where

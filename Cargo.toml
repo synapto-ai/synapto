@@ -3,8 +3,6 @@ resolver = "2"
 
 members = [
     "crates/*",
-    "crates/test/storage-providers/*",
-    "crates/test/datadir-providers/*",
 ]
 
 [workspace.package]

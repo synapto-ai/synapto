@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use firestore::{FirestoreDb, FirestoreFindNearestDistanceMeasure, FirestoreVector};
+use firestore::{FirestoreDb, FirestoreFindNearestDistanceMeasure, FirestoreVector, FirestoreQueryDirection, FirestoreQueryOrder};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use synapto_interface::storage::{
@@ -100,38 +100,46 @@ impl RecordStore for FirestoreStorage {
         T: serde::de::DeserializeOwned + Send + Sync + 'static,
     {
         let parent = self.parent_path()?;
+        let direction = if reverse {
+            FirestoreQueryDirection::Descending
+        } else {
+            FirestoreQueryDirection::Ascending
+        };
+
         let mut builder = self
             .db
             .fluent()
             .select()
             .from(collection)
             .parent(&parent)
-            .order_by(firestore::paths!(firestore::FirestoreDocument::name));
-
-        if reverse {
-            builder = builder.descending();
-        }
+            .order_by([FirestoreQueryOrder::new(
+                firestore::path!(firestore::FirestoreDocument::name),
+                direction,
+            )]);
 
         if let Some(limit) = limit {
             builder = builder.limit(limit as u32);
         }
 
         let stream = builder
-            .obj::<T>()
-            .stream_all_with_meta()
+            .stream_query_with_metadata()
             .await
             .map_err(|e| e.to_string())?;
 
-        let mut results = Vec::new();
         let mut stream = Box::pin(stream);
+        let mut results = Vec::new();
+
         while let Some(item_res) = stream.next().await {
             match item_res {
-                Ok((meta, obj)) => {
-                    // Extract the document ID from the full path name
-                    let id = meta.name.split('/').last().unwrap_or_default().to_string();
-                    results.push((id, obj));
+                Ok(item) => {
+                    if let Some(doc) = item.document {
+                        let id = doc.name.split('/').last().unwrap_or_default().to_string();
+                        if let Ok(obj) = firestore::FirestoreDb::deserialize_doc_to::<T>(&doc) {
+                            results.push((id, obj));
+                        }
+                    }
                 }
-                Err(e) => tracing::warn!("Error reading firestore item: {:?}", e),
+                Err(e) => return Err(e.to_string()),
             }
         }
         Ok(results)
@@ -160,16 +168,18 @@ impl RecordStore for FirestoreStorage {
             .select()
             .from(collection)
             .parent(&parent)
-            .filter(|q| q.for_all([q.field("__name__").less_than(cutoff_key)]))
-            .stream_all_with_meta()
+            .filter(|q| q.for_all([q.field(firestore::path!(firestore::FirestoreDocument::name)).less_than(cutoff_key)]))
+            .stream_query_with_metadata()
             .await
             .map_err(|e| e.to_string())?;
 
         let mut stream = Box::pin(stream);
         while let Some(item_res) = stream.next().await {
-            if let Ok((meta, _)) = item_res {
-                let id = meta.name.split('/').last().unwrap_or_default();
-                let _ = self.delete_record(collection, id).await;
+            if let Ok(item) = item_res {
+                if let Some(doc) = item.document {
+                    let id = doc.name.split('/').last().unwrap_or_default();
+                    let _ = self.delete_record(collection, id).await;
+                }
             }
         }
 
@@ -323,7 +333,8 @@ impl VectorStore for FirestoreStorage {
         T: Serialize + Send + Sync + 'static,
     {
         for record in records {
-            self.push(collection, record).await?;
+            let key = uuid::Uuid::new_v4().to_string();
+            self.upsert_record(collection, &key, record).await?;
         }
         Ok(())
     }
