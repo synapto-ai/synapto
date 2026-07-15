@@ -4,6 +4,8 @@ resolver = "2"
 members = [
     "plugins/*",
     "storage-providers/*",
+    "prompt-providers/*",
+    "datadir-providers/*",
 ]
 
 [workspace.package]
@@ -27,6 +29,7 @@ tracing = "0.1"
 url = "2"
 
 synapto = {path="../crates/core" }
+synapto-test = {path="../crates/test" }
 synapto-interface = {path="../crates/interface" }
 
 [workspace.lints.rust]

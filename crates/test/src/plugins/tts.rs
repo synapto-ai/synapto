@@ -9,7 +9,9 @@ pub struct MockTtsPlugin;
 
 #[async_trait::async_trait]
 impl Plugin for MockTtsPlugin {
-    async fn create(_context: &synapto_interface::plugin::PluginInitContext<'_>) -> Result<Self, String> {
+    async fn create(
+        _context: &synapto_interface::plugin::PluginInitContext<'_>,
+    ) -> Result<Self, String> {
         Ok(Self)
     }
 

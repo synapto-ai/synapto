@@ -23,6 +23,7 @@ pub struct PluginInitContext<'a> {
 
 impl<'a> PluginInitContext<'a> {
     #[doc = " Internal constructor used by the Core AI engine."]
+    #[doc(hidden)]
     pub fn new(
         llm_executor: std::sync::Arc<dyn crate::llm::LlmExecutor>,
         plugin_config: &'a serde_json::Value,

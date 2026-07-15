@@ -14,3 +14,11 @@ async-trait.workspace = true
 serde.workspace = true
 tracing.workspace = true
 elevenlabs-sdk = { version = "0.1" }
+
+[dev-dependencies]
+synapto-test.workspace = true
+synapto.workspace = true
+test-storage-local = { package = "synapto-storage-local", path = "../../../crates/test/storage-providers/local" }
+test-datadir-ephemeral = { package = "synapto-datadir-ephemeral", path = "../../../crates/test/datadir-providers/ephemeral" }
+tokio.workspace = true
+

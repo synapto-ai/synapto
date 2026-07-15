@@ -9,5 +9,11 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-synapto.workspace = true
+synapto-interface.workspace = true
 dirs = "5"
+
+[dev-dependencies]
+synapto-test.workspace = true
+test-storage-local = { package = "synapto-storage-local", path = "../../../crates/test/storage-providers/local" }
+test-datadir-ephemeral = { package = "synapto-datadir-ephemeral", path = "../../../crates/test/datadir-providers/ephemeral" }
+tokio.workspace = true

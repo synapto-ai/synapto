@@ -236,7 +236,6 @@ pub struct Synapto<
     camera_spawner: Option<CameraSpawner>,
     error_rx: Option<std::sync::mpsc::Receiver<String>>,
     current_context_tx: watch::Sender<serde_json::Value>,
-    
 }
 
 impl<
@@ -317,7 +316,7 @@ impl<
             camera_spawner: None,
             error_rx: Some(error_rx),
             current_context_tx,
-            
+
             llm_executor,
         }
     }

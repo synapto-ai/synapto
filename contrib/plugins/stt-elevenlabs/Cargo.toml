@@ -21,3 +21,10 @@ futures = "0.3"
 serde_json.workspace = true
 data-encoding = "2"
 rustls = { version = "0.23", features = ["ring"] }
+
+[dev-dependencies]
+synapto-test.workspace = true
+synapto.workspace = true
+test-storage-local = { package = "synapto-storage-local", path = "../../../crates/test/storage-providers/local" }
+test-datadir-ephemeral = { package = "synapto-datadir-ephemeral", path = "../../../crates/test/datadir-providers/ephemeral" }
+

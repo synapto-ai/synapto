@@ -10,7 +10,9 @@ pub struct MockChatPlugin;
 
 #[async_trait::async_trait]
 impl Plugin for MockChatPlugin {
-    async fn create(_context: &synapto_interface::plugin::PluginInitContext<'_>) -> Result<Self, String> {
+    async fn create(
+        _context: &synapto_interface::plugin::PluginInitContext<'_>,
+    ) -> Result<Self, String> {
         Ok(Self)
     }
 

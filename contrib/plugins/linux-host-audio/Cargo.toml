@@ -15,8 +15,15 @@ schemars.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
 
-pipewire = { version = "0.9", features = ["v0_3_44"] }
+pipewire = { version = "0.10", features = ["v0_3_44"] }
 libspa = "0.10"
 libspa-sys = "0.10"
 ogg = "0.9"
 opus = "0.3"
+
+[dev-dependencies]
+synapto-test.workspace = true
+synapto.workspace = true
+test-storage-local = { package = "synapto-storage-local", path = "../../../crates/test/storage-providers/local" }
+test-datadir-ephemeral = { package = "synapto-datadir-ephemeral", path = "../../../crates/test/datadir-providers/ephemeral" }
+tokio.workspace = true
