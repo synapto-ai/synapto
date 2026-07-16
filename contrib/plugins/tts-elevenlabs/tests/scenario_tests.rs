@@ -2,6 +2,9 @@
 #![allow(unused_imports)]
 
 use synapto::Synapto;
+use synapto::config::DotEnv;
+use synapto_test::local_storage::LocalStorage;
+use synapto_test::ephemeral_datadir::EphemeralDir;
 use synapto_test::{
     MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin,
     MockSlowReadPlugin, MockSttPlugin, MockTtsPlugin, run_scenario,
@@ -9,12 +12,7 @@ use synapto_test::{
 use synapto_plugin_tts_elevenlabs::TtsElevenLabsPlugin;
 
 async fn test_bundle() {
-    type TestConfig = (synapto::config::DotEnv, synapto::config::Env);
-    type TestStorage =
-        synapto_test::local_storage::LocalStorage<synapto_test::ephemeral_datadir::EphemeralDir>;
-    type TestPrompt = synapto::prompt_provider::EmptyPromptProvider;
-
-    Synapto::<TestConfig, TestStorage, TestPrompt>::run::<(
+    Synapto::<DotEnv, LocalStorage<EphemeralDir>>::run::<(
         MockAudioInputPlugin,
         MockDocumentsPlugin,
         MockChatPlugin,

@@ -56,16 +56,14 @@ To run the YAML scenario, write a standard `#[tokio::test]` that loads the scena
 
 ```rust
 use synapto::Synapto;
+use synapto::config::DotEnv;
+use synapto_test::local_storage::LocalStorage;
+use synapto_test::ephemeral_datadir::EphemeralDir;
 use synapto_test::{run_scenario, MockAudioInputPlugin, MockChatPlugin, MockSlowReadPlugin};
 
 // Define your bundle with Ephemeral datadirs and Mock plugins
 async fn test_bundle() {
-    Synapto::<
-        test_datadir_ephemeral::EphemeralDir,
-        (synapto::config::DotEnv, synapto::config::Env),
-        test_storage_local::LocalStorage,
-        synapto::prompt_provider::EmptyPromptProvider,
-    >::run::<(
+    Synapto::<DotEnv, LocalStorage<EphemeralDir>>::run::<(
         MockAudioInputPlugin,
         MockChatPlugin,
         MockSlowReadPlugin,
@@ -129,12 +127,7 @@ use synapto_test::{
 
 // Define a test bundle substituting MockChatPlugin for your Real plugin
 async fn test_bundle() {
-    Synapto::<
-        test_datadir_ephemeral::EphemeralDir,
-        (synapto::config::DotEnv, synapto::config::Env),
-        test_storage_local::LocalStorage,
-        synapto::prompt_provider::EmptyPromptProvider,
-    >::run::<(
+    Synapto::<DotEnv, LocalStorage<EphemeralDir>>::run::<(
         MockAudioInputPlugin,
         MyChatPlugin, // Inject your real plugin here
         MockDocumentsPlugin,

@@ -1,6 +1,9 @@
 #![allow(clippy::disallowed_methods)]
 
 use synapto::Synapto;
+use synapto::config::DotEnv;
+use synapto_test::local_storage::LocalStorage;
+use synapto_test::ephemeral_datadir::EphemeralDir;
 use synapto_test::{
     MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin,
     MockSlowReadPlugin, MockSttPlugin, MockTtsPlugin, run_scenario,
@@ -8,10 +11,7 @@ use synapto_test::{
 
 // Global Test Bundle Definition
 async fn test_bundle() {
-    Synapto::<
-        (synapto::config::DotEnv, synapto::config::Env),
-        synapto_test::local_storage::LocalStorage<synapto_test::ephemeral_datadir::EphemeralDir>,
-    >::run::<(
+    Synapto::<DotEnv, LocalStorage<EphemeralDir>>::run::<(
         MockAudioInputPlugin,
         MockDocumentsPlugin,
         MockChatPlugin,

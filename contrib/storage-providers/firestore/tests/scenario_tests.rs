@@ -2,18 +2,16 @@
 #![allow(unused_imports)]
 
 use synapto::Synapto;
+use synapto::config::DotEnv;
+use synapto_test::local_storage::LocalStorage;
+use synapto_test::ephemeral_datadir::EphemeralDir;
 use synapto_test::{
     MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin,
     MockSlowReadPlugin, MockSttPlugin, MockTtsPlugin, run_scenario,
 };
 
 async fn test_bundle() {
-    type TestConfig = (synapto::config::DotEnv, synapto::config::Env);
-    // Use real storage provider!
-    type TestStorage = synapto_storage_firestore::FirestoreStorage;
-    type TestPrompt = synapto::prompt_provider::EmptyPromptProvider;
-
-    Synapto::<TestConfig, TestStorage, TestPrompt>::run::<(
+    Synapto::<DotEnv, synapto_storage_firestore::FirestoreStorage>::run::<(
         MockAudioInputPlugin,
         MockDocumentsPlugin,
         MockChatPlugin,

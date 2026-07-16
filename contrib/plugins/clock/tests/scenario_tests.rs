@@ -2,6 +2,9 @@
 #![allow(unused_imports)]
 
 use synapto::Synapto;
+use synapto::config::DotEnv;
+use synapto_test::local_storage::LocalStorage;
+use synapto_test::ephemeral_datadir::EphemeralDir;
 use synapto_test::{
     MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin,
     MockSlowReadPlugin, MockSttPlugin, MockTtsPlugin, run_scenario,
@@ -9,7 +12,7 @@ use synapto_test::{
 use synapto_plugin_clock::ClockPlugin;
 
 async fn test_bundle() {
-    Synapto::<synapto::config::DotEnv, synapto_test::local_storage::LocalStorage<synapto_test::ephemeral_datadir::EphemeralDir>>::run::<(
+    Synapto::<DotEnv, LocalStorage<EphemeralDir>>::run::<(
         MockAudioInputPlugin,
         MockDocumentsPlugin,
         MockChatPlugin,
