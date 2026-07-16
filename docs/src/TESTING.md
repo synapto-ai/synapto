@@ -15,6 +15,7 @@ Tests are driven by a `ScenarioCoordinator` which acts as the environment intera
 Scenarios are defined in `scenario.yaml` files. They consist of a sequence of `steps`.
 
 Available actions:
+
 - `user_writes`: Simulates a user typing in the chat.
   - `text`: (String) The message content.
   - `attachments`: (Optional List) Attached files/documents.
@@ -32,6 +33,7 @@ Available actions:
   - `audio_stream`: (String) Path to the audio file.
 
 **Example (`scenario.yaml`):**
+
 ```yaml
 steps:
   - action: user_writes
@@ -56,14 +58,14 @@ To run the YAML scenario, write a standard `#[tokio::test]` that loads the scena
 
 ```rust
 use synapto::Synapto;
-use synapto::config::DotEnv;
+use synapto::config::{DotEnv, Env};
 use synapto_test::local_storage::LocalStorage;
 use synapto_test::ephemeral_datadir::EphemeralDir;
 use synapto_test::{run_scenario, MockAudioInputPlugin, MockChatPlugin, MockSlowReadPlugin};
 
 // Define your bundle with Ephemeral datadirs and Mock plugins
 async fn test_bundle() {
-    Synapto::<DotEnv, LocalStorage<EphemeralDir>>::run::<(
+    Synapto::<(DotEnv, Env), LocalStorage<EphemeralDir>>::run::<(
         MockAudioInputPlugin,
         MockChatPlugin,
         MockSlowReadPlugin,
@@ -86,18 +88,20 @@ Because scenario tests boot the entire Synapto system, query the real LLM endpoi
 Running them sequentially ensures that the global singletons do not collide across threads. We recently updated the tracing and shutdown handlers to safely re-initialize or warn contextually across sequential runs, but concurrent execution will still lead to channel races or garbled states.
 
 To execute them, you must provide the `--ignored` and `--test-threads=1` flags:
+
 ```bash
 cargo test -p synapto-test --test scenario_tests -- --ignored --test-threads=1
 ```
 
 To run a single specific scenario:
+
 ```bash
 cargo test -p synapto-test --test scenario_tests my_new_scenario -- --ignored --test-threads=1
 ```
 
 ## Testing Plugins (External to Synapto)
 
-If you are developing a plugin in a repository outside of the `synapto` workspace, you can still leverage the `synapto-test` scenario framework. 
+If you are developing a plugin in a repository outside of the `synapto` workspace, you can still leverage the `synapto-test` scenario framework.
 
 ### 1. Add Test Dependencies
 
@@ -114,7 +118,7 @@ tokio = { version = "1.0", features = ["full"] }
 
 ### 2. Write the Scenario Test
 
-Create your scenario YAML files (e.g., `scenarios/my-plugin-scenario/scenario.yaml`). Then, create a Rust integration test file (e.g., `tests/scenario_tests.rs`) that registers your *real* plugin alongside the *mock* plugins provided by `synapto-test`.
+Create your scenario YAML files (e.g., `scenarios/my-plugin-scenario/scenario.yaml`). Then, create a Rust integration test file (e.g., `tests/scenario_tests.rs`) that registers your _real_ plugin alongside the _mock_ plugins provided by `synapto-test`.
 
 ```rust
 // tests/scenario_tests.rs
@@ -127,7 +131,7 @@ use synapto_test::{
 
 // Define a test bundle substituting MockChatPlugin for your Real plugin
 async fn test_bundle() {
-    Synapto::<DotEnv, LocalStorage<EphemeralDir>>::run::<(
+    Synapto::<(DotEnv, Env), LocalStorage<EphemeralDir>>::run::<(
         MockAudioInputPlugin,
         MyChatPlugin, // Inject your real plugin here
         MockDocumentsPlugin,

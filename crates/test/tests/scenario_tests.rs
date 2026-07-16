@@ -1,9 +1,9 @@
 #![allow(clippy::disallowed_methods)]
 
 use synapto::Synapto;
-use synapto::config::DotEnv;
-use synapto_test::local_storage::LocalStorage;
+use synapto::config::{DotEnv, Env};
 use synapto_test::ephemeral_datadir::EphemeralDir;
+use synapto_test::local_storage::LocalStorage;
 use synapto_test::{
     MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin,
     MockSlowReadPlugin, MockSttPlugin, MockTtsPlugin, run_scenario,
@@ -11,7 +11,7 @@ use synapto_test::{
 
 // Global Test Bundle Definition
 async fn test_bundle() {
-    Synapto::<DotEnv, LocalStorage<EphemeralDir>>::run::<(
+    Synapto::<(DotEnv, Env), LocalStorage<EphemeralDir>>::run::<(
         MockAudioInputPlugin,
         MockDocumentsPlugin,
         MockChatPlugin,
@@ -42,7 +42,11 @@ async fn async_tool_dual_channel() {
 #[ignore]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn async_tool_reaction() {
-    run_scenario("tests/scenarios/async-tool-reaction/scenario.yaml", test_bundle).await;
+    run_scenario(
+        "tests/scenarios/async-tool-reaction/scenario.yaml",
+        test_bundle,
+    )
+    .await;
 }
 
 #[ignore]
@@ -64,11 +68,19 @@ async fn edge_cases_test() {
 #[ignore]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn multi_assert_test() {
-    run_scenario("tests/scenarios/multi-assert-test/scenario.yaml", test_bundle).await;
+    run_scenario(
+        "tests/scenarios/multi-assert-test/scenario.yaml",
+        test_bundle,
+    )
+    .await;
 }
 
 #[ignore]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn document_summary_scenario() {
-    run_scenario("tests/scenarios/document-summary/scenario.yaml", test_bundle).await;
+    run_scenario(
+        "tests/scenarios/document-summary/scenario.yaml",
+        test_bundle,
+    )
+    .await;
 }

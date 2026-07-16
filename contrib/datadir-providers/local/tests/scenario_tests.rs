@@ -2,7 +2,7 @@
 #![allow(unused_imports)]
 
 use synapto::Synapto;
-use synapto::config::DotEnv;
+use synapto::config::{DotEnv, Env};
 use synapto_test::local_storage::LocalStorage;
 use synapto_test::ephemeral_datadir::EphemeralDir;
 use synapto_test::{
@@ -11,7 +11,7 @@ use synapto_test::{
 };
 
 async fn test_bundle() {
-    Synapto::<DotEnv, LocalStorage<EphemeralDir>>::run::<(
+    Synapto::<(DotEnv, Env), LocalStorage<EphemeralDir>>::run::<(
         MockAudioInputPlugin,
         MockDocumentsPlugin,
         MockChatPlugin,
