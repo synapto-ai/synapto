@@ -84,7 +84,7 @@ The system is built on an open-core architecture with loosely coupled plugins, c
 
 24. **Strict Domain Registries (No Generic Service Locators)**: The use of generic `dyn Any` type maps (Service Locators) to share arbitrary resources across plugins is strictly prohibited as it violates Domain-Driven Design (DDD) and compile-time safety.
     - **Typed Registries:** All registries must be strongly typed to their specific domain (e.g., `ToolRegistry`, `StorageRegistry`).
-    - **Marker Traits:** If a registry must support multiple interchangeable backends (like different database pools), use a strict marker trait (e.g., `StorageProviderPool: Send + Sync + 'static`) instead of `dyn Any`.
+    - **Marker Traits:** If a registry must support multiple interchangeable backends (like different database pools), use a strict marker trait (e.g., `StorageProviderPool: Send + Sync + 'static`) instead of `dyn Any`. The `StorageRegistry` enables multiple plugins to share a single DB connection pool securely, isolated by namespaces. Configuration is dynamically resolved and scoped by the storage provider type to allow unlimited, heterogeneous storage providers within the same bundle.
     - **Scope Restrictions:** Never use a registry to pass arbitrary handles (like HTTP clients) just for convenience. Pass dependencies explicitly or define a dedicated, strictly-typed domain registry.
 
 25. **Structured Output vs. Tool Calling (Avoiding Meaningless Roundtrips)**: Native LLM Tool Calling (Function Calling) MUST be strictly reserved for functions where the LLM requires a synchronous, immediate response from the system to progress its current thought cycle (e.g., retrieving file/document contents with `read_document` or fetching a website with `read_url`).
