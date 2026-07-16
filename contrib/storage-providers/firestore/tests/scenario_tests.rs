@@ -2,7 +2,7 @@
 #![allow(unused_imports)]
 
 use synapto::Synapto;
-use synapto::config::DotEnv;
+use synapto::config::{DotEnv, Env};
 use synapto::config::ConfigJson;
 use synapto_test::test_datadir::ScenarioTestDir;
 use synapto_test::local_storage::LocalStorage;
@@ -13,7 +13,7 @@ use synapto_test::{
 };
 
 async fn test_bundle() {
-    Synapto::<(DotEnv, ConfigJson<ScenarioTestDir>), synapto_storage_firestore::FirestoreStorage>::run::<(
+    Synapto::<(ConfigJson<ScenarioTestDir>, DotEnv, Env), synapto_storage_firestore::FirestoreStorage>::run::<(
         MockAudioInputPlugin,
         MockDocumentsPlugin,
         MockChatPlugin,
