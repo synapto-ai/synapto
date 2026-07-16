@@ -3,6 +3,8 @@
 
 use synapto::Synapto;
 use synapto::config::DotEnv;
+use synapto::config::ConfigJson;
+use synapto_test::test_datadir::ScenarioTestDir;
 use synapto_test::local_storage::LocalStorage;
 use synapto_test::ephemeral_datadir::EphemeralDir;
 use synapto_test::{
@@ -11,7 +13,7 @@ use synapto_test::{
 };
 
 async fn test_bundle() {
-    Synapto::<DotEnv, LocalStorage<EphemeralDir>, prompt_file::FilePromptProvider<EphemeralDir>>::run::<(
+    Synapto::<(DotEnv, ConfigJson<ScenarioTestDir>), LocalStorage<EphemeralDir>, prompt_file::FilePromptProvider<EphemeralDir>>::run::<(
         MockAudioInputPlugin,
         MockDocumentsPlugin,
         MockChatPlugin,
