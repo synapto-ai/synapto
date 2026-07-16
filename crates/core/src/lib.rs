@@ -777,30 +777,28 @@ impl<
 {
     fn register_audio_input<P: AudioInputPlugin>(&mut self, plugin: Arc<P>) {
         self.audio_input_spawners.push(Box::new(move |tx_opt| {
-            if let Some(tx) = tx_opt.take() {
-                let p = plugin.clone();
-                tokio::spawn(async move {
-                    p.start(tx)
-                        .await
-                        .inspect_err(|e| tracing::error!("Audio input plugin failed: {:?}", e))
-                        .ok();
-                });
-            }
+            let tx = tx_opt.take().expect("Multiple AudioInputPlugins registered! This capability must be provided by exactly one plugin.");
+            let p = plugin.clone();
+            tokio::spawn(async move {
+                p.start(tx)
+                    .await
+                    .inspect_err(|e| tracing::error!("Audio input plugin failed: {:?}", e))
+                    .ok();
+            });
         }));
         tracing::info!("  Audio input capability registered.");
     }
 
     fn register_audio_output<P: AudioOutputPlugin>(&mut self, plugin: Arc<P>) {
         self.audio_output_spawners.push(Box::new(move |rx_opt| {
-            if let Some(rx) = rx_opt.take() {
-                let p = plugin.clone();
-                tokio::spawn(async move {
-                    p.start(rx)
-                        .await
-                        .inspect_err(|e| tracing::error!("Audio output plugin failed: {:?}", e))
-                        .ok();
-                });
-            }
+            let rx = rx_opt.take().expect("Multiple AudioOutputPlugins registered! This capability must be provided by exactly one plugin.");
+            let p = plugin.clone();
+            tokio::spawn(async move {
+                p.start(rx)
+                    .await
+                    .inspect_err(|e| tracing::error!("Audio output plugin failed: {:?}", e))
+                    .ok();
+            });
         }));
         tracing::info!("  Audio output capability registered.");
     }
@@ -808,15 +806,14 @@ impl<
     fn register_stt<P: STTPlugin>(&mut self, plugin: Arc<P>) {
         self.stt_spawners.push(Box::new(
             move |audio_rx_opt, transcript_tx, speech_detected| {
-                if let Some(audio_rx) = audio_rx_opt.take() {
-                    let p = plugin.clone();
-                    tokio::spawn(async move {
-                        p.start(audio_rx, transcript_tx, speech_detected)
-                            .await
-                            .inspect_err(|e| tracing::error!("STT plugin failed: {:?}", e))
-                            .ok();
-                    });
-                }
+                let audio_rx = audio_rx_opt.take().expect("Multiple STTPlugins registered! This capability must be provided by exactly one plugin.");
+                let p = plugin.clone();
+                tokio::spawn(async move {
+                    p.start(audio_rx, transcript_tx, speech_detected)
+                        .await
+                        .inspect_err(|e| tracing::error!("STT plugin failed: {:?}", e))
+                        .ok();
+                });
             },
         ));
         tracing::info!("  STT capability registered.");
@@ -825,17 +822,19 @@ impl<
     fn register_tts<P: TTSPlugin>(&mut self, plugin: Arc<P>) {
         self.tts_spawners
             .push(Box::new(move |speech_rx_opt, audio_tx_opt| {
-                if let (Some(speech_rx), Some(audio_tx)) =
-                    (speech_rx_opt.take(), audio_tx_opt.take())
-                {
-                    let p = plugin.clone();
-                    tokio::spawn(async move {
-                        p.start(speech_rx, audio_tx)
-                            .await
-                            .inspect_err(|e| tracing::error!("TTS plugin failed: {:?}", e))
-                            .ok();
-                    });
-                }
+                let speech_rx = speech_rx_opt
+                    .take()
+                    .expect("Multiple TTSPlugins registered! (speech_rx already taken)");
+                let audio_tx = audio_tx_opt
+                    .take()
+                    .expect("Multiple TTSPlugins registered! (audio_tx already taken)");
+                let p = plugin.clone();
+                tokio::spawn(async move {
+                    p.start(speech_rx, audio_tx)
+                        .await
+                        .inspect_err(|e| tracing::error!("TTS plugin failed: {:?}", e))
+                        .ok();
+                });
             }));
         tracing::info!("  TTS capability registered.");
     }
