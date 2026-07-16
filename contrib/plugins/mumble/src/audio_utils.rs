@@ -6,14 +6,14 @@ use tracing::instrument;
 
 #[derive(Debug)]
 #[allow(dead_code)]
-pub struct DecodedAudio {
+pub(crate) struct DecodedAudio {
     pub samples: Vec<f32>,
     pub sample_rate: u32,
     pub channels: u32,
 }
 
 #[instrument(name = "Audio Decoding", level = "debug", skip_all)]
-pub fn decode_opus_from_memory(
+pub(crate) fn decode_opus_from_memory(
     input_data: &[u8],
 ) -> Result<DecodedAudio, Box<dyn Error + Send + Sync>> {
     let cursor = Cursor::new(input_data);
