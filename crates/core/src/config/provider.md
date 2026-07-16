@@ -8,13 +8,12 @@ Importantly, Configuration Providers do not *only* dictate where the configurati
 
 The configuration system operates on a "Base + Overlay" architecture via Tuple Composition.
 
-1. **Base Configuration (The Provider Chain):** The core accepts a tuple of up to 6 `ConfigProvider` implementations. During the `init` phase, the base `data_dir` (resolved by the `DataDirProvider` parameter) is cloned and passed identically to the `init()` method of **every** provider in the tuple in parallel.
+1. **Base Configuration (The Provider Chain):** The core accepts a tuple of up to 6 `ConfigProvider` implementations. During the `init` phase, the `init()` method of **every** provider in the tuple is called sequentially. Providers that require access to the base `data_dir` must retrieve it statically through the `DataDirProvider` generic parameter.
 2. **JSON Overlay:** The providers are evaluated left-to-right. Each provider returns raw data as a weakly-typed `serde_json::Value` which recursively overlays/merges into the output of the previous provider.
-3. **Data Directory Passthrough:** As a final step before parsing, the core checks if any provider explicitly overrode the `"data_dir"` key in the JSON. If not, it automatically injects the original base `data_dir` into the JSON payload (Passthrough).
-4. **Deserialization (The Core):** The resulting composite JSON object is strictly deserialized into the strongly-typed `Config` or plugin configuration structs.
+3. **Deserialization (The Core):** The resulting composite JSON object is strictly deserialized into the strongly-typed `Config` or plugin configuration structs. The `Config::data_dir` field relies entirely on being populated by the merged JSON output (e.g., set explicitly in `config.json` or via environment variables).
 
 > [!NOTE]
-> **Data Dir Initialization is Parallel, not Chained:** Because all providers receive the *exact same* initial `data_dir` during the `init` phase, overriding the `"data_dir"` in a JSON config (e.g., via `ConfigJson`) will successfully change the application's final output directory, but it will *not* change the initialization path fed to downstream providers in the tuple. This guarantees deterministic behavior during boot.
+> **Data Dir Injection via Generics:** Because providers that need file system access receive the base path statically via the `DataDirProvider` generic trait, setting a different `"data_dir"` in your configuration JSON overrides the `Config::data_dir` path for runtime usage (like storage providers), but it does **not** change where `ConfigJson` itself looks for `config.json` at boot time. This guarantees deterministic initialization.
 
 **Strict Validation:**
 All core and plugin configuration structs use `#[serde(deny_unknown_fields)]`. If a configuration source (base JSON or environment variable) provides an unknown field, the system will intentionally panic at boot.
@@ -52,7 +51,7 @@ pub struct DatabaseConfigProvider {
 
 impl ConfigProvider for DatabaseConfigProvider {
     /// 1. Initialize your connection or state
-    fn init(_data_dir: PathBuf) -> Self {
+    fn init() -> Self {
         // e.g., connect to database using standard env vars like DATABASE_URL
         Self {}
     }
