@@ -107,3 +107,13 @@ When writing or refactoring documentation, apply this binary test:
 >
 > - **If it defines an actionable structural constraint** (e.g., _"Traits must be atomic to prevent god-objects"_): It belongs **solely in `ARCHITECTURE.md`**.
 > - **If it defines a developer recipe** (e.g., _"Here is the exact code to implement multiple traits on one struct"_): It belongs **in `plugin/basics.md`**.
+
+---
+
+## 4. Documentation Style & Tone
+
+All documentation (including Rustdoc comments and Markdown files) must strictly adhere to the following stylistic rules:
+
+- **Write in the Present Tense / Current State**: Describe the system exactly as it exists today. Do not reference past API states, historical changes, or how things "used to be" (e.g., avoid phrases like "X no longer requires Y" or "Previously, this was done by Z"). Historical context and migration details belong in changelogs or migration guides, not in the primary documentation.
+- **Actionable and Direct**: Prioritize clear, directive statements. Tell the reader exactly what to do and what rules to follow.
+- **Avoid Conversational Filler**: Be concise and professional. Do not use alarmist language ("critical", "urgent") or unnecessary fluff.

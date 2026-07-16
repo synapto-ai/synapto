@@ -55,6 +55,17 @@ impl<'a> PluginInitContext<'a> {
             .map_err(|e| format!("Failed to parse plugin config: {}", e))
     }
 
+    #[doc = " Extracts the configuration if present, or returns `None` if the configuration is completely empty or null."]
+    #[doc = " This allows plugins to have a mandatory configuration schema when provided, but remain optional overall."]
+    pub fn optional_config<C: serde::de::DeserializeOwned>(&self) -> Result<Option<C>, String> {
+        if self.plugin_config.is_null()
+            || self.plugin_config.as_object().is_some_and(|m| m.is_empty())
+        {
+            return Ok(None);
+        }
+        self.config().map(Some)
+    }
+
     #[doc = " Initializes and returns a database connection scoped strictly to this plugin's namespace."]
     pub async fn store<S: crate::storage::StorageConnection>(&self) -> Result<S, String> {
         let full_path = std::any::type_name::<S>();
@@ -125,9 +136,14 @@ pub trait Plugin: Send + Sync + 'static {
     #[doc = " This is the method for instantiating plugins, allowing them to await"]
     #[doc = " their database connections (via `context.store::<S>().await`) before returning."]
     #[doc = ""]
-    #[doc = " **Note on Configuration:** When calling `context.config()?` to extract your configuration struct,"]
+    #[doc = " **Note on Configuration:** Configuration in Synapto plugins is entirely optional."]
+    #[doc = " If your plugin requires no configuration, simply do not define a config struct"]
+    #[doc = " and do not call `context.config()?`."]
+    #[doc = ""]
+    #[doc = " If you do define a config struct: when calling `context.config()?` to extract your configuration,"]
     #[doc = " ensure any optional fields in your struct are marked with `#[serde(default)]`. Otherwise,"]
     #[doc = " omitted fields in the config file will cause strict deserialization errors."]
+    #[doc = " Alternatively, use `context.optional_config()?` to allow the entire config block to be safely omitted."]
     async fn create(context: &crate::plugin::PluginInitContext<'_>) -> Result<Self, String>
     where
         Self: Sized;

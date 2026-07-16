@@ -26,9 +26,6 @@ impl ContextProvider for ClockContextProvider {
     }
 }
 
-#[derive(serde::Deserialize)]
-pub struct ClockConfig {}
-
 pub struct ClockPlugin {
     provider: Arc<ClockContextProvider>,
 }

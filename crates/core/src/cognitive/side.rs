@@ -140,7 +140,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
         config.cognitive.clone(),
         super::get_cognitive_system_prompt::<P>(&config),
         executor,
-        vec![], // Tools are dynamically passed in each turn now
+        vec![], // Tools are dynamically passed in each turn
     );
 
     let mut historical_rx =

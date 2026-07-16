@@ -7,7 +7,7 @@ The `interface` crate serves as the Single Source of Truth (SSoT) for all data m
 
 ## Communication Patterns
 
-- **Base `Plugin` Trait**: All plugins must implement the core `Plugin` trait defined in the crate root. It governs initialization (`new`), configuration typing (`type Config`), and self-registration.
+- **Base `Plugin` Trait**: All plugins must implement the core `Plugin` trait defined in the crate root. It governs initialization (`create`) and self-registration.
 - **Specialized Role Traits**: Depending on what roles a plugin plays (e.g. `ChatPlugin`, `STTPlugin`, `TTSPlugin`, `DocumentsPlugin`), it implements one or more specialized traits. The asynchronous `start` methods on these traits receive strongly typed, direct channels (`mpsc`, `broadcast`, `watch`) representing exact boundaries.
 - **`PluginRegistry`**: Plugins use this interface trait during registration (`plugin.register(registry)`) to hook themselves into specific functional slots.
 
@@ -111,7 +111,6 @@ fn default_room() -> String {
 
 pub struct MyChatPlugin {
     config: MyChatConfig,
-    data_dir: std::path::PathBuf,
 }
 
 #[async_trait]
@@ -119,16 +118,16 @@ impl Plugin for MyChatPlugin {
     // Optional: Compile-time semantic description for LLM tools/capabilities
     const CAPABILITY: Option<&'static str> = Some("my-chat-service");
 
-    async fn create(context: synapto_interface::plugin::PluginContext) -> Result<Self, String> {
+    async fn create(context: &synapto_interface::plugin::PluginInitContext<'_>) -> Result<Self, String> {
         let config: MyChatConfig = context.config()?;
         if config.api_token.is_empty() {
             return Err("api_token must not be empty".to_string());
         }
 
-        // PluginContext provides secure namespaces, storage connectors, etc.
-        let data_dir = context.data_dir().to_path_buf();
+        // PluginInitContext provides secure namespaces, storage connectors, etc.
+        // let db = context.store::<MyStorage>().await?;
 
-        Ok(Self { config, data_dir })
+        Ok(Self { config })
     }
 
     fn register<R: PluginRegistry + ?Sized>(self: Arc<Self>, registry: &mut R)

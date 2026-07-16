@@ -85,7 +85,7 @@ async fn my_new_scenario() {
 
 Because scenario tests boot the entire Synapto system, query the real LLM endpoint, and register global OS state (like `tracing_subscriber` handlers and a custom panic/shutdown hook), **they must be run sequentially and are ignored by default**.
 
-Running them sequentially ensures that the global singletons do not collide across threads. We recently updated the tracing and shutdown handlers to safely re-initialize or warn contextually across sequential runs, but concurrent execution will still lead to channel races or garbled states.
+Running them sequentially ensures that the global singletons do not collide across threads. The tracing and shutdown handlers safely re-initialize or warn contextually across sequential runs, but concurrent execution will lead to channel races or garbled states.
 
 To execute them, you must provide the `--ignored` and `--test-threads=1` flags:
 
