@@ -31,8 +31,15 @@ impl crate::config::ConfigProvider for Env {
 }
 
 pub(crate) fn build_env_json(prefix: &str) -> Value {
+    build_json_from_vars(std::env::vars(), prefix)
+}
+
+pub(crate) fn build_json_from_vars<I>(vars: I, prefix: &str) -> Value
+where
+    I: IntoIterator<Item = (String, String)>,
+{
     let mut map = serde_json::Map::new();
-    for (k, v) in std::env::vars() {
+    for (k, v) in vars {
         if k.starts_with(prefix) {
             let key_path = k.trim_start_matches(prefix).to_lowercase();
             // Try to parse as JSON (boolean, number), otherwise string

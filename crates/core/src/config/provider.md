@@ -31,7 +31,7 @@ By including the built-in `Env` provider at the end of your tuple, environment v
 ## Existing Providers
 
 - **`ConfigJson`:** Reads `config.json` from the `data_dir` initialized path. Plugin configs are nested inside the `plugins` field by crate name and plugin type name. Storage configs are nested in `storage`.
-- **`DotEnv`:** Loads `.env` file variables into the environment during the `init` phase. It does not parse JSON configurations directly; it relies on `Env` downstream to read those injected variables.
+- **`DotEnv`:** Reads variables from a `.env` file and translates `SYNAPTO__` prefixed variables into nested JSON configuration overrides exactly like `Env`, but without polluting or reading the global process environment variables.
 - **`Env`:** Translates `SYNAPTO__` prefixed environment variables directly into deeply-nested JSON configuration overrides.
 - **`EphemeralConfigProvider`:** An ephemeral provider used primarily for tests. Returns an empty base JSON but automatically provisions and assigns a temporary directory to `data_dir` to ensure storage providers have a safe, ephemeral location to write files during tests. Relies entirely on environment variable overrides for other settings.
 
