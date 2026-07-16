@@ -1,9 +1,10 @@
 #![allow(clippy::disallowed_methods)]
 
-use synapto_interface::types::CognitiveOutputSpeech;
-use synapto_interface::{Plugin, TTSPlugin};
+use synapto_interface::cognitive::CognitiveOutputSpeech;
+use synapto_interface::plugin::{MessageChannel, Plugin, PluginInitContext};
+use synapto_interface::speech_to_text::TTSPlugin;
 use std::fs;
-use tts_google::TtsGooglePlugin;
+use synapto_plugin_tts_google::TtsGooglePlugin;
 
 #[tokio::test]
 #[ignore]
@@ -67,14 +68,12 @@ async fn test_google_tts_live_synthesis_xml_escaping() {
     }
 
     let config = serde_json::from_str(&config_content).unwrap();
-    let plugin = TtsGooglePlugin::create(synapto_interface::types::PluginContext::new(
-        std::path::PathBuf::from("."),
+    let plugin = TtsGooglePlugin::create(&PluginInitContext::new(
         std::sync::Arc::new(DummyLlmExecutor),
-        config,
+        &config,
         std::sync::Arc::new(synapto_interface::storage::StorageRegistry::default()),
-        "tts_google".to_string(),
+        "tts_google",
         std::sync::Arc::new(DummyStorageConfigResolver),
-        tokio::sync::watch::channel(serde_json::Value::Null).1,
     ))
     .await
     .expect("Failed to create Google TTS plugin");
@@ -91,7 +90,7 @@ async fn test_google_tts_live_synthesis_xml_escaping() {
     // 5. Inject speech with XML unsafe characters to verify robust escaping
     speech_tx
         .send(CognitiveOutputSpeech {
-            target_channel: synapto_interface::types::MessageChannel {
+            target_channel: MessageChannel {
                 context: serde_json::Value::Null,
             },
             text: "Ahoj & čau, toto je robustní integrační test s unescaped XML znaky.".to_string(),

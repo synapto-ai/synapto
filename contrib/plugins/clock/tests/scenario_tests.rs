@@ -4,6 +4,7 @@
 use synapto::Synapto;
 use synapto::config::{DotEnv, Env};
 use synapto_test::ephemeral_datadir::EphemeralDir;
+use synapto_test::local_storage::LocalStorage;
 use synapto_test::{
     MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin,
     MockSlowReadPlugin, MockSttPlugin, MockTtsPlugin, run_scenario,
