@@ -15,7 +15,6 @@ use synapto_plugin_mumble::MumblePlugin;
 
 async fn test_bundle() {
     Synapto::<(ConfigJson<ScenarioTestDir>, DotEnv, Env), LocalStorage<EphemeralDir>>::run::<(
-        MockAudioInputPlugin,
         MockDocumentsPlugin,
         MockChatPlugin,
         MockSlowReadPlugin,

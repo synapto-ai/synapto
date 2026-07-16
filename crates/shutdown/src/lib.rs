@@ -47,10 +47,10 @@ pub fn init() -> mpsc::UnboundedReceiver<ShutdownResult> {
         // // the shutdown receiver might have already been dropped. If we only relied
         // // on `trigger_fatal`, the panic would be sent into a dead channel and
         // // silently swallowed.
-        eprintln!(
-            "!!!!!!!! FATAL PANIC: {}{}\nBacktrace:\n{}",
-            msg, location, backtrace
-        );
+        // eprintln!(
+        //     "!!!!!!!! FATAL PANIC: {}{}\nBacktrace:\n{}",
+        //     msg, location, backtrace
+        // );
 
         trigger_fatal(format!(
             "Panic: {}{}\nBacktrace:\n{}",
