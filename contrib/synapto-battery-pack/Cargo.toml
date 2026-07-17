@@ -1,0 +1,27 @@
+[package]
+name = "synapto-battery-pack"
+version = "0.0.1-dev.1"
+edition = "2024"
+description = "Synapto"
+license = "Apache-2.0"
+readme = "README.md"
+keywords = ["battery-pack"]
+
+[dependencies]
+# Add your curated dependencies here:
+# clap = { version = "4", features = ["derive"] }
+# serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+battery-pack = { version = "0.6.0", features = ["cli"] }
+
+[build-dependencies]
+battery-pack = { version = "0.6.0", features = ["build"] }
+
+# Optional: narrow the default set and define named features
+# [features]
+# default = ["clap", "serde"]
+# json = ["serde_json"]
+
+[package.metadata.battery-pack]
+hidden = ["battery-pack"]  # globs are supported (["battery-pack", "serde*"])
