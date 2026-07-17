@@ -72,6 +72,13 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EmptyStorageConfig {}
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SortOrder {
+    #[default]
+    Ascending,
+    Descending,
+}
+
 #[async_trait]
 pub trait RecordStore: Send + Sync + 'static {
     /// Inserts or updates an individual record.
@@ -86,7 +93,7 @@ pub trait RecordStore: Send + Sync + 'static {
         &self,
         collection: &str,
         limit: Option<usize>,
-        reverse: bool,
+        order: SortOrder,
     ) -> Result<Vec<(String, T)>, String>
     where
         T: DeserializeOwned + Send + Sync + 'static;

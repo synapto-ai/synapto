@@ -46,7 +46,11 @@ pub(super) async fn not_clear_interactions_task<
     storage: std::sync::Arc<S>,
 ) {
     let mut not_clear_memory: NotClearInteractionMemory = if let Ok(records) = storage
-        .get_ordered_records::<NotClearInteraction>("not_clear_interactions", None, false)
+        .get_ordered_records::<NotClearInteraction>(
+            "not_clear_interactions",
+            None,
+            synapto_interface::storage::SortOrder::Ascending,
+        )
         .await
     {
         NotClearInteractionMemory(records.into_iter().map(|(_, v)| v).collect())

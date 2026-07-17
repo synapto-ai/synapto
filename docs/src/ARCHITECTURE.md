@@ -39,8 +39,9 @@ The system is built on an open-core architecture with loosely coupled plugins, c
     };
     ```
 14. **Variable Naming & Abbreviation Limits**: Maintain clear and descriptive variable names. The only broadly accepted single-letter abbreviation is `e` for `error`. Contextual shortening (e.g., shortening `saga_scenario_output` to `output`) is the maximum level of abbreviation allowed. Using the full variable name is always acceptable. Never use ambiguous or excessive abbreviations like `out`, `o`, or other unclear truncations.
-15. **Strong Typing & Newtype Pattern Mandate**: Avoid "Primitive Obsession". Never use primitive types (`String`, `usize`, etc.) to represent domain concepts like identifiers, opaque contexts, or categories.
+15. **Strong Typing & Newtype Pattern Mandate**: Avoid "Primitive Obsession". Never use primitive types (`String`, `usize`, `bool`, etc.) to represent domain concepts like identifiers, opaque contexts, or categories.
     - **Compile-Time Sets**: If the possible values are strictly bounded by internal core logic, use an `enum` (e.g., `enum MemoryTier` instead of `String`). However, for plugin-extensible concepts (like `provider`), use opaque strings.
+    - **Mystery Booleans & Control Coupling**: Never use boolean flags (`bool`) as function parameters to toggle behavior, as they are unreadable at the call site (e.g., `get_records(true)` vs `get_records(false)`). First, consider if the boolean implies the function is doing two completely different things (violating Single-Path Execution); if so, split it into two distinct methods. If the core logic is truly the same and only a specific parameter varies (e.g., sorting direction), always use a descriptive `enum` (e.g., `enum SortOrder { Ascending, Descending }`) to make the intent explicit and self-documenting.
     - **Dynamic Values**: If the value is dynamic, use the newtype pattern combined with `derive_more` macros to reduce boilerplate (e.g., `#[derive(Debug, Clone, derive_more::Display, derive_more::From, derive_more::Deref)] pub struct SenderId(pub String);`).
       This enforces self-documenting interfaces and prevents accidental swapping of parameters.
 

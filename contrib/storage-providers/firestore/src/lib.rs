@@ -94,16 +94,15 @@ impl RecordStore for FirestoreStorage {
         &self,
         collection: &str,
         limit: Option<usize>,
-        reverse: bool,
+        order: synapto_interface::storage::SortOrder,
     ) -> Result<Vec<(String, T)>, String>
     where
         T: serde::de::DeserializeOwned + Send + Sync + 'static,
     {
         let parent = self.parent_path()?;
-        let direction = if reverse {
-            FirestoreQueryDirection::Descending
-        } else {
-            FirestoreQueryDirection::Ascending
+        let direction = match order {
+            synapto_interface::storage::SortOrder::Descending => FirestoreQueryDirection::Descending,
+            synapto_interface::storage::SortOrder::Ascending => FirestoreQueryDirection::Ascending,
         };
 
         let mut builder = self

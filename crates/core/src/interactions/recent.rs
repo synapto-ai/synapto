@@ -178,7 +178,11 @@ pub(super) async fn interaction_memory_task<
     storage: std::sync::Arc<S>,
 ) {
     let mut interaction_memory: InteractionMemory = if let Ok(records) = storage
-        .get_ordered_records::<Interaction>("interactions", None, false)
+        .get_ordered_records::<Interaction>(
+            "interactions",
+            None,
+            synapto_interface::storage::SortOrder::Ascending,
+        )
         .await
     {
         InteractionMemory(records.into_iter().map(|(_, v)| v).collect())

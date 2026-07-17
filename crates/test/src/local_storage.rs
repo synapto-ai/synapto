@@ -87,7 +87,7 @@ impl<P: synapto_interface::data_dir::DataDirProvider> RecordStore for LocalStora
         &self,
         collection: &str,
         limit: Option<usize>,
-        reverse: bool,
+        order: synapto_interface::storage::SortOrder,
     ) -> Result<Vec<(String, T)>, String>
     where
         T: DeserializeOwned + Send + Sync + 'static,
@@ -105,10 +105,9 @@ impl<P: synapto_interface::data_dir::DataDirProvider> RecordStore for LocalStora
             serde_json::from_str(&content)
                 .map_err(|e| format!("Failed to deserialize records items: {}", e))?;
 
-        let mut iter: Box<dyn Iterator<Item = _>> = if reverse {
-            Box::new(map.into_iter().rev())
-        } else {
-            Box::new(map.into_iter())
+        let mut iter: Box<dyn Iterator<Item = _>> = match order {
+            synapto_interface::storage::SortOrder::Descending => Box::new(map.into_iter().rev()),
+            synapto_interface::storage::SortOrder::Ascending => Box::new(map.into_iter()),
         };
 
         if let Some(limit) = limit {
@@ -464,9 +463,13 @@ impl<P: synapto_interface::data_dir::DataDirProvider> VectorStore for LocalStora
     where
         T: DeserializeOwned + Send + Sync + 'static,
     {
-        let all_records =
-            RecordStore::get_ordered_records::<serde_json::Value>(self, collection, None, false)
-                .await?;
+        let all_records = RecordStore::get_ordered_records::<serde_json::Value>(
+            self,
+            collection,
+            None,
+            synapto_interface::storage::SortOrder::Ascending,
+        )
+        .await?;
         let all: Vec<serde_json::Value> = all_records.into_iter().map(|(_, v)| v).collect();
 
         let metric = Distance::Cosine;
@@ -580,10 +583,14 @@ mod tests {
         let collection = "test_items";
 
         // Initial get_all should return empty
-        let items: Vec<(String, TestItem)> =
-            RecordStore::get_ordered_records(&provider, collection, None, false)
-                .await
-                .unwrap();
+        let items: Vec<(String, TestItem)> = RecordStore::get_ordered_records(
+            &provider,
+            collection,
+            None,
+            synapto_interface::storage::SortOrder::Ascending,
+        )
+        .await
+        .unwrap();
         assert!(items.is_empty());
 
         // Push one item
@@ -607,20 +614,28 @@ mod tests {
             .unwrap();
 
         // Get all should return both items
-        let items: Vec<(String, TestItem)> =
-            RecordStore::get_ordered_records(&provider, collection, None, false)
-                .await
-                .unwrap();
+        let items: Vec<(String, TestItem)> = RecordStore::get_ordered_records(
+            &provider,
+            collection,
+            None,
+            synapto_interface::storage::SortOrder::Ascending,
+        )
+        .await
+        .unwrap();
         assert_eq!(items.len(), 2);
         assert_eq!(items[0].1, item1);
         assert_eq!(items[1].1, item2);
 
         // Delete should remove one item
         provider.delete_record(collection, "key1").await.unwrap();
-        let items: Vec<(String, TestItem)> =
-            RecordStore::get_ordered_records(&provider, collection, None, false)
-                .await
-                .unwrap();
+        let items: Vec<(String, TestItem)> = RecordStore::get_ordered_records(
+            &provider,
+            collection,
+            None,
+            synapto_interface::storage::SortOrder::Ascending,
+        )
+        .await
+        .unwrap();
         assert_eq!(items.len(), 1);
 
         // We can upsert after clear
@@ -628,20 +643,28 @@ mod tests {
             .upsert_record(collection, "key1", item1.clone())
             .await
             .unwrap();
-        let items: Vec<(String, TestItem)> =
-            RecordStore::get_ordered_records(&provider, collection, None, false)
-                .await
-                .unwrap();
+        let items: Vec<(String, TestItem)> = RecordStore::get_ordered_records(
+            &provider,
+            collection,
+            None,
+            synapto_interface::storage::SortOrder::Ascending,
+        )
+        .await
+        .unwrap();
         assert_eq!(items.len(), 2);
 
         provider
             .trim_records_before(collection, "key2")
             .await
             .unwrap();
-        let items: Vec<(String, TestItem)> =
-            RecordStore::get_ordered_records(&provider, collection, None, false)
-                .await
-                .unwrap();
+        let items: Vec<(String, TestItem)> = RecordStore::get_ordered_records(
+            &provider,
+            collection,
+            None,
+            synapto_interface::storage::SortOrder::Ascending,
+        )
+        .await
+        .unwrap();
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].1, item2);
     }
