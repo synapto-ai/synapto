@@ -308,8 +308,9 @@ impl ScenarioCoordinator {
                 } else {
                     self.transcript_tx.get().is_some() && self.speech_detected.get().is_some()
                 };
+            let shutdown_ok = synapto_shutdown::is_initialized();
 
-            if text_ok && audio_ok {
+            if text_ok && audio_ok && shutdown_ok {
                 break;
             }
             if start_time.elapsed() > tokio::time::Duration::from_secs(10) {
