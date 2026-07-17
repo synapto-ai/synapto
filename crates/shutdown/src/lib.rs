@@ -63,7 +63,9 @@ pub fn init() -> mpsc::UnboundedReceiver<ShutdownResult> {
 
 /// Checks if the shutdown mechanism has been initialized.
 pub fn is_initialized() -> bool {
-    shutdown_tx_lock().is_some()
+    shutdown_tx_lock()
+        .as_ref()
+        .map_or(false, |tx| !tx.is_closed())
 }
 
 /// Checks if the application is currently shutting down.
