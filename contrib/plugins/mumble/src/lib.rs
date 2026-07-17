@@ -156,7 +156,7 @@ impl MumblePlugin {
                     )
                     .await
                     {
-                        tracing::error!("Mumble client error: {:?}", e);
+                        tracing::warn!("Mumble client error: {:?}", e);
                     }
 
                     tracing::info!("Mumble client disconnected, retrying in 5 seconds...");

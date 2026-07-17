@@ -1,10 +1,10 @@
 #![feature(iter_array_chunks)]
 
 pub mod ephemeral_datadir;
-pub mod test_datadir;
 pub mod local_storage;
 #[path = "plugins/mod.rs"]
 pub mod plugins;
+pub mod test_datadir;
 
 pub use plugins::chat::MockChatPlugin;
 pub use plugins::diarization::MockDiarizationPlugin;
@@ -126,7 +126,7 @@ pub struct ScenarioCoordinator {
 
 pub async fn run_scenario<F, Fut>(
     scenario_manifest_path: impl AsRef<std::path::Path>,
-    boot_bundle: F,
+    test_bundle: F,
 ) where
     F: FnOnce() -> Fut,
     Fut: std::future::Future<Output = ()>,
@@ -168,7 +168,7 @@ pub async fn run_scenario<F, Fut>(
     });
 
     // Boot the bundle which will block until shutdown
-    boot_bundle().await;
+    test_bundle().await;
 
     // Check the scenario result
     let result = rx
@@ -281,7 +281,18 @@ impl ScenarioCoordinator {
     }
 
     pub async fn drive(&self) -> Result<(), String> {
-        // Wait for plugins to be fully initialized and channels to be set
+        // Determine which mock channels are actually required by the scenario steps
+        let mut requires_text = false;
+        let mut requires_audio = false;
+        for step in &self.steps {
+            match step {
+                ScenarioStep::UserWrites { .. } => requires_text = true,
+                ScenarioStep::UserSays { .. } => requires_audio = true,
+                _ => {}
+            }
+        }
+
+        // Wait for required mock plugins to be fully initialized
         let start_time = tokio::time::Instant::now();
         let use_stt_test_plugin = self
             .scenario_path
@@ -290,12 +301,14 @@ impl ScenarioCoordinator {
             .join("stt.ndjson")
             .exists();
         loop {
-            let text_ok = self.peer_input_text_tx.get().is_some();
-            let audio_ok = if use_stt_test_plugin {
-                self.peer_input_audio_tx.get().is_some()
-            } else {
-                self.transcript_tx.get().is_some() && self.speech_detected.get().is_some()
-            };
+            let text_ok = !requires_text || self.peer_input_text_tx.get().is_some();
+            let audio_ok = !requires_audio
+                || if use_stt_test_plugin {
+                    self.peer_input_audio_tx.get().is_some()
+                } else {
+                    self.transcript_tx.get().is_some() && self.speech_detected.get().is_some()
+                };
+
             if text_ok && audio_ok {
                 break;
             }

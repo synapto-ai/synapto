@@ -1370,7 +1370,7 @@ version = "0.1.0-dev.1"
 dependencies = [
  "dirs",
  "synapto",
- "synapto-interface 0.1.0-dev.2",
+ "synapto-interface",
  "synapto-test",
  "tokio",
 ]
@@ -4165,7 +4165,7 @@ dependencies = [
  "serde",
  "serde_json",
  "synapto",
- "synapto-interface 0.1.0-dev.2",
+ "synapto-interface",
  "synapto-llm",
  "synapto-test",
  "tokio",
@@ -6336,9 +6336,9 @@ dependencies = [
  "schemars 1.2.1",
  "serde",
  "serde_json",
- "synapto-interface 0.1.0-dev.2",
+ "synapto-interface",
  "synapto-llm",
- "synapto-shutdown 0.1.0-dev.2",
+ "synapto-shutdown",
  "synapto-telemetry",
  "tokio",
  "tracing",
@@ -6353,16 +6353,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "synapto-derive"
-version = "0.1.0-dev.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1dac53d0e04f202dac268c56c2aae9f75d1ae1b0bc4156979c67fb91c90038ec"
-dependencies = [
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
 name = "synapto-interface"
 version = "0.1.0-dev.2"
 dependencies = [
@@ -6373,25 +6363,7 @@ dependencies = [
  "schemars 1.2.1",
  "serde",
  "serde_json",
- "synapto-derive 0.1.0-dev.2",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "synapto-interface"
-version = "0.1.0-dev.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fecca34e07d86bfda31e0feac28a5ad2f79e39343a9f88b9f201e6de5d4a35e"
-dependencies = [
- "async-trait",
- "derive_more",
- "futures",
- "genai",
- "schemars 1.2.1",
- "serde",
- "serde_json",
- "synapto-derive 0.1.0-dev.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "synapto-derive",
  "tokio",
  "tracing",
 ]
@@ -6408,7 +6380,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "synapto-interface 0.1.0-dev.2",
+ "synapto-interface",
  "synapto-telemetry",
  "tokio",
  "tracing",
@@ -6423,7 +6395,7 @@ dependencies = [
  "schemars 1.2.1",
  "serde",
  "synapto",
- "synapto-interface 0.1.0-dev.2",
+ "synapto-interface",
  "synapto-test",
  "tokio",
 ]
@@ -6441,7 +6413,7 @@ dependencies = [
  "schemars 1.2.1",
  "serde",
  "synapto",
- "synapto-interface 0.1.0-dev.2",
+ "synapto-interface",
  "synapto-test",
  "tokio",
  "tracing",
@@ -6463,8 +6435,7 @@ dependencies = [
  "serde",
  "serde_json",
  "synapto",
- "synapto-interface 0.1.0-dev.2",
- "synapto-shutdown 0.1.0-dev.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "synapto-interface",
  "synapto-test",
  "testcontainers",
  "tokio",
@@ -6485,7 +6456,7 @@ dependencies = [
  "serde",
  "serde_json",
  "synapto",
- "synapto-interface 0.1.0-dev.2",
+ "synapto-interface",
  "synapto-test",
  "tokio",
  "tokio-tungstenite",
@@ -6505,7 +6476,7 @@ dependencies = [
  "serde",
  "serde_json",
  "synapto",
- "synapto-interface 0.1.0-dev.2",
+ "synapto-interface",
  "synapto-test",
  "tokio",
  "tokio-stream",
@@ -6523,7 +6494,7 @@ dependencies = [
  "serde",
  "serde_json",
  "synapto",
- "synapto-interface 0.1.0-dev.2",
+ "synapto-interface",
  "synapto-test",
  "tokio",
  "tokio-tungstenite",
@@ -6539,7 +6510,7 @@ dependencies = [
  "elevenlabs-sdk",
  "serde",
  "synapto",
- "synapto-interface 0.1.0-dev.2",
+ "synapto-interface",
  "synapto-test",
  "tokio",
  "tracing",
@@ -6555,7 +6526,7 @@ dependencies = [
  "serde",
  "serde_json",
  "synapto",
- "synapto-interface 0.1.0-dev.2",
+ "synapto-interface",
  "synapto-test",
  "tokio",
  "tracing",
@@ -6566,17 +6537,7 @@ dependencies = [
 name = "synapto-shutdown"
 version = "0.1.0-dev.2"
 dependencies = [
- "synapto-interface 0.1.0-dev.2",
- "tracing",
-]
-
-[[package]]
-name = "synapto-shutdown"
-version = "0.1.0-dev.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9be2c87fa8b2dedbd77b62e5e59d1d4a2094d3087ffc7a638b9f6f390d63890d"
-dependencies = [
- "synapto-interface 0.1.0-dev.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "synapto-interface",
  "tracing",
 ]
 
@@ -6589,7 +6550,7 @@ dependencies = [
  "serde",
  "serde_json",
  "synapto",
- "synapto-interface 0.1.0-dev.2",
+ "synapto-interface",
  "synapto-test",
  "tokio",
  "tokio-stream",
@@ -6604,7 +6565,7 @@ dependencies = [
  "better_tokio_select",
  "dashmap",
  "rerun",
- "synapto-shutdown 0.1.0-dev.2",
+ "synapto-shutdown",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -6622,8 +6583,8 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "synapto",
- "synapto-interface 0.1.0-dev.2",
- "synapto-shutdown 0.1.0-dev.2",
+ "synapto-interface",
+ "synapto-shutdown",
  "tempfile",
  "tokio",
  "tracing",
