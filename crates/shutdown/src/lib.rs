@@ -12,7 +12,7 @@ pub struct ShutdownResult(pub Result<(), FatalError>);
 // to be safely re-initialized when running multiple tests sequentially
 // in the same OS process (e.g., `cargo test --test-threads=1`).
 static SHUTDOWN_TX: Mutex<Option<mpsc::UnboundedSender<ShutdownResult>>> = Mutex::new(None);
-pub static IS_SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
+static IS_SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 
 fn shutdown_tx_lock()
 -> std::sync::MutexGuard<'static, Option<mpsc::UnboundedSender<ShutdownResult>>> {
