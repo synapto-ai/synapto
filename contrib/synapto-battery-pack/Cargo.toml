@@ -2,10 +2,11 @@
 name = "synapto-battery-pack"
 version = "0.0.1-dev.1"
 edition = "2024"
-description = "Synapto"
+description = "Synapto battery pack"
 license = "Apache-2.0"
 readme = "README.md"
 keywords = ["battery-pack"]
+repository = "https://github.com/synapto-ai/synapto"
 
 [workspace]
 
