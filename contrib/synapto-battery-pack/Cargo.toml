@@ -7,6 +7,8 @@ license = "Apache-2.0"
 readme = "README.md"
 keywords = ["battery-pack"]
 
+[workspace]
+
 [dependencies]
 # Add your curated dependencies here:
 # clap = { version = "4", features = ["derive"] }
