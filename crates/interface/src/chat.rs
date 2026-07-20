@@ -4,12 +4,6 @@ use async_trait::async_trait;
 
 #[async_trait]
 pub trait ChatPlugin: Plugin + Send + Sync {
-    fn channel_context_schema() -> schemars::Schema
-    where
-        Self: Sized,
-    {
-        schemars::schema_for!(())
-    }
     async fn start(
         &self,
         peer_input_text_tx: mpsc::Sender<crate::peer_input_text::PeerInputText>,

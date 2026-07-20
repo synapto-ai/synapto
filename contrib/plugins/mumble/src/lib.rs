@@ -97,10 +97,6 @@ impl Plugin for MumblePlugin {
 
 #[async_trait::async_trait]
 impl ChatPlugin for MumblePlugin {
-    fn channel_context_schema() -> schemars::Schema {
-        schemars::schema_for!(MumbleContext)
-    }
-
     async fn start(
         &self,
         peer_input_text_tx: mpsc::Sender<PeerInputText>,
