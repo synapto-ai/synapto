@@ -1,5 +1,3 @@
-#![allow(unsafe_code)]
-#![allow(unused_imports)]
 
 use synapto::Synapto;
 use synapto::config::{DotEnv, Env};

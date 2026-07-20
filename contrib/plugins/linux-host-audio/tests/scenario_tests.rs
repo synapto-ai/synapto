@@ -1,10 +1,8 @@
-#![allow(unsafe_code)]
-#![allow(unused_imports)]
 
 use synapto::Synapto;
 use synapto::config::{DotEnv, Env};
-use synapto::config::ConfigJson;
-use synapto_test::test_datadir::ScenarioTestDir;
+
+
 use synapto_test::local_storage::LocalStorage;
 use synapto_test::ephemeral_datadir::EphemeralDir;
 use synapto_test::{
@@ -14,7 +12,7 @@ use synapto_test::{
 use synapto_plugin_linux_host_audio::HostAudioInputPlugin;
 
 async fn test_bundle() {
-    Synapto::<(ConfigJson<ScenarioTestDir>, DotEnv, Env), LocalStorage<EphemeralDir>>::run::<(
+    Synapto::<(DotEnv, Env), LocalStorage<EphemeralDir>>::run::<(
         MockAudioInputPlugin,
         MockDocumentsPlugin,
         MockChatPlugin,

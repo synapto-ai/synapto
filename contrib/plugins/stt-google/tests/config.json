@@ -1,0 +1,10 @@
+{
+  "plugins": {
+    "synapto_plugin_stt_google": {
+      "SttGooglePlugin": {
+        "google_project_id": "FIXME",
+        "google_service_account_credentials": "FIXME"
+      }
+    }
+  }
+}
