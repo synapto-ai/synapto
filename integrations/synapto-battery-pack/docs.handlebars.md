@@ -1,3 +1,0 @@
-{{readme}}
-
-{{crate-table}}

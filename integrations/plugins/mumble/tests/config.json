@@ -1,9 +1,0 @@
-{
-  "plugins": {
-    "synapto_plugin_mumble": {
-      "MumblePlugin": {
-        "username": "AI"
-      }
-    }
-  }
-}
