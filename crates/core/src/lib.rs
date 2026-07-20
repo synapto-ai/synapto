@@ -414,6 +414,7 @@ impl<
     }
 
     async fn run_internal(self) -> ExitCode {
+        let disable_ctrl_c = self.config.disable_ctrl_c;
         tracing::debug!("Configuration {:?}", &self.config);
 
         let mut shutdown_rx = synapto_shutdown::init();
@@ -714,6 +715,14 @@ impl<
 
         tracing::info!("--- System is running. Waiting for events... ---\n");
 
+        let ctrl_c_fut = async {
+            if !disable_ctrl_c {
+                tokio::signal::ctrl_c().await
+            } else {
+                std::future::pending::<std::io::Result<()>>().await
+            }
+        };
+
         let exit_code = better_tokio_select::tokio_select!(match .. {
             .. if let res = shutdown_rx.recv() => {
                 match res {
@@ -731,7 +740,7 @@ impl<
                     }
                 }
             }
-            .. if let _ = tokio::signal::ctrl_c() => {
+            .. if let Ok(()) = ctrl_c_fut => {
                 tracing::info!("Ctrl+C received, shutting down.");
                 ExitCode::SUCCESS
             }

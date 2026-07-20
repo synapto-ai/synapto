@@ -68,6 +68,9 @@ pub struct Config {
     #[serde(default)]
     pub disable_cognitive_side: bool,
 
+    #[serde(default)]
+    pub disable_ctrl_c: bool,
+
     #[serde(default = "default_prompt_config")]
     pub prompt: serde_json::Value,
 }

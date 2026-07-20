@@ -111,10 +111,40 @@ Ready to start hacking? Read the complete guide on [How to Create a Custom Plugi
 
 We welcome contributions through issues and pull requests! Please see our [Contribution Guidelines](CONTRIBUTION.md) for details on how to report issues, submit pull requests, and sign your commits (DCO).
 
-### 🚷 Using AI for contribution
+### 🤖 Using AI for Contribution
 
-> [!IMPORTANT]
-> It is not allowed to use LLMs to generate contributions other than *RFCs* or *documentation*. Treat all AI-generated code as legally "tainted" or untrusted because there is no assurance the code is not GPL / Proprietary / AGPL / Business Licensed.
+This project allows the use of AI coding assistants, provided that the contributions are rigorously reviewed by the human contributor and not blindly submitted.
+
+When using AI tools to assist with your development, you must follow the standard contribution process and adhere to the following guidelines:
+
+#### Licensing and Legal Requirements
+- All contributions must comply with the project's [MPL-2.0 License](LICENSE).
+- The human contributor takes full responsibility for ensuring that any AI-generated code does not violate third-party licenses (e.g., GPL, AGPL, Proprietary) and is safe to use in this project.
+
+#### Developer Certificate of Origin (DCO)
+- AI agents **MUST NOT** add `Signed-off-by` tags. Only humans can legally certify the Developer Certificate of Origin (DCO).
+- As the human submitter, you are exclusively responsible for:
+  - Rigorously reviewing and understanding all AI-generated code.
+  - Ensuring compliance with our licensing requirements.
+  - Adding your own `Signed-off-by` tag to certify the DCO.
+  - Taking full legal and technical responsibility for the contribution.
+
+#### Attribution
+To help us track the evolving role of AI in the development process, contributions assisted by AI should include an `Assisted-by` tag in your commit messages:
+
+```
+Assisted-by: AGENT_NAME:MODEL_VERSION [TOOL]
+```
+
+Where:
+- `AGENT_NAME` is the name of the AI tool or framework (e.g., Copilot, Cursor, Zed).
+- `MODEL_VERSION` is the specific model version used (e.g., claude-3-5-sonnet, gpt-4o).
+- `[TOOL]` are optional specialized tools used.
+
+Example:
+```text
+Assisted-by: Claude:claude-3-5-sonnet
+```
 
 ## 📜 License
 
