@@ -1,4 +1,3 @@
-
 use synapto::Synapto;
 use synapto::config::{DotEnv, Env};
 use synapto::config::ConfigJson;

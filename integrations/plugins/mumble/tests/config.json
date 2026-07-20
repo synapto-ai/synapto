@@ -2,7 +2,7 @@
   "plugins": {
     "synapto_plugin_mumble": {
       "MumblePlugin": {
-        "username": "Synapto"
+        "username": "AI"
       }
     }
   }
