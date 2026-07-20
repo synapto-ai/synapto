@@ -45,17 +45,9 @@ pub fn init() -> mpsc::UnboundedReceiver<ShutdownResult> {
         let has_tracing = tracing::dispatcher::has_been_set();
 
         if has_tracing {
-            tracing::error!(
-                "!!!!!!!! FATAL PANIC: {}{}\nBacktrace:\n{}",
-                msg,
-                location,
-                backtrace
-            );
+            tracing::error!("Panic: {}{}\nBacktrace:\n{}", msg, location, backtrace);
         } else {
-            eprintln!(
-                "!!!!!!!! FATAL PANIC: {}{}\nBacktrace:\n{}",
-                msg, location, backtrace
-            );
+            eprintln!("Panic: {}{}\nBacktrace:\n{}", msg, location, backtrace);
         }
 
         trigger_fatal(format!(
