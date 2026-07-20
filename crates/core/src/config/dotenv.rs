@@ -1,3 +1,8 @@
+/// A configuration provider that loads variables from a `.env` file.
+///
+/// If the `.env` file is missing, this provider fails silently and returns an
+/// empty configuration, allowing the application to seamlessly fall back to other
+/// configured providers (such as `Env` or `ConfigJson`) or `#[serde(default)]` values.
 pub struct DotEnv {
     vars: Vec<(String, String)>,
 }
