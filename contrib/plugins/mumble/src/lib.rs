@@ -21,7 +21,6 @@ use synapto_interface::cognitive_output_audio::AudioOutputPlugin;
 use synapto_interface::chat::ChatPlugin;
 use synapto_interface::plugin::Plugin;
 use tokio::net::TcpStream;
-use tokio::sync::Mutex;
 use tokio_native_tls::TlsConnector;
 use tokio_util::codec::Decoder;
 
@@ -44,17 +43,34 @@ pub struct MumbleConfig {
     pub password: Option<String>,
 }
 
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::OnceLock;
+use std::sync::Mutex as StdMutex;
+
+struct ChatChannels {
+    peer_input_text_tx: mpsc::Sender<PeerInputText>,
+    cognitive_output_text_rx: StdMutex<Option<mpsc::Receiver<CognitiveOutputText>>>,
+}
+
+struct AudioInputChannels {
+    peer_input_audio_tx: mpsc::Sender<PeerInputAudio>,
+}
+
+struct AudioOutputChannels {
+    cognitive_output_audio_rx: StdMutex<Option<mpsc::Receiver<CognitiveOutputAudio>>>,
+}
+
 #[derive(Default)]
-struct MumbleChannels {
-    cognitive_output_text_rx: Option<mpsc::Receiver<CognitiveOutputText>>,
-    peer_input_text_tx: Option<mpsc::Sender<PeerInputText>>,
-    cognitive_output_audio_rx: Option<mpsc::Receiver<CognitiveOutputAudio>>,
-    peer_input_audio_tx: Option<mpsc::Sender<PeerInputAudio>>,
+struct MumblePluginChannelsInternal {
+    chat: OnceLock<ChatChannels>,
+    audio_input: OnceLock<AudioInputChannels>,
+    audio_output: OnceLock<AudioOutputChannels>,
+    barrier: AtomicUsize,
 }
 
 pub struct MumblePlugin {
     config: MumbleConfig,
-    channels: Arc<Mutex<MumbleChannels>>,
+    __channels: Arc<MumblePluginChannelsInternal>,
 }
 
 #[async_trait::async_trait]
@@ -74,7 +90,7 @@ impl Plugin for MumblePlugin {
         let config: MumbleConfig = context.config()?;
         Ok(Self {
             config,
-            channels: Arc::new(Mutex::new(MumbleChannels::default())),
+            __channels: Arc::new(MumblePluginChannelsInternal::default()),
         })
     }
 }
@@ -91,79 +107,91 @@ impl ChatPlugin for MumblePlugin {
         cognitive_output_text_rx: mpsc::Receiver<CognitiveOutputText>,
         _cognitive_state_rx: broadcast::Receiver<synapto_interface::cognitive::CognitiveStateUpdate>,
     ) -> Result<(), String> {
-        let mut channels = self.channels.lock().await;
-        channels.peer_input_text_tx = Some(peer_input_text_tx);
-        channels.cognitive_output_text_rx = Some(cognitive_output_text_rx);
-        self.try_start_client(&mut channels);
-        Ok(())
+        let _ = self.__channels.chat.set(ChatChannels {
+            peer_input_text_tx,
+            cognitive_output_text_rx: StdMutex::new(Some(cognitive_output_text_rx)),
+        });
+        self.__generated_try_start_barrier().await
     }
 }
 
 #[async_trait::async_trait]
 impl AudioInputPlugin for MumblePlugin {
     async fn start(&self, tx: mpsc::Sender<PeerInputAudio>) -> Result<(), String> {
-        let mut channels = self.channels.lock().await;
-        channels.peer_input_audio_tx = Some(tx);
-        self.try_start_client(&mut channels);
-        Ok(())
+        let _ = self.__channels.audio_input.set(AudioInputChannels { peer_input_audio_tx: tx });
+        self.__generated_try_start_barrier().await
     }
 }
 
 #[async_trait::async_trait]
 impl AudioOutputPlugin for MumblePlugin {
     async fn start(&self, rx: mpsc::Receiver<CognitiveOutputAudio>) -> Result<(), String> {
-        let mut channels = self.channels.lock().await;
-        channels.cognitive_output_audio_rx = Some(rx);
-        self.try_start_client(&mut channels);
-        Ok(())
+        let _ = self.__channels.audio_output.set(AudioOutputChannels {
+            cognitive_output_audio_rx: StdMutex::new(Some(rx)),
+        });
+        self.__generated_try_start_barrier().await
     }
 }
 
 impl MumblePlugin {
-    fn try_start_client(&self, channels: &mut MumbleChannels) {
-        if channels.cognitive_output_text_rx.is_some()
-            && channels.peer_input_text_tx.is_some()
-            && channels.cognitive_output_audio_rx.is_some()
-            && channels.peer_input_audio_tx.is_some()
-        {
-            let mut cognitive_output_text_rx = channels
-                .cognitive_output_text_rx
-                .take()
-                .expect("Missing value");
-            let peer_input_text_tx = channels.peer_input_text_tx.take().expect("Missing value");
-            let mut cognitive_output_audio_rx = channels
-                .cognitive_output_audio_rx
-                .take()
-                .expect("Missing value");
-            let peer_input_audio_tx = channels.peer_input_audio_tx.take().expect("Missing value");
-
-            let mumble_config = self.config.clone();
-
-            tokio::spawn(async move {
-                loop {
-                    tracing::info!(
-                        "Connecting to Mumble server {}:{}",
-                        mumble_config.host,
-                        mumble_config.port
-                    );
-
-                    if let Err(e) = run_mumble_client(
-                        &mumble_config,
-                        &mut cognitive_output_text_rx,
-                        &peer_input_text_tx,
-                        &peer_input_audio_tx,
-                        &mut cognitive_output_audio_rx,
-                    )
-                    .await
-                    {
-                        tracing::warn!("Mumble client error: {:?}", e);
-                    }
-
-                    tracing::info!("Mumble client disconnected, retrying in 5 seconds...");
-                    tokio::time::sleep(Duration::from_secs(5)).await;
-                }
-            });
+    async fn __generated_try_start_barrier(&self) -> Result<(), String> {
+        // N = 3 capabilities. Threshold is 3 - 1 = 2.
+        if self.__channels.barrier.fetch_add(1, Ordering::SeqCst) == 2 {
+            self.start_internal().await
+        } else {
+            Ok(())
         }
+    }
+
+    async fn start_internal(&self) -> Result<(), String> {
+        let chat_channels = self.__channels.chat.get().expect("Chat missing");
+        let audio_input_channels = self.__channels.audio_input.get().expect("Audio input missing");
+        let audio_output_channels = self.__channels.audio_output.get().expect("Audio output missing");
+
+        let mut cognitive_output_text_rx = chat_channels
+            .cognitive_output_text_rx
+            .lock()
+            .unwrap()
+            .take()
+            .expect("Missing value");
+        let peer_input_text_tx = chat_channels.peer_input_text_tx.clone();
+
+        let mut cognitive_output_audio_rx = audio_output_channels
+            .cognitive_output_audio_rx
+            .lock()
+            .unwrap()
+            .take()
+            .expect("Missing value");
+        let peer_input_audio_tx = audio_input_channels.peer_input_audio_tx.clone();
+
+        let mumble_config = self.config.clone();
+
+        tokio::spawn(async move {
+            loop {
+                tracing::info!(
+                    "Connecting to Mumble server {}:{}",
+                    mumble_config.host,
+                    mumble_config.port
+                );
+
+                if let Err(e) = run_mumble_client(
+                    &mumble_config,
+                    &mut cognitive_output_text_rx,
+                    &peer_input_text_tx,
+                    &peer_input_audio_tx,
+                    &mut cognitive_output_audio_rx,
+                )
+                .await
+                {
+                    tracing::warn!("Mumble client error: {:?}", e);
+                }
+
+                tracing::info!("Mumble client disconnected, retrying in 5 seconds...");
+                tokio::time::sleep(Duration::from_secs(5)).await;
+            }
+        });
+
+        Ok(())
     }
 }
 
