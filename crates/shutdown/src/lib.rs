@@ -42,15 +42,21 @@ pub fn init() -> mpsc::UnboundedReceiver<ShutdownResult> {
             .unwrap_or_default();
         let backtrace = std::backtrace::Backtrace::capture();
 
-        // TODO consider uncommenting
-        // // We explicitly print to stderr here because during sequential test runs,
-        // // the shutdown receiver might have already been dropped. If we only relied
-        // // on `trigger_fatal`, the panic would be sent into a dead channel and
-        // // silently swallowed.
-        // eprintln!(
-        //     "!!!!!!!! FATAL PANIC: {}{}\nBacktrace:\n{}",
-        //     msg, location, backtrace
-        // );
+        let has_tracing = tracing::dispatcher::has_been_set();
+
+        if has_tracing {
+            tracing::error!(
+                "!!!!!!!! FATAL PANIC: {}{}\nBacktrace:\n{}",
+                msg,
+                location,
+                backtrace
+            );
+        } else {
+            eprintln!(
+                "!!!!!!!! FATAL PANIC: {}{}\nBacktrace:\n{}",
+                msg, location, backtrace
+            );
+        }
 
         trigger_fatal(format!(
             "Panic: {}{}\nBacktrace:\n{}",
