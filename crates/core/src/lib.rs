@@ -235,6 +235,7 @@ pub struct Synapto<
     camera_spawner: Option<CameraSpawner>,
     error_rx: Option<std::sync::mpsc::Receiver<String>>,
     current_context_tx: watch::Sender<serde_json::Value>,
+    _tracing: Tracing,
 }
 
 impl<
@@ -290,7 +291,7 @@ impl<
             _prompt_provider: std::marker::PhantomData,
             _storage_provider: std::marker::PhantomData,
             config,
-            tracing,
+            _tracing: tracing,
             audio_input_spawners: Vec::new(),
             audio_output_spawners: Vec::new(),
             stt_spawners: Vec::new(),
