@@ -12,8 +12,8 @@ pub enum TemporalScope {
 #[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
 pub struct ContextInteraction {
     pub peer_input: Option<String>,
-    pub ai_reasoning: Option<String>,
-    pub ai_output: Option<String>,
+    pub cognitive_reasoning: Option<String>,
+    pub cognitive_output: Option<String>,
 }
 
 #[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize, Default)]

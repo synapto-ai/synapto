@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use synapto_interface::cognitive::{CognitiveState, CognitiveStateUpdate};
 use synapto_interface::cognitive_output_text::CognitiveOutputText;
-use synapto_interface::interaction::AiWritten;
+use synapto_interface::interaction::CognitiveWritten;
 use synapto_interface::llm::LLMSafe;
 use synapto_interface::peer_input::PeerInput;
 use synapto_interface::peer_input_text::PeerInputText;
@@ -91,14 +91,14 @@ impl<'a> CognitiveOutputProcessor<CognitiveSideCommands> for SideOutputProcessor
             }
         }
 
-        let ai_written = model_response.commands.write.as_ref().map(|cmd| AiWritten {
+        let cognitive_written = model_response.commands.write.as_ref().map(|cmd| CognitiveWritten {
             target_channel: cmd.target_channel.clone(),
             text: cmd.text.clone(),
         });
 
         Some(SideEffectMetadata {
-            ai_spoken: None,
-            ai_written,
+            cognitive_spoken: None,
+            cognitive_written,
         })
     }
 
@@ -245,16 +245,16 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
                 }
             }
 
-            let ai_output = i
-                .ai_spoken
+            let cognitive_output = i
+                .cognitive_spoken
                 .as_ref()
                 .map(|spoken| spoken.0.clone())
-                .or_else(|| i.ai_written.as_ref().map(|written| written.text.clone()));
+                .or_else(|| i.cognitive_written.as_ref().map(|written| written.text.clone()));
 
             recent_interactions.push(synapto_interface::context::ContextInteraction {
                 peer_input,
-                ai_reasoning: i.ai_reasoning.as_ref().map(|r| r.0.clone()),
-                ai_output,
+                cognitive_reasoning: i.cognitive_reasoning.as_ref().map(|r| r.0.clone()),
+                cognitive_output,
             });
         }
         let request = synapto_interface::context::ContextRequest {

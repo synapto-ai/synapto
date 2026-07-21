@@ -14,11 +14,11 @@ pub(crate) async fn start(
     mut cognitive_output_audio_rx_plugin: mpsc::Receiver<CognitiveOutputAudio>,
     cognitive_output_audio_tx: broadcast::Sender<CognitiveOutputAudio>,
 ) -> (watch::Receiver<bool>, Arc<Semaphore>) {
-    let (ai_speaking_tx, ai_speaking_rx) = watch::channel(false);
-    let ai_speaking_semaphore = Arc::new(Semaphore::new(1));
+    let (cognitive_speaking_tx, cognitive_speaking_rx) = watch::channel(false);
+    let cognitive_speaking_semaphore = Arc::new(Semaphore::new(1));
     let interrupt_rx = interrupt_cognitive_direct.inner().clone();
 
-    let ai_speaking_semaphore_clone = ai_speaking_semaphore.clone();
+    let cognitive_speaking_semaphore_clone = cognitive_speaking_semaphore.clone();
 
     tokio::spawn(async move {
         use std::pin::pin;
@@ -41,10 +41,10 @@ pub(crate) async fn start(
                     if let Ok(duration) = crate::utils::audio::get_ogg_opus_duration(&msg.0) {
                         // If we don't hold the permit, acquire it
                         if permit.is_none()
-                            && let Ok(p) = ai_speaking_semaphore_clone.clone().acquire_owned().await
+                            && let Ok(p) = cognitive_speaking_semaphore_clone.clone().acquire_owned().await
                         {
                             permit = Some(p);
-                            ai_speaking_tx
+                            cognitive_speaking_tx
                                 .send(true)
                                 .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
                                 .ok();
@@ -62,7 +62,7 @@ pub(crate) async fn start(
                 .. if let _ = &mut sleep_timer
                     && permit.is_some() =>
                 {
-                    ai_speaking_tx
+                    cognitive_speaking_tx
                         .send(false)
                         .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
                         .ok();
@@ -73,7 +73,7 @@ pub(crate) async fn start(
                 }
                 // If an interrupt is received
                 .. if let _ = interrupt_rx.notified() => {
-                    ai_speaking_tx
+                    cognitive_speaking_tx
                         .send(false)
                         .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
                         .ok();
@@ -86,5 +86,5 @@ pub(crate) async fn start(
         }
     });
 
-    (ai_speaking_rx, ai_speaking_semaphore)
+    (cognitive_speaking_rx, cognitive_speaking_semaphore)
 }

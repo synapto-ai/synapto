@@ -175,10 +175,10 @@ impl ChatPlugin for MyChatPlugin {
 
         // 1. Spawn a background task to handle outgoing AI text (AI -> external chat platform)
         tokio::spawn(async move {
-            while let Some(ai_msg) = cognitive_output_text_rx.recv().await {
-                tracing::info!("Sending AI response to chat room: {}", ai_msg.text);
+            while let Some(cognitive_msg) = cognitive_output_text_rx.recv().await {
+                tracing::info!("Sending AI response to chat room: {}", cognitive_msg.text);
                 // In practice, invoke your external chat platform API here:
-                // client.send_message(&room, &ai_msg.text, &token).await;
+                // client.send_message(&room, &cognitive_msg.text, &token).await;
             }
         });
 

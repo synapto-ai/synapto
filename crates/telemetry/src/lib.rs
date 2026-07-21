@@ -56,7 +56,7 @@
 //! - **Change Stdout Verbosity**: Set the `RUST_LOG` environment variable (e.g., `RUST_LOG=debug`). By default, it falls back to `INFO`.
 //! - **Change File Verbosity**: Modify the `.with_filter(LevelFilter::DEBUG)` constraint on the `file_layer` inside `tracing.rs`.
 //! - **Log Telemetry to File**: If you want `telemetry` traces in the log files, change the `file_layer` filter from `LevelFilter::DEBUG` to an `EnvFilter` that explicitly allows `telemetry=trace`.
-//! - **Add Another Workspace Crate**: Instructions for granting `DEBUG` access to other crates (like `ai-llm-client`) are documented directly above the `EnvFilter::new` call in `tracing.rs`.
+//! - **Add Another Workspace Crate**: Instructions for granting `DEBUG` access to other crates (like `synapto-llm`) are documented directly above the `EnvFilter::new` call in `tracing.rs`.
 //!
 
 pub mod graph_layer;

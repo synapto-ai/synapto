@@ -11,8 +11,8 @@ impl From<&Interaction> for NotClearInteraction {
         Self {
             timestamp: interaction.timestamp,
             user_messages: interaction.user_messages.clone(),
-            ai_spoken: interaction.ai_spoken.clone(),
-            ai_written: interaction.ai_written.clone(),
+            cognitive_spoken: interaction.cognitive_spoken.clone(),
+            cognitive_written: interaction.cognitive_written.clone(),
         }
     }
 }
@@ -28,8 +28,8 @@ impl From<&Interaction> for NotClearInteraction {
 //                     .into_iter()
 //                     .map(Into::into)
 //                     .collect(),
-//                 ai_spoken: interaction.ai_spoken.clone(),
-//                 ai_reasoning: None,
+//                 cognitive_spoken: interaction.cognitive_spoken.clone(),
+//                 cognitive_reasoning: None,
 //                 in_flight_tools: vec![],
 //             },
 //         }

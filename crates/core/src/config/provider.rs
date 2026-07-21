@@ -21,8 +21,9 @@ pub trait ConfigProvider: Send + Sync + Sized + 'static {
         let mut val = self.load_core_config();
 
         if let Some(obj) = val.as_object_mut() {
-            // Ensure the 'plugins' key is removed before parsing
+            // Ensure the 'plugins' and 'storage' keys are removed before parsing core config
             obj.remove("plugins");
+            obj.remove("storage");
         }
 
         serde_json::from_value(val)

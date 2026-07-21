@@ -11,7 +11,7 @@ pub trait CallPlugin: Plugin + Send + Sync {
             crate::cognitive_output_text::CognitiveOutputText,
         >,
         last_voice_time_rx: sync::watch::Receiver<std::time::Instant>,
-        ai_speaking_rx: sync::watch::Receiver<bool>,
+        cognitive_speaking_rx: sync::watch::Receiver<bool>,
         call_active_tx: sync::watch::Sender<bool>,
     ) -> Result<(), String>;
 }

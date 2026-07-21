@@ -10,10 +10,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
-pub struct AiSpoken(pub String);
+pub struct CognitiveSpoken(pub String);
 
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
-pub struct AiWritten {
+pub struct CognitiveWritten {
     pub target_channel: MessageChannel,
     pub text: String,
 }
@@ -24,17 +24,17 @@ pub struct AiWritten {
 pub struct ObservedInteraction {
     pub timestamp: Timestamp,
     pub user_messages: Vec<PeerInput>,
-    pub ai_spoken: Option<AiSpoken>,
-    pub ai_written: Option<AiWritten>,
-    pub ai_reasoning: Option<CognitiveReasoning>,
+    pub cognitive_spoken: Option<CognitiveSpoken>,
+    pub cognitive_written: Option<CognitiveWritten>,
+    pub cognitive_reasoning: Option<CognitiveReasoning>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, schemars :: JsonSchema)]
 pub struct NotClearInteraction {
     pub timestamp: Timestamp,
     pub user_messages: Vec<PeerInput>,
-    pub ai_spoken: Option<AiSpoken>,
-    pub ai_written: Option<AiWritten>,
+    pub cognitive_spoken: Option<CognitiveSpoken>,
+    pub cognitive_written: Option<CognitiveWritten>,
 }
 
 #[derive(

@@ -197,6 +197,8 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
             }
         }
 
+        let current_tools = override_tools.unwrap_or_else(|| self.tools.clone());
+
         #[cfg(feature = "rerun")]
         if let Ok(content) =
             serde_json::to_string_pretty(&content).inspect_err(|e| tracing::error!("{}", e))
@@ -206,6 +208,18 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
                 &synapto_telemetry::rerun_core::archetypes::TextDocument::new(content),
             );
         };
+
+        #[cfg(feature = "rerun")]
+        if !current_tools.is_empty() {
+            if let Ok(tools_json) = serde_json::to_string_pretty(&current_tools)
+                .inspect_err(|e| tracing::error!("{}", e))
+            {
+                synapto_telemetry::log_to_rerun(
+                    format!("llm/{}/tools", self.name),
+                    &synapto_telemetry::rerun_core::archetypes::TextDocument::new(tools_json),
+                );
+            }
+        }
 
         let prompt = format!(
             "## Input Data Types & Descriptions (YAML):\n\n```yaml\n{}\n```\n\n## Input data (JSON):\n\n```json\n{}\n```\n\n{}",
@@ -234,8 +248,6 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
             ReasoningEffort::Medium => genai::chat::ReasoningEffort::Medium,
             ReasoningEffort::High => genai::chat::ReasoningEffort::High,
         });
-
-        let current_tools = override_tools.unwrap_or_else(|| self.tools.clone());
 
         let has_tools = !current_tools.is_empty();
 

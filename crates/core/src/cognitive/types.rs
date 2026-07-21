@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use synapto_interface::cognitive::CognitiveReasoning;
 use synapto_interface::document::DocumentId;
-use synapto_interface::interaction::AiSpoken;
+use synapto_interface::interaction::CognitiveSpoken;
 use synapto_interface::peer_input::MessageText;
 use synapto_interface::peer_input::{PeerInput, Speaker};
 use synapto_interface::peer_input_text::SenderId;
@@ -218,8 +218,8 @@ struct CognitiveLLMInteraction {
     channel: Option<MessageChannel>,
 
     #[schemars(description = "What AI says to human")]
-    ai_spoken: Option<AiSpoken>,
-    ai_reasoning: Option<CognitiveReasoning>,
+    cognitive_spoken: Option<CognitiveSpoken>,
+    cognitive_reasoning: Option<CognitiveReasoning>,
 
     #[schemars(
         description = "Tools triggered during this interaction that are currently processing in the background. If populated, the AI should acknowledge they are still working if asked, and wait for their resolution before answering questions reliant on them."
@@ -249,8 +249,8 @@ impl From<&Interaction> for CognitiveLLMInteraction {
                 .map(Into::into)
                 .collect(),
             channel,
-            ai_spoken: interaction.ai_spoken.clone(),
-            ai_reasoning: interaction.ai_reasoning.clone(),
+            cognitive_spoken: interaction.cognitive_spoken.clone(),
+            cognitive_reasoning: interaction.cognitive_reasoning.clone(),
             in_flight_tools: interaction.in_flight_tools.iter().map(Into::into).collect(),
             resolved_tools: interaction.resolved_tools.iter().map(Into::into).collect(),
         }

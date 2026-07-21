@@ -1,5 +1,5 @@
 use synapto_interface::cognitive::CognitiveReasoning;
-use synapto_interface::interaction::{AiSpoken, AiWritten, NotClearInteraction};
+use synapto_interface::interaction::{CognitiveSpoken, CognitiveWritten, NotClearInteraction};
 use synapto_interface::peer_input::PeerInput;
 use synapto_interface::{
     interaction::ObservedInteraction,
@@ -24,9 +24,9 @@ pub(crate) struct InFlightTool {
 pub(crate) struct Interaction {
     pub timestamp: Timestamp,
     pub user_messages: Vec<PeerInput>,
-    pub ai_spoken: Option<AiSpoken>,
-    pub ai_written: Option<AiWritten>,
-    pub ai_reasoning: Option<CognitiveReasoning>,
+    pub cognitive_spoken: Option<CognitiveSpoken>,
+    pub cognitive_written: Option<CognitiveWritten>,
+    pub cognitive_reasoning: Option<CognitiveReasoning>,
     is_actionable: bool,
     #[serde(skip)]
     pub in_flight_tools: Vec<InFlightTool>,
@@ -37,9 +37,9 @@ pub(crate) struct Interaction {
 impl Interaction {
     pub(crate) fn new(
         user_messages: Vec<PeerInput>,
-        ai_spoken: Option<AiSpoken>,
-        ai_written: Option<AiWritten>,
-        ai_reasoning: Option<CognitiveReasoning>,
+        cognitive_spoken: Option<CognitiveSpoken>,
+        cognitive_written: Option<CognitiveWritten>,
+        cognitive_reasoning: Option<CognitiveReasoning>,
         is_actionable: bool,
         in_flight_tools: Vec<InFlightTool>,
     ) -> Self {
@@ -51,9 +51,9 @@ impl Interaction {
                     .as_millis() as i64,
             ),
             user_messages,
-            ai_spoken,
-            ai_written,
-            ai_reasoning,
+            cognitive_spoken,
+            cognitive_written,
+            cognitive_reasoning,
             is_actionable,
             in_flight_tools,
             resolved_tools: Vec::new(),
@@ -66,9 +66,9 @@ impl From<&Interaction> for ObservedInteraction {
         Self {
             timestamp: interaction.timestamp,
             user_messages: interaction.user_messages.clone(),
-            ai_spoken: interaction.ai_spoken.clone(),
-            ai_written: interaction.ai_written.clone(),
-            ai_reasoning: interaction.ai_reasoning.clone(),
+            cognitive_spoken: interaction.cognitive_spoken.clone(),
+            cognitive_written: interaction.cognitive_written.clone(),
+            cognitive_reasoning: interaction.cognitive_reasoning.clone(),
         }
     }
 }

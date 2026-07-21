@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use synapto_interface::cognitive::CognitiveOutputSpeech;
 use synapto_interface::cognitive_output_text::CognitiveOutputText;
-use synapto_interface::interaction::{AiSpoken, AiWritten};
+use synapto_interface::interaction::{CognitiveSpoken, CognitiveWritten};
 use synapto_interface::llm::LLMSafe;
 use synapto_interface::peer_input::{PeerInput, PeerInputSpeech};
 use synapto_interface::sync::{Notify, futures::Notified};
@@ -144,16 +144,16 @@ impl<'a> CognitiveOutputProcessor<CognitiveDirectCommands> for DirectOutputProce
             }
         }
 
-        let ai_spoken = say_command.map(|cmd| AiSpoken(cmd.text.clone()));
+        let cognitive_spoken = say_command.map(|cmd| CognitiveSpoken(cmd.text.clone()));
 
-        let ai_written = model_response.commands.write.as_ref().map(|cmd| AiWritten {
+        let cognitive_written = model_response.commands.write.as_ref().map(|cmd| CognitiveWritten {
             target_channel: cmd.target_channel.clone(),
             text: cmd.text.clone(),
         });
 
         Some(SideEffectMetadata {
-            ai_spoken,
-            ai_written,
+            cognitive_spoken,
+            cognitive_written,
         })
     }
 
@@ -172,7 +172,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
     config: Config,
     trigger: CognitiveDirectTrigger,
     interrupt: CognitiveDirectInterrupt,
-    ai_speaking_semaphore: Arc<tokio::sync::Semaphore>,
+    cognitive_speaking_semaphore: Arc<tokio::sync::Semaphore>,
     mut peer_input_speech_rx: mpsc::Receiver<PeerInputSpeech>,
     mut interaction_memory_rx: watch::Receiver<InteractionMemory>,
     cognitive_speech_tx: broadcast::Sender<CognitiveOutputSpeech>,
@@ -266,7 +266,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
         if initial_cognitive_trigger {
             tracing::debug!("First run: bypassing pause checks and proceeding immediately");
             _cycle_permit = Some(
-                ai_speaking_semaphore
+                cognitive_speaking_semaphore
                     .clone()
                     .acquire_owned()
                     .await
@@ -276,7 +276,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
             loop {
                 better_tokio_select::tokio_select!(match .. {
                     .. if let _ = trigger.triggered() => {
-                        if config.barge_in || ai_speaking_semaphore.available_permits() > 0 {
+                        if config.barge_in || cognitive_speaking_semaphore.available_permits() > 0 {
                             tracing::debug!("Trigger detected. Waiting for interaction lock...");
                             run_after_unpaused = true;
                         } else {
@@ -285,7 +285,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                             );
                         }
                     }
-                    .. if let permit = ai_speaking_semaphore.clone().acquire_owned()
+                    .. if let permit = cognitive_speaking_semaphore.clone().acquire_owned()
                         && run_after_unpaused =>
                     {
                         tracing::debug!("Interaction lock acquired. Proceeding.");
@@ -358,16 +358,16 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                 }
             }
 
-            let ai_output = if let Some(spoken) = &i.ai_spoken {
+            let cognitive_output = if let Some(spoken) = &i.cognitive_spoken {
                 Some(spoken.0.clone())
             } else {
-                i.ai_written.as_ref().map(|written| written.text.clone())
+                i.cognitive_written.as_ref().map(|written| written.text.clone())
             };
 
             recent_interactions.push(synapto_interface::context::ContextInteraction {
                 peer_input,
-                ai_reasoning: i.ai_reasoning.as_ref().map(|r| r.0.clone()),
-                ai_output,
+                cognitive_reasoning: i.cognitive_reasoning.as_ref().map(|r| r.0.clone()),
+                cognitive_output,
             });
         }
         let request = synapto_interface::context::ContextRequest {

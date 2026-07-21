@@ -3,7 +3,7 @@ use crate::interactions::{InFlightTool, Interaction};
 use schemars::JsonSchema;
 use serde::Serialize;
 use synapto_interface::{
-    interaction::{AiSpoken, AiWritten},
+    interaction::{CognitiveSpoken, CognitiveWritten},
     peer_input::PeerInput,
     sync::mpsc,
 };
@@ -15,8 +15,8 @@ use std::future::Future;
 
 #[derive(Debug)]
 pub(super) struct SideEffectMetadata {
-    pub ai_spoken: Option<AiSpoken>,
-    pub ai_written: Option<AiWritten>,
+    pub cognitive_spoken: Option<CognitiveSpoken>,
+    pub cognitive_written: Option<CognitiveWritten>,
 }
 
 pub(super) trait CognitiveOutputProcessor<Cmd>: Send
@@ -110,8 +110,8 @@ pub(super) async fn process_llm_output<Cmd, P>(
 
                     let interaction = Interaction::new(
                         pending_user_messages.clone(),
-                        metadata.ai_spoken,
-                        metadata.ai_written,
+                        metadata.cognitive_spoken,
+                        metadata.cognitive_written,
                         Some(reasoning),
                         is_actionable,
                         in_flight_tools,
@@ -220,8 +220,8 @@ pub(super) async fn process_llm_output<Cmd, P>(
 
                     let interaction = Interaction::new(
                         messages_for_interaction,
-                        metadata.ai_spoken,
-                        metadata.ai_written,
+                        metadata.cognitive_spoken,
+                        metadata.cognitive_written,
                         Some(reasoning),
                         is_actionable,
                         in_flight_tools,

@@ -482,7 +482,7 @@ impl<
             (None, None)
         };
 
-        let (ai_speaking_rx, ai_speaking_semaphore) = speaking_coordinator::start(
+        let (cognitive_speaking_rx, cognitive_speaking_semaphore) = speaking_coordinator::start(
             interrupt_cognitive_direct.clone(),
             cognitive_speech_tx.clone(),
             cognitive_output_audio_rx_plugin,
@@ -497,7 +497,7 @@ impl<
                 peer_input_text_broadcast_tx.subscribe(),
                 cognitive_output_text_tx.clone(),
                 last_voice_time_rx.clone(),
-                ai_speaking_rx.clone(),
+                cognitive_speaking_rx.clone(),
                 call_active_tx,
             );
         }
@@ -666,8 +666,8 @@ impl<
         }
 
         for spawner in self.tts_spawners {
-            let mut ai_speech_rx_opt = Some(cognitive_speech_tx.subscribe());
-            spawner(&mut ai_speech_rx_opt, &mut cognitive_output_audio_tx_opt);
+            let mut cognitive_speech_rx_opt = Some(cognitive_speech_tx.subscribe());
+            spawner(&mut cognitive_speech_rx_opt, &mut cognitive_output_audio_tx_opt);
         }
 
         let has_chat_plugin = self.chat_spawner.is_some();
@@ -693,7 +693,7 @@ impl<
             self.llm_executor.clone(),
             trigger_cognitive_direct,
             interrupt_cognitive_direct,
-            ai_speaking_semaphore,
+            cognitive_speaking_semaphore,
             peer_input_text_broadcast_tx.subscribe(),
             peer_input_speech_rx,
             interaction_memory_rx,
@@ -1020,7 +1020,7 @@ impl<
             move |peer_input_text_rx,
                   cognitive_output_text_tx,
                   last_voice_time_rx,
-                  ai_speaking_rx,
+                  cognitive_speaking_rx,
                   call_active_tx| {
                 let p = plugin.clone();
                 tokio::spawn(async move {
@@ -1029,7 +1029,7 @@ impl<
                             peer_input_text_rx,
                             cognitive_output_text_tx,
                             last_voice_time_rx,
-                            ai_speaking_rx,
+                            cognitive_speaking_rx,
                             call_active_tx,
                         )
                         .await
