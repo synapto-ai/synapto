@@ -142,7 +142,17 @@ impl Tracing {
             .with_line_number(true)
             .with_filter(ShutdownErrorFilter)
             .with_filter(tracing_subscriber::filter::filter_fn(|meta| {
-                meta.level() == &tracing::Level::ERROR
+                meta.level() == &tracing::Level::ERROR && meta.target() != "panic"
+            }));
+
+        #[cfg(feature = "log-to-file")]
+        let file_panic_layer = tracing_subscriber::fmt::layer()
+            .with_span_events(FmtSpan::CLOSE)
+            .with_writer(non_blocking.clone())
+            .with_ansi(false)
+            .with_filter(ShutdownErrorFilter)
+            .with_filter(tracing_subscriber::filter::filter_fn(|meta| {
+                meta.level() == &tracing::Level::ERROR && meta.target() == "panic"
             }));
 
         #[cfg(feature = "log-to-file")]
@@ -174,7 +184,34 @@ impl Tracing {
             boxed_layer
                 .with_filter(ShutdownErrorFilter)
                 .with_filter(tracing_subscriber::filter::filter_fn(|meta| {
-                    meta.level() == &tracing::Level::ERROR
+                    meta.level() == &tracing::Level::ERROR && meta.target() != "panic"
+                }))
+                .with_filter(log_filter.clone())
+                .with_filter(
+                    EnvFilter::builder()
+                        .with_default_directive(LevelFilter::INFO.into())
+                        .from_env_lossy(),
+                )
+        };
+
+        let stdout_panic_layer = {
+            let layer = tracing_subscriber::fmt::layer()
+                .with_span_events(FmtSpan::CLOSE)
+                .with_writer(std::io::stdout);
+
+            let boxed_layer = if std::env::var("LOG_FORMAT")
+                .map(|v| v == "json")
+                .unwrap_or(false)
+            {
+                layer.json().flatten_event(true).boxed()
+            } else {
+                layer.boxed()
+            };
+
+            boxed_layer
+                .with_filter(ShutdownErrorFilter)
+                .with_filter(tracing_subscriber::filter::filter_fn(|meta| {
+                    meta.level() == &tracing::Level::ERROR && meta.target() == "panic"
                 }))
                 .with_filter(log_filter.clone())
                 .with_filter(
@@ -213,11 +250,13 @@ impl Tracing {
         let subscriber = tracing_subscriber::registry()
             .with(ShutdownDowngradeLayer)
             .with(stdout_error_layer)
+            .with(stdout_panic_layer)
             .with(stdout_non_error_layer);
 
         #[cfg(feature = "log-to-file")]
         let subscriber = subscriber
             .with(file_error_layer.boxed())
+            .with(file_panic_layer.boxed())
             .with(file_non_error_layer.boxed());
 
         let tracy_guard = cfg_select!(
