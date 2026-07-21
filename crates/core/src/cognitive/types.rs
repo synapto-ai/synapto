@@ -46,24 +46,31 @@ impl ToolExecutor for RegistryToolExecutor {
                 if let Some(tool) = tools.get(&call.fn_name) {
                     let call_clone = call.clone();
                     let tool_resolved_tx = tool_resolved_tx.clone();
-                    let ctx_req_clone = ctx_request.clone(); // needs clone? We can wrap it in arc or just clone if it's clonable...
-                    // ContextRequest is relatively cheap to clone, but wait, it has Vec<ContextInteraction>.
-                    // For now let's clone it.
+                    let ctx_req_clone = ctx_request.clone();
 
                     tokio::spawn(async move {
+                        tracing::debug!("Tool called: {}", call_clone.fn_name);
+
+                        // Attempt to parse the arguments provided by the LLM into a standard JSON Value
                         let parsed_args_res = serde_json::from_value::<serde_json::Value>(
                             call_clone.fn_arguments.clone(),
                         );
+
                         match parsed_args_res {
                             Ok(args) => {
+                                // Execute the tool with a timeout
                                 let exec_future = tool.erased_execute(&ctx_req_clone, args);
-                                match tokio::time::timeout(
+                                let exec_res = tokio::time::timeout(
                                     std::time::Duration::from_secs(60),
                                     exec_future,
                                 )
-                                .await
-                                {
+                                .await;
+
+                                tracing::debug!("Tool resolved: {}", call_clone.fn_name);
+
+                                match exec_res {
                                     Ok(Ok(result)) => {
+                                        // Happy path: Tool executed successfully
                                         let output = ToolOutput::new(result);
                                         tool_resolved_tx
                                             .send((output, call_clone))
@@ -74,6 +81,12 @@ impl ToolExecutor for RegistryToolExecutor {
                                             .ok();
                                     }
                                     Ok(Err(e)) => {
+                                        // Tool-side error: The tool itself failed during execution (behaved badly)
+                                        tracing::warn!(
+                                            "Tool '{}' behaved badly/execution error: {}",
+                                            call_clone.fn_name,
+                                            e
+                                        );
                                         let output =
                                             ToolOutput::new(format!("Error executing tool: {}", e));
                                         tool_resolved_tx
@@ -85,6 +98,11 @@ impl ToolExecutor for RegistryToolExecutor {
                                             .ok();
                                     }
                                     Err(_) => {
+                                        // Timeout error: The tool took longer than 60 seconds
+                                        tracing::warn!(
+                                            "Tool execution timed out for '{}'",
+                                            call_clone.fn_name
+                                        );
                                         let output = ToolOutput::new("Error: Execution timed out");
                                         tool_resolved_tx
                                             .send((output, call_clone))
@@ -97,6 +115,12 @@ impl ToolExecutor for RegistryToolExecutor {
                                 }
                             }
                             Err(e) => {
+                                // LLM-side error: The LLM hallucinated bad arguments or formatted them incorrectly
+                                tracing::warn!(
+                                    "LLM called tool '{}' incorrectly: {}",
+                                    call_clone.fn_name,
+                                    e
+                                );
                                 let output =
                                     ToolOutput::new(format!("Error parsing arguments: {}", e));
                                 tool_resolved_tx
@@ -110,6 +134,8 @@ impl ToolExecutor for RegistryToolExecutor {
                         }
                     });
                 } else {
+                    // LLM-side error: The LLM tried to invoke a tool that doesn't exist in the registry
+                    tracing::warn!("LLM tried to call unknown tool: '{}'", call.fn_name);
                     let output = ToolOutput::new(format!(
                         "Error: Tool '{}' not found in registry.",
                         call.fn_name
