@@ -149,7 +149,7 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
     #[instrument(
         level = "info",
         skip_all,
-        fields(activate_subsystem, track_stats = true)
+        fields(track_stats = true)
     )]
     async fn call_inner(
         &self,

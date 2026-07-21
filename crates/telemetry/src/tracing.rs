@@ -300,7 +300,6 @@ impl Tracing {
                     .boxed(),
                 )
                 .with(super::rerun::RerunTelemetryLayer::default().boxed())
-                .with(super::graph_layer::RerunGraphLayer::new().boxed())
         };
 
         // Use `try_init` instead of `init` to prevent panics when running multiple tests

@@ -1,6 +1,6 @@
 {
   "cognitive": {
-    "model": "gemini-3.5-flash",
+    "model": "gemini-3.6-flash",
     "reasoning_effort": "Medium"
   },
   "disable_ctrl_c": true

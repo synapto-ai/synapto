@@ -59,7 +59,6 @@
 //! - **Add Another Workspace Crate**: Instructions for granting `DEBUG` access to other crates (like `synapto-llm`) are documented directly above the `EnvFilter::new` call in `tracing.rs`.
 //!
 
-pub mod graph_layer;
 pub mod rerun;
 pub mod rerun_logging;
 pub mod tracing;
