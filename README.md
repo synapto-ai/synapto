@@ -36,17 +36,13 @@ Need something specific? Creating a new custom bundle is ridiculously easy. A bu
 Here is what a complete, working custom bundle looks like:
 
 ```rust
-use synapto::Synapto;
-use host_audio::{HostAudioInputPlugin, HostAudioOutputPlugin};
-use std::process::ExitCode;
-
 #[tokio::main]
 async fn main() -> ExitCode {
-    // 1. Initialize the core with the chosen configuration provider and profile
+    // 1. Initialize the core with configuration providers, storage, and prompt provider
     Synapto::<
-        datadir_local::DataLocalDir<"my-custom-assistant">,
-        (synapto::config::ConfigJson, synapto::config::DotEnv, synapto::config::Env),
-        prompt_file::FilePromptProvider
+        (ConfigJson<DataDir>, DotEnv, Env),
+        Storage,
+        FilePromptProvider<DataDir>,
     >::run::<(
         HostAudioInputPlugin,
         HostAudioOutputPlugin,
@@ -61,7 +57,7 @@ That's it! You have a fully functional cognitive loop customized for your use ca
 
 ## 🔌 Available Plugins
 
-Plugins operate asynchronously and securely, communicating with the core via strongly-typed JSON schemas. The `synapto` repository is divided into workspaces: `crates` for the core architecture and `contrib` for the growing ecosystem of plugins and storage providers. Our current integrations in `contrib/plugins` include:
+Plugins operate asynchronously and securely, communicating with the core via strongly-typed JSON schemas. The `synapto-ai` ecosystem contains `synapto` (core architecture), `integrations` (built-in plugins and providers), and `synapto-plugins` (domain memory and assistant plugins). Our current integrations in `integrations/plugins` include:
 
 - **`mumble`**: Connect to Mumble servers for low-latency VoIP communication.
 - **`linux-host-audio`**: Interface directly with local microphones and speakers for real-time text-to-speech and speech-to-text capabilities.

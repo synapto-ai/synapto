@@ -157,10 +157,13 @@ The project is organized into strictly decoupled workspaces to enforce boundarie
     - `scenarist/`: RPG story management (Saga, Chapter, Scene).
   - **`llm/`**: The provider-agnostic LLM interface layer.
   - **`telemetry/`**: Tracing and profiling setup.
-- **`contrib/` (Ecosystem Workspace)**: Contains official and community-maintained plugins and storage providers. Code here implements the traits from `synapto-interface` (e.g., Mumble, Google STT, Firestore).
-  - **`plugins/*/`**: Independent integration crates (e.g., chat platform integrations, hardware device bridges).
+- **`integrations/` (Integrations Workspace)**: Contains official and community-maintained plugins, prompt providers, datadir providers, and storage providers. Code here implements traits from `synapto-interface` (e.g., Mumble, Google STT, Firestore).
+  - **`plugins/*/`**: Independent integration crates (e.g., clock, mumble, host audio, STT/TTS).
   - **`storage-providers/*/`**: Concrete database/storage integrations (e.g., Firestore).
-- **`bundles/*/` (Deployable Agents)**: Separate root directories that act as composition roots. They bring together the core and specific `contrib` crates to build standalone, deployable binaries required for a specific deployment type (e.g., `home-assistant`, `personal-assistant`).
+  - **`prompt-providers/*/`**: Cognitive prompt providers (e.g., file prompt provider).
+  - **`datadir-providers/*/`**: Filesystem strategy providers (e.g., local data dir).
+- **`synapto-plugins/` (Domain Plugins Workspace)**: Contains domain memory and assistant plugins (e.g., behavioral memory, episodic memory, semantic memory, documents, speaker recognizer, google chat, google meet, call recorder, task memory).
+- **`bundles/` (Deployable Agents Workspace)**: Acts as composition roots. Brings together core, `integrations`, and `synapto-plugins` crates to build standalone deployable binaries (`home-assistant`, `org-assistant`, `personal-assistant`, `research`, `rpg`, `teacher`).
   - `src/main.rs`: Entry point, configuration loading, plugin registration.
 
 ## Composition Bundles
