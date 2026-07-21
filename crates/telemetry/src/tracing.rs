@@ -85,11 +85,14 @@ where
     }
 }
 
+use std::sync::OnceLock;
+
+static GLOBAL_RELOAD_HANDLE: OnceLock<Box<dyn ReloadHandle>> = OnceLock::new();
+
 pub struct Tracing {
     #[cfg(feature = "log-to-file")]
     _file_guard: tracing_appender::non_blocking::WorkerGuard,
     _tracy_guard: Option<TracyGuard>,
-    reload_handle: Box<dyn ReloadHandle>,
 }
 
 impl Tracing {
@@ -290,7 +293,6 @@ impl Tracing {
             subscriber
                 .with(
                     super::rerun_logging::RerunLoggingLayer {
-                        rec,
                         path: "logs/tracing".into(),
                     }
                     .with_filter(LevelFilter::DEBUG)
@@ -308,20 +310,25 @@ impl Tracing {
                 "Warning: Failed to set global tracing subscriber. This is expected during sequential test runs: {}",
                 e
             );
+        } else {
+            // Store the handle for the successfully initialized global subscriber.
+            // We ignore the error if it was already set.
+            GLOBAL_RELOAD_HANDLE.set(Box::new(reload_handle)).ok();
         }
 
         Self {
             #[cfg(feature = "log-to-file")]
             _file_guard: file_guard,
             _tracy_guard: tracy_guard,
-            reload_handle: Box::new(reload_handle),
         }
     }
 
-    pub fn add_plugin_to_log(&self, plugin_name: &str) {
+    pub fn add_plugin_to_log(plugin_name: &str) {
         let plugin_name_sanitized = plugin_name.replace("-", "_");
         let directive = format!("{}=trace,telemetry=trace", plugin_name_sanitized);
-        self.reload_handle.add_directive(directive);
+        if let Some(handle) = GLOBAL_RELOAD_HANDLE.get() {
+            handle.add_directive(directive);
+        }
     }
 }
 

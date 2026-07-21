@@ -27,14 +27,6 @@ impl RerunGraphLayer {
 
         // Spawn the background task to manage the Rerun graph state
         tokio::spawn(async move {
-            let rec = match rerun::RecordingStream::global(rerun::StoreKind::Recording) {
-                Some(rec) => rec,
-                None => {
-                    tracing::warn!("Rerun recording stream not found. Graph Layer won't log.");
-                    return;
-                }
-            };
-
             let mut nodes: HashSet<String> = HashSet::new();
             let mut edges: HashSet<(String, String)> = HashSet::new();
             let mut active_nodes: HashSet<String> = HashSet::new();
@@ -91,6 +83,11 @@ impl RerunGraphLayer {
 
                 if dirty {
                     dirty = false;
+
+                    let Some(rec) = rerun::RecordingStream::global(rerun::StoreKind::Recording)
+                    else {
+                        continue;
+                    };
 
                     let node_ids: Vec<_> = nodes.iter().cloned().collect();
 

@@ -189,7 +189,6 @@ pub struct Synapto<
     config_provider: Arc<C>,
     _prompt_provider: std::marker::PhantomData<PR>,
     _storage_provider: std::marker::PhantomData<S>,
-    tracing: Tracing,
     audio_input_spawners: Vec<AudioInputSpawner>,
     audio_output_spawners: Vec<AudioOutputSpawner>,
     stt_spawners: Vec<SttSpawner>,
@@ -399,7 +398,7 @@ impl<
         let full_path = core::any::type_name::<P>();
         let base_path = full_path.split('<').next().unwrap_or(full_path);
         let plugin_identity = base_path.to_string();
-        self.tracing.add_plugin_to_log(&plugin_identity);
+        Tracing::add_plugin_to_log(&plugin_identity);
         self.plugins_names.push(plugin_identity.clone());
 
         let plugin = self.get_or_init_plugin::<P>();
@@ -667,7 +666,10 @@ impl<
 
         for spawner in self.tts_spawners {
             let mut cognitive_speech_rx_opt = Some(cognitive_speech_tx.subscribe());
-            spawner(&mut cognitive_speech_rx_opt, &mut cognitive_output_audio_tx_opt);
+            spawner(
+                &mut cognitive_speech_rx_opt,
+                &mut cognitive_output_audio_tx_opt,
+            );
         }
 
         let has_chat_plugin = self.chat_spawner.is_some();

@@ -85,7 +85,6 @@
 
 use crate::find_parent_subsystem;
 use dashmap::{DashMap, DashSet};
-use rerun::RecordingStream;
 use std::time::Instant;
 use tracing::Subscriber;
 use tracing::field::Visit;
@@ -100,21 +99,13 @@ struct SpanStats {
 }
 
 pub struct RerunTelemetryLayer {
-    rec: RecordingStream,
     initialized_paths: DashSet<String>,
     stats: DashMap<String, SpanStats>,
 }
 
 impl Default for RerunTelemetryLayer {
     fn default() -> Self {
-        let rec = rerun::RecordingStream::global(rerun::StoreKind::Recording).unwrap_or_else(|| {
-        unreachable!(
-            "Rerun recording stream not found. The global stream must be initialized prior to constructing the telemetry layer."
-        )
-    });
-
         Self {
-            rec,
             initialized_paths: DashSet::new(),
             stats: DashMap::new(),
         }
@@ -125,16 +116,16 @@ struct SpanStartTime(Instant);
 
 impl RerunTelemetryLayer {
     fn log_metric(&self, path: String, value: f64) {
+        let Some(rec) = rerun::RecordingStream::global(rerun::StoreKind::Recording) else {
+            return;
+        };
         let metric_path = format!("metrics/{path}");
         if self.initialized_paths.insert(metric_path.clone()) {
-            self.rec
-                .log_static(metric_path.clone(), &rerun::SeriesPoints::new())
+            rec.log_static(metric_path.clone(), &rerun::SeriesPoints::new())
                 .inspect_err(|e| tracing::error!("{}", e))
                 .ok();
         }
-        self.rec
-            .log(metric_path, &rerun::Scalars::new([value]))
-            .ok();
+        rec.log(metric_path, &rerun::Scalars::new([value])).ok();
     }
 }
 
@@ -294,35 +285,36 @@ where
         }
 
         if let Some(role) = chat_visitor.role {
+            let Some(rec) = rerun::RecordingStream::global(rerun::StoreKind::Recording) else {
+                return;
+            };
+
             let path = if let Some(m) = chat_visitor.modality {
                 format!("chat/{role}/{m}")
             } else {
                 format!("chat/{role}")
             };
 
-            self.rec
-                .log(
-                    path,
-                    &rerun::archetypes::TextLog::new(chat_visitor.messages.unwrap_or_default()),
-                )
-                .ok();
+            rec.log(
+                path,
+                &rerun::archetypes::TextLog::new(chat_visitor.messages.unwrap_or_default()),
+            )
+            .ok();
 
             if role == "assistant" {
                 if let Some(tools) = chat_visitor.tools {
-                    self.rec
-                        .log(
-                            "chat/assistant/tools",
-                            &rerun::archetypes::TextLog::new(tools),
-                        )
-                        .ok();
+                    rec.log(
+                        "chat/assistant/tools",
+                        &rerun::archetypes::TextLog::new(tools),
+                    )
+                    .ok();
                 }
                 if let Some(reasoning) = chat_visitor.reasoning {
-                    self.rec
-                        .log(
-                            "chat/assistant/reasoning",
-                            &rerun::archetypes::TextLog::new(reasoning),
-                        )
-                        .ok();
+                    rec.log(
+                        "chat/assistant/reasoning",
+                        &rerun::archetypes::TextLog::new(reasoning),
+                    )
+                    .ok();
                 }
             }
         }
