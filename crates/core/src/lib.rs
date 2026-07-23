@@ -611,6 +611,8 @@ impl<
         //     registries.current.register_erased(interaction_provider);
         // }
 
+        // Background task: monitors current context provider updates, gathers active context values,
+        // and broadcasts them over `current_context_tx`.
         {
             let current_context_tx = self.current_context_tx;
             let mut current_update_rx = registries.current.subscribe();
@@ -620,10 +622,11 @@ impl<
                     let request = synapto_interface::context::ContextRequest::default();
                     let current_contexts = registries.current.gather_contexts(&request).await;
                     if let Ok(value) = serde_json::to_value(current_contexts) {
-                        current_context_tx
-                            .send(value)
-                            .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
-                            .ok();
+                        if current_context_tx.receiver_count() > 0 {
+                            if let Err(e) = current_context_tx.send(value) {
+                                tracing::error!("Failed to broadcast current context: {:?}", e);
+                            }
+                        }
                     }
                 }
             });
