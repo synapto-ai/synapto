@@ -1000,6 +1000,10 @@ impl<
         self.tools.register_erased(tool_arc);
     }
 
+    fn register_erased_tool(&mut self, tool: Arc<dyn synapto_interface::tool::ErasedTool>) {
+        self.tools.register_erased(tool);
+    }
+
     fn register_diarization<P: DiarizationPlugin>(&mut self, plugin: Arc<P>) {
         self.diarization_heuristic = plugin.heuristic();
         self.diarization_spawner = Some(Box::new(move |audio_rx, segment_tx| {

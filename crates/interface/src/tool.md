@@ -50,7 +50,7 @@ Never tightly couple a tool's `is_available` check to the internal JSON schema o
     }
 ```
 
-To expose this tool, register it within your `Plugin` trait implementation:
+To expose static tools, register them within your `Plugin` trait implementation:
 
 ```rust,ignore
 impl Plugin for MyPlugin {
@@ -58,4 +58,50 @@ impl Plugin for MyPlugin {
         registry.register_tool(ReadDocumentPluginTool { ... });
     }
 }
+```
+
+### Type-Erased Dynamic Runtime Tools (`ErasedTool`)
+
+When tools are discovered dynamically at runtime (e.g. over JSON-RPC protocols like MCP, or loaded from external services) rather than defined statically in Rust at compile time, implement `ErasedTool` directly and register via `register_erased_tool`:
+
+```rust,ignore
+pub struct MyDynamicTool {
+    name: &'static str,
+    description: &'static str,
+    schema: schemars::Schema,
+}
+
+#[async_trait]
+impl ErasedTool for MyDynamicTool {
+    fn name(&self) -> &'static str {
+        self.name
+    }
+
+    fn description(&self) -> &'static str {
+        self.description
+    }
+
+    fn schema(&self) -> schemars::Schema {
+        self.schema.clone()
+    }
+
+    async fn erased_execute(
+        &self,
+        ctx_request: &ContextRequest,
+        args: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        // Forward dynamic tool execution
+        Ok(serde_json::json!({ "status": "success" }))
+    }
+}
+
+impl Plugin for MyDynamicPlugin {
+    fn register<R: synapto_interface::plugin::PluginRegistry + ?Sized>(self: Arc<Self>, registry: &mut R) {
+        let dynamic_tool: Arc<dyn ErasedTool> = Arc::new(MyDynamicTool { ... });
+        registry.register_erased_tool(dynamic_tool);
+    }
+}
+
+> **Lifetime Management Note for Dynamic Tools:**
+> `ErasedTool::name(&self)` and `ErasedTool::description(&self)` return `&'static str` to ensure zero-cost string slices across the system. For dynamically discovered runtime tools (where string names are constructed at boot time), format the `String` and leak it once using `Box::leak(name.into_boxed_str())`. Because tool registrations persist for the process lifecycle, this allocation is safe and deterministic.
 ```

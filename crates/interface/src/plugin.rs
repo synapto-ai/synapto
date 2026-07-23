@@ -117,7 +117,10 @@ pub trait PluginRegistry {
         provider: std::sync::Arc<P>,
     );
     fn register_command<C: crate::command::Command>(&mut self, command: C);
+    #[doc = " Registers a static tool implementation."]
     fn register_tool<T: crate::tool::Tool>(&mut self, tool: T);
+    #[doc = " Registers a type-erased tool implementation (e.g. dynamically discovered at runtime)."]
+    fn register_erased_tool(&mut self, tool: std::sync::Arc<dyn crate::tool::ErasedTool>);
     fn register_call<P: CallPlugin>(
         &mut self,
         plugin: std::sync::Arc<P>,

@@ -380,9 +380,7 @@ pub(super) async fn evaluate_dynamic_tools(
         {
             let mut schema = serde_json::to_value(tool.schema())
                 .unwrap_or_else(|e| panic!("Failed to serialize tool schema: {}", e));
-            if let serde_json::Value::Object(ref mut map) = schema {
-                map.remove("$schema");
-            }
+            clean_json_schema_for_llm(&mut schema);
             dynamic_tools.push(
                 synapto_interface::llm::genai::chat::Tool::new(tool.name())
                     .with_description(tool.description())
@@ -391,4 +389,79 @@ pub(super) async fn evaluate_dynamic_tools(
         }
     }
     dynamic_tools
+}
+
+pub(super) fn clean_json_schema_for_llm(val: &mut serde_json::Value) {
+    const ALLOWED_KEYS: &[&str] = &[
+        "type",
+        "properties",
+        "required",
+        "items",
+        "description",
+        "enum",
+        "nullable",
+        "format",
+    ];
+
+    match val {
+        serde_json::Value::Object(map) => {
+            map.retain(|k, _| ALLOWED_KEYS.contains(&k.as_str()));
+
+            if let Some(serde_json::Value::Object(props)) = map.get_mut("properties") {
+                for prop_val in props.values_mut() {
+                    clean_json_schema_for_llm(prop_val);
+                }
+            }
+
+            if let Some(items_val) = map.get_mut("items") {
+                clean_json_schema_for_llm(items_val);
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            for v in arr {
+                clean_json_schema_for_llm(v);
+            }
+        }
+        _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_core_clean_json_schema_for_llm() {
+        let mut schema = serde_json::json!({
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "title": "SerpApiSearchTool",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "params": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "default": null,
+                    "description": "Engine parameters"
+                }
+            },
+            "required": ["params"]
+        });
+
+        clean_json_schema_for_llm(&mut schema);
+
+        assert_eq!(
+            schema,
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "params": {
+                        "type": "object",
+                        "description": "Engine parameters"
+                    }
+                },
+                "required": ["params"]
+            })
+        );
+    }
 }

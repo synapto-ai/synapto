@@ -9,7 +9,7 @@ The `interface` crate serves as the Single Source of Truth (SSoT) for all data m
 
 - **Base `Plugin` Trait**: All plugins must implement the core `Plugin` trait defined in the crate root. It governs initialization (`create`) and self-registration.
 - **Specialized Role Traits**: Depending on what roles a plugin plays (e.g. `ChatPlugin`, `STTPlugin`, `TTSPlugin`, `DocumentsPlugin`), it implements one or more specialized traits. The asynchronous `start` methods on these traits receive strongly typed, direct channels (`mpsc`, `broadcast`, `watch`) representing exact boundaries.
-- **`PluginRegistry`**: Plugins use this interface trait during registration (`plugin.register(registry)`) to hook themselves into specific functional slots.
+- **`PluginRegistry`**: Plugins use this interface trait during registration (`plugin.register(registry)`) to hook themselves into specific functional slots (such as `register_tool` for static compile-time tools or `register_erased_tool` for type-erased dynamic runtime tools like MCP servers).
 
 ## Naming Convention (MANDATORY)
 

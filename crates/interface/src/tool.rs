@@ -32,16 +32,24 @@ pub trait Tool: Send + Sync + 'static {
     ) -> Result<serde_json::Value, String>;
 }
 
+#[doc = " Type-erased trait for tools registered dynamically at runtime."]
 #[async_trait::async_trait]
 pub trait ErasedTool: Send + Sync + 'static {
+    #[doc = " Unique identifier name of the tool."]
     fn name(&self) -> &'static str;
+    #[doc = " Human/LLM-readable description explaining the tool's capability."]
     fn description(&self) -> &'static str;
+    #[doc = " JSON Schema describing expected tool call arguments."]
     fn schema(&self) -> schemars::Schema;
+    #[doc = " Evaluated per turn to determine if tool is currently active/available."]
     async fn erased_is_available(
         &self,
-        ctx_request: &ContextRequest,
-        compiled_context: &serde_json::Value,
-    ) -> Result<bool, String>;
+        _ctx_request: &ContextRequest,
+        _compiled_context: &serde_json::Value,
+    ) -> Result<bool, String> {
+        Ok(true)
+    }
+    #[doc = " Executes the tool with untyped JSON arguments and returns structured JSON output."]
     async fn erased_execute(
         &self,
         ctx_request: &ContextRequest,
