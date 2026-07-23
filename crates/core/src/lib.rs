@@ -602,15 +602,6 @@ impl<
 
         let registries = self.registries.clone();
 
-        // {
-        //     let interaction_provider = std::sync::Arc::new(
-        //         crate::interactions::recent::InteractionMemoryContextProvider::new(
-        //             interaction_memory_rx.clone(),
-        //         ),
-        //     );
-        //     registries.current.register_erased(interaction_provider);
-        // }
-
         // Background task: monitors current context provider updates, gathers active context values,
         // and broadcasts them over `current_context_tx`.
         {
