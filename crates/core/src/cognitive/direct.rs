@@ -146,10 +146,15 @@ impl<'a> CognitiveOutputProcessor<CognitiveDirectCommands> for DirectOutputProce
 
         let cognitive_spoken = say_command.map(|cmd| CognitiveSpoken(cmd.text.clone()));
 
-        let cognitive_written = model_response.commands.write.as_ref().map(|cmd| CognitiveWritten {
-            target_channel: cmd.target_channel.clone(),
-            text: cmd.text.clone(),
-        });
+        let cognitive_written =
+            model_response
+                .commands
+                .write
+                .as_ref()
+                .map(|cmd| CognitiveWritten {
+                    target_channel: cmd.target_channel.clone(),
+                    text: cmd.text.clone(),
+                });
 
         Some(SideEffectMetadata {
             cognitive_spoken,
@@ -170,6 +175,7 @@ impl<'a> CognitiveOutputProcessor<CognitiveDirectCommands> for DirectOutputProce
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
     config: Config,
+    system_prompt: Vec<synapto_llm::Instruction>,
     trigger: CognitiveDirectTrigger,
     interrupt: CognitiveDirectInterrupt,
     cognitive_speaking_semaphore: Arc<tokio::sync::Semaphore>,
@@ -199,7 +205,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
     > = CognitiveLLM::create_client_with_tools(
         llm_executor,
         config.cognitive.clone(),
-        super::get_cognitive_system_prompt::<P>(&config),
+        system_prompt,
         executor,
         vec![], // dynamically provided each turn
     );
@@ -361,7 +367,9 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
             let cognitive_output = if let Some(spoken) = &i.cognitive_spoken {
                 Some(spoken.0.clone())
             } else {
-                i.cognitive_written.as_ref().map(|written| written.text.clone())
+                i.cognitive_written
+                    .as_ref()
+                    .map(|written| written.text.clone())
             };
 
             recent_interactions.push(synapto_interface::context::ContextInteraction {

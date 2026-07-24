@@ -66,9 +66,12 @@ pub(crate) async fn start<P: CognitivePromptProvider>(
     cognitive_state_tx: broadcast::Sender<CognitiveStateUpdate>,
     resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::tool::ToolCallId>,
 ) {
+    let system_prompt = get_cognitive_system_prompt::<P>(&config);
+
     if cognitive_output_text_tx.is_some() && !config.disable_cognitive_side {
         tokio::spawn(cognitive_side_task::<P>(
             config.clone(),
+            system_prompt.clone(),
             text_rx,
             interaction_memory_rx.clone(),
             new_interaction_tx.clone(),
@@ -84,6 +87,7 @@ pub(crate) async fn start<P: CognitivePromptProvider>(
     if !config.disable_cognitive_direct {
         tokio::spawn(cognitive_direct_task::<P>(
             config,
+            system_prompt,
             trigger_cognitive_direct,
             interrupt_cognitive_direct,
             cognitive_speaking_semaphore,
@@ -105,6 +109,11 @@ pub(crate) async fn start<P: CognitivePromptProvider>(
 pub(crate) use direct::{CognitiveDirectInterrupt, CognitiveDirectTrigger};
 
 fn get_cognitive_system_prompt<P: CognitivePromptProvider>(config: &Config) -> Vec<Instruction> {
+    tracing::info!(
+        "Initializing prompt provider: {}",
+        core::any::type_name::<P>()
+    );
+
     let mut instructions = Vec::new();
 
     instructions.push(Instruction::Text(format!(

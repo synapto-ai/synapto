@@ -91,10 +91,15 @@ impl<'a> CognitiveOutputProcessor<CognitiveSideCommands> for SideOutputProcessor
             }
         }
 
-        let cognitive_written = model_response.commands.write.as_ref().map(|cmd| CognitiveWritten {
-            target_channel: cmd.target_channel.clone(),
-            text: cmd.text.clone(),
-        });
+        let cognitive_written =
+            model_response
+                .commands
+                .write
+                .as_ref()
+                .map(|cmd| CognitiveWritten {
+                    target_channel: cmd.target_channel.clone(),
+                    text: cmd.text.clone(),
+                });
 
         Some(SideEffectMetadata {
             cognitive_spoken: None,
@@ -111,6 +116,7 @@ impl<'a> CognitiveOutputProcessor<CognitiveSideCommands> for SideOutputProcessor
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
     config: Config,
+    system_prompt: Vec<synapto_llm::Instruction>,
     mut text_rx: broadcast::Receiver<PeerInputText>,
     mut interaction_memory_rx: watch::Receiver<InteractionMemory>,
     new_interaction_tx: mpsc::Sender<Interaction>,
@@ -138,7 +144,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
     > = CognitiveLLM::create_client_with_tools(
         llm_executor,
         config.cognitive.clone(),
-        super::get_cognitive_system_prompt::<P>(&config),
+        system_prompt,
         executor,
         vec![], // Tools are dynamically passed in each turn
     );
@@ -249,7 +255,11 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
                 .cognitive_spoken
                 .as_ref()
                 .map(|spoken| spoken.0.clone())
-                .or_else(|| i.cognitive_written.as_ref().map(|written| written.text.clone()));
+                .or_else(|| {
+                    i.cognitive_written
+                        .as_ref()
+                        .map(|written| written.text.clone())
+                });
 
             recent_interactions.push(synapto_interface::context::ContextInteraction {
                 peer_input,
