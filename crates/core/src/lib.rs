@@ -32,10 +32,10 @@ pub mod config;
 pub mod prompt_provider;
 mod utils;
 
+pub mod data_dir;
 mod google_credentials;
-mod speaking_coordinator;
-
 mod interactions;
+mod speaking_coordinator;
 
 mod speech_to_text;
 
@@ -968,20 +968,23 @@ impl<
         &mut self,
         provider: Arc<P>,
     ) {
-        match P::SCOPE {
+        let scope_str = match P::SCOPE {
             synapto_interface::context::TemporalScope::Historical => {
                 self.registries.historical.register_erased(provider.clone());
+                "Historical"
             }
             synapto_interface::context::TemporalScope::Current => {
                 self.registries.current.register_erased(provider.clone());
+                "Current"
             }
             synapto_interface::context::TemporalScope::Prospective => {
                 self.registries
                     .prospective
                     .register_erased(provider.clone());
+                "Prospective"
             }
-        }
-        tracing::info!("  Context provider capability '{}' registered.", P::NAME);
+        };
+        tracing::info!("  {} context provider '{}' registered.", scope_str, P::NAME);
     }
 
     fn register_command<Cmd: synapto_interface::command::Command>(&mut self, command: Cmd) {
