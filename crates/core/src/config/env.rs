@@ -8,14 +8,19 @@ impl crate::config::ConfigProvider for Env {
     }
 
     fn load_core_config(&self) -> serde_json::Value {
-        build_env_json("SYNAPTO__")
+        let mut core_config = build_env_json("SYNAPTO__");
+        if let Some(obj) = core_config.as_object_mut() {
+            obj.remove("PLUGINS");
+            obj.remove("STORAGE");
+        };
+        core_config
     }
 
     fn load_plugin_config(&self, crate_name: &str, plugin_type_name: &str) -> serde_json::Value {
         let prefix = format!(
             "SYNAPTO__PLUGINS__{}__{}__",
-            crate_name.to_uppercase().replace(['-', '.'], "_"),
-            plugin_type_name.to_uppercase().replace(['-', '.'], "_")
+            crate_name.replace(['-', '.'], "_"),
+            plugin_type_name.replace(['-', '.'], "_")
         );
         build_env_json(&prefix)
     }
@@ -23,8 +28,8 @@ impl crate::config::ConfigProvider for Env {
     fn load_storage_config(&self, crate_name: &str, storage_type_name: &str) -> serde_json::Value {
         let prefix = format!(
             "SYNAPTO__STORAGE__{}__{}__",
-            crate_name.to_uppercase().replace(['-', '.'], "_"),
-            storage_type_name.to_uppercase().replace(['-', '.'], "_")
+            crate_name.replace(['-', '.'], "_"),
+            storage_type_name.replace(['-', '.'], "_")
         );
         build_env_json(&prefix)
     }
@@ -41,7 +46,7 @@ where
     let mut map = serde_json::Map::new();
     for (k, v) in vars {
         if k.starts_with(prefix) {
-            let key_path = k.trim_start_matches(prefix).to_lowercase();
+            let key_path = k.trim_start_matches(prefix);
             // Try to parse as JSON (boolean, number), otherwise string
             let val = serde_json::from_str(&v).unwrap_or(Value::String(v));
 

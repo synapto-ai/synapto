@@ -21,14 +21,19 @@ impl crate::config::ConfigProvider for DotEnv {
     }
 
     fn load_core_config(&self) -> serde_json::Value {
-        crate::config::env::build_json_from_vars(self.vars.clone(), "SYNAPTO__")
+        let mut core_config = crate::config::env::build_json_from_vars(self.vars.clone(), "SYNAPTO__");
+        if let Some(obj) = core_config.as_object_mut() {
+            obj.remove("PLUGINS");
+            obj.remove("STORAGE");
+        };
+        core_config
     }
 
     fn load_plugin_config(&self, crate_name: &str, plugin_type_name: &str) -> serde_json::Value {
         let prefix = format!(
             "SYNAPTO__PLUGINS__{}__{}__",
-            crate_name.to_uppercase().replace(['-', '.'], "_"),
-            plugin_type_name.to_uppercase().replace(['-', '.'], "_")
+            crate_name.replace(['-', '.'], "_"),
+            plugin_type_name.replace(['-', '.'], "_")
         );
         crate::config::env::build_json_from_vars(self.vars.clone(), &prefix)
     }
@@ -36,8 +41,8 @@ impl crate::config::ConfigProvider for DotEnv {
     fn load_storage_config(&self, crate_name: &str, storage_type_name: &str) -> serde_json::Value {
         let prefix = format!(
             "SYNAPTO__STORAGE__{}__{}__",
-            crate_name.to_uppercase().replace(['-', '.'], "_"),
-            storage_type_name.to_uppercase().replace(['-', '.'], "_")
+            crate_name.replace(['-', '.'], "_"),
+            storage_type_name.replace(['-', '.'], "_")
         );
         crate::config::env::build_json_from_vars(self.vars.clone(), &prefix)
     }

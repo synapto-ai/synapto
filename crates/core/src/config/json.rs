@@ -27,7 +27,12 @@ impl<P: DataDirProvider> crate::config::ConfigProvider for ConfigJson<P> {
     }
 
     fn load_core_config(&self) -> Value {
-        self.config.clone()
+        let mut core_config = self.config.clone();
+        if let Some(obj) = core_config.as_object_mut() {
+            obj.remove("plugins");
+            obj.remove("storage");
+        };
+        core_config
     }
 
     fn load_plugin_config(&self, crate_name: &str, plugin_type_name: &str) -> Value {

@@ -18,14 +18,7 @@ pub trait ConfigProvider: Send + Sync + Sized + 'static {
 
     /// Returns the core configuration struct.
     fn get_core_config(&self) -> crate::config::Config {
-        let mut val = self.load_core_config();
-
-        if let Some(obj) = val.as_object_mut() {
-            // Ensure the 'plugins' and 'storage' keys are removed before parsing core config
-            obj.remove("plugins");
-            obj.remove("storage");
-        }
-
+        let val = self.load_core_config();
         serde_json::from_value(val)
             .unwrap_or_else(|e| panic!("Failed to parse core configuration: {}", e))
     }
