@@ -1,7 +1,7 @@
 #![feature(iter_array_chunks)]
 
 pub mod ephemeral_datadir;
-pub mod local_storage;
+pub use synapto::storage::local_storage;
 #[path = "plugins/mod.rs"]
 pub mod plugins;
 pub mod test_datadir;

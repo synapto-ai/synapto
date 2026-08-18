@@ -563,6 +563,17 @@ impl<P: synapto_interface::data_dir::DataDirProvider> VectorStore for LocalStora
 mod tests {
     use super::*;
     use serde::{Deserialize, Serialize};
+    use synapto_interface::data_dir::DataDirProvider;
+
+    struct EphemeralDir;
+
+    impl DataDirProvider for EphemeralDir {
+        fn get_data_dir() -> PathBuf {
+            tempfile::tempdir()
+                .unwrap_or_else(|e| panic!("Failed to create temporary directory: {:?}", e))
+                .keep()
+        }
+    }
 
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
     struct TestItem {
@@ -572,7 +583,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_json_storage_provider() {
-        let provider = LocalStorage::<crate::ephemeral_datadir::EphemeralDir>::connect(
+        let provider = LocalStorage::<EphemeralDir>::connect(
             EmptyStorageConfig {},
             Arc::new(synapto_interface::storage::StorageRegistry::default()),
             "test_namespace",
@@ -670,7 +681,7 @@ mod tests {
     }
     #[tokio::test]
     async fn test_file_storage() {
-        let provider = LocalStorage::<crate::ephemeral_datadir::EphemeralDir>::connect(
+        let provider = LocalStorage::<EphemeralDir>::connect(
             EmptyStorageConfig {},
             Arc::new(synapto_interface::storage::StorageRegistry::default()),
             "test_namespace",
@@ -718,7 +729,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_kv_storage() {
-        let provider = LocalStorage::<crate::ephemeral_datadir::EphemeralDir>::connect(
+        let provider = LocalStorage::<EphemeralDir>::connect(
             EmptyStorageConfig {},
             Arc::new(synapto_interface::storage::StorageRegistry::default()),
             "test_namespace",
@@ -766,7 +777,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_vector_storage() {
-        let provider = LocalStorage::<crate::ephemeral_datadir::EphemeralDir>::connect(
+        let provider = LocalStorage::<EphemeralDir>::connect(
             EmptyStorageConfig {},
             Arc::new(synapto_interface::storage::StorageRegistry::default()),
             "test_namespace",

@@ -4621,6 +4621,7 @@ dependencies = [
  "synapto-llm",
  "synapto-shutdown",
  "synapto-telemetry",
+ "tempfile",
  "tokio",
  "tracing",
 ]

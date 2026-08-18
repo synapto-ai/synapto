@@ -7,17 +7,18 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-better_tokio_select = { workspace = true }
 synapto = { workspace = true, features = ["rerun"] }
 synapto-interface.workspace = true
+
+better_tokio_select.workspace = true
 serde.workspace = true
 schemars.workspace = true
 serde_json.workspace = true
-serde_yaml = { workspace = true }
-async-trait = { workspace = true }
+serde_yaml.workspace = true
+async-trait.workspace = true
 tracing.workspace = true
-claxon = "0.4"
 tokio.workspace = true
+claxon = "0.4"
 tempfile = "3"
 
 synapto-shutdown.workspace = true

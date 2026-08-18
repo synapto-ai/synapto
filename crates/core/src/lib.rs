@@ -30,6 +30,7 @@ mod cognitive;
 pub use cognitive::CognitiveLLMContent;
 pub mod config;
 pub mod prompt_provider;
+pub mod storage;
 mod utils;
 
 pub mod data_dir;
