@@ -39,7 +39,7 @@ pub enum ReasoningEffort {
 pub struct ModelConfig {
     pub model: String,
     #[serde(default)]
-    pub thinking_level: ReasoningEffort,
+    pub reasoning_effort: ReasoningEffort,
 }
 
 #[derive(Debug, Default, Clone)]
