@@ -146,11 +146,7 @@ pub type ResolvedTools = Vec<(ToolCall, ToolOutput)>;
 impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: ToolMode>
     LLMClient<Content, Output, Tools>
 {
-    #[instrument(
-        level = "info",
-        skip_all,
-        fields(track_stats = true)
-    )]
+    #[instrument(level = "info", skip_all, fields(track_stats = true))]
     async fn call_inner(
         &self,
         content: Content,

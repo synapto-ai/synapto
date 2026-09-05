@@ -41,7 +41,10 @@ pub(crate) async fn start(
                     if let Ok(duration) = crate::utils::audio::get_ogg_opus_duration(&msg.0) {
                         // If we don't hold the permit, acquire it
                         if permit.is_none()
-                            && let Ok(p) = cognitive_speaking_semaphore_clone.clone().acquire_owned().await
+                            && let Ok(p) = cognitive_speaking_semaphore_clone
+                                .clone()
+                                .acquire_owned()
+                                .await
                         {
                             permit = Some(p);
                             cognitive_speaking_tx

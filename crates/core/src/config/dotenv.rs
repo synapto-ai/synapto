@@ -21,7 +21,8 @@ impl crate::config::ConfigProvider for DotEnv {
     }
 
     fn load_core_config(&self) -> serde_json::Value {
-        let mut core_config = crate::config::env::build_json_from_vars(self.vars.clone(), "SYNAPTO__");
+        let mut core_config =
+            crate::config::env::build_json_from_vars(self.vars.clone(), "SYNAPTO__");
         if let Some(obj) = core_config.as_object_mut() {
             obj.remove("PLUGINS");
             obj.remove("STORAGE");

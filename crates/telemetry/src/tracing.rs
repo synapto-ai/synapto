@@ -262,10 +262,10 @@ impl Tracing {
             .with(file_panic_layer.boxed())
             .with(file_non_error_layer.boxed());
 
-        let tracy_guard = cfg_select!(
+        let tracy_guard = cfg_select! {
             feature = "tracy" => Some(TracyGuard::new()),
-            _ => None
-        );
+            _ => None,
+        };
 
         #[cfg(feature = "tracy")]
         let subscriber = subscriber.with(tracing_tracy::TracyLayer::default().boxed());

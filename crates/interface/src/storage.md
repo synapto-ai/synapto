@@ -2,75 +2,202 @@
 
 ### When to Use It
 
-Use one of the Storage interfaces (`RecordStore`, `KeyValueStore`, `FileStore`, `VectorStore`) when your plugin needs to persist lists of data across reboots (e.g., historical conversation summaries, behavioral insights, or cached configurations).
+Use the storage interfaces when a plugin must persist data across restarts (for example: conversation history, behavioral memory, files, or vector embeddings).
 
-### Storage Providers
+### Available Storage Capabilities
 
-The AI architecture defines storage capabilities as generic traits in `synapto_interface::storage`. The bundle initializing your plugin will inject a concrete storage provider at compile time.
+The storage system exposes four capability traits in `synapto_interface::storage`:
 
-There are currently two available providers:
+1. **`RecordStore`**: Ordered record persistence with upsert, retrieval by key order (ascending or descending), single-item deletion, and sliding-window cutoff trimming (`trim_records_before`).
+2. **`KeyValueStore`**: Basic key-value operations (`get`, `set`, `delete`, `get_all`) within a collection.
+3. **`FileStore`**: Binary blob storage (`save_file`, `get_file`, `delete_file`) within a collection.
+4. **`VectorStore`**: Vector index preparation (`setup_collection`), vector batch insertion (`insert_vectors`), similarity search (`search_vectors`), and filter deletion (`delete_vectors`).
 
-1. **`storage-local` (`LocalStorage`)**: A zero-dependency, human-readable file backend that writes JSON arrays directly to the plugin's namespace directory. Ideal for small, localized deployments or testing.
-2. **`storage-surrealdb` (`SurrealStorage`)**: A full database backend for heavy, high-frequency logging or complex querying.
+---
 
-## Storage Heterogeneity and Connection Pooling
+## Storage Architecture
 
-The Synapto architecture supports unlimited heterogeneous storage providers in the same bundle while ensuring connection pooling and strict data isolation.
+### Connection Pooling (`StorageRegistry`)
 
-1. **Shared Config and Pools**: Plugins requesting the exact same storage provider type (e.g., `FirestoreStorage`) share the exact same underlying DB connection pool (via the `StorageRegistry` using `TypeId`) and inherit the same configuration block.
-2. **Namespace Isolation**: While the TCP connection pool is shared, the `StorageConnection::connect` method injects the unique `plugin_namespace` into the returned wrapper struct. Data writes are thus intrinsically scoped (e.g., to `/namespaces/plugin_a/` vs `/namespaces/plugin_b/`).
-3. **Heterogeneous Resolution**: Plugins requesting different storage providers (e.g., Plugin A asks for `FirestoreStorage`, Plugin B asks for `LocalStorage`) trigger independent config resolution via the `StorageConfigResolver`. Their respective connection pools are instantiated completely independently in the `StorageRegistry` hash map. For details on configuration routing via environment variables or JSON files, see the [Config Providers documentation](../config_providers.md).
+Multiple plugins requesting the same storage provider share a single underlying connection pool via `StorageRegistry`. The registry caches instances by their `TypeId`.
 
-### How to Use It (Example)
+### Namespace Isolation
 
-Define your plugin with a generic type `S` bound to `CollectionStore + StorageConnection`, and inject it via the bundle's `main.rs`.
+Storage implementations must isolate data for each plugin using the `plugin_namespace` string provided during connection initialization.
+
+### Storage Configuration Resolution
+
+During plugin initialization (`context.store::<S>()`), the runtime invokes `StorageConfigResolver`. It parses the configuration block matching the crate and storage struct names into `S::Config`.
+
+---
+
+## Using Storage in a Plugin
+
+Define the plugin with a generic type parameter `S` bounded by the required store traits and `StorageConnection`:
 
 ```rust,ignore
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use synapto_interface::plugin::{Plugin, PluginInitContext, PluginRegistry};
 use synapto_interface::storage::{RecordStore, StorageConnection};
-use std::sync::Arc;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Insight {
+pub struct MemoryItem {
     pub content: String,
 }
 
-pub struct MyMemoryPlugin<S: RecordStore + StorageConnection> {
+pub struct MemoryPlugin<S: RecordStore + StorageConnection> {
     store: Arc<S>,
 }
 
 #[async_trait]
-impl<S: RecordStore + StorageConnection> Plugin for MyMemoryPlugin<S> {
+impl<S: RecordStore + StorageConnection> Plugin for MemoryPlugin<S> {
     async fn create(context: &PluginInitContext<'_>) -> Result<Self, String> {
-        // Here the configuration and the storage pool are resolved automatically 
-        // using the underlying storage type `S`.
         let store = Arc::new(context.store::<S>().await?);
         Ok(Self { store })
     }
 
-    fn register<R: PluginRegistry + ?Sized>(self: Arc<Self>, registry: &mut R) {
-        // Register your components (e.g., interaction observer, context provider) here
-    }
+    fn register<R: PluginRegistry + ?Sized>(self: Arc<Self>, _registry: &mut R) {}
 }
 
-impl<S: RecordStore + StorageConnection> MyMemoryPlugin<S> {
-    pub async fn add_insight(&self, insight: String) {
-        let doc = Insight { content: insight };
-        let id = uuid::Uuid::new_v4().to_string();
-        if let Err(e) = self.store.upsert_record("insights", &id, doc).await {
-            tracing::error!("Failed to save insight: {}", e);
-        }
+impl<S: RecordStore + StorageConnection> MemoryPlugin<S> {
+    pub async fn record(&self, key: &str, content: String) -> Result<(), String> {
+        self.store
+            .upsert_record("memories", key, MemoryItem { content })
+            .await
     }
 }
 ```
 
-In the bundle `main.rs`, you explicitly define the storage provider as `S` in the `Synapto::run` method:
+---
+
+## Creating a Custom Storage Provider
+
+To create a new storage provider, implement:
+1. `StorageProviderPool` on your shared connection or client instance.
+2. `StorageConnection` on your per-plugin scoped handle.
+3. One or more store traits (`RecordStore`, `KeyValueStore`, `FileStore`, `VectorStore`).
+
+### Local File-Backed vs Remote Storage
+
+- **Local Storage Providers**: If the provider writes to local disk, parameterize the struct with `P: DataDirProvider` to receive the data directory at compile time. Use `type Config = EmptyStorageConfig;`.
+- **Remote Storage Providers**: If the provider connects to a network database, define a custom configuration struct deriving `Deserialize` (e.g. `MyDbConfig`) and set `type Config = MyDbConfig;`.
+
+### Step-by-Step Implementation Example
 
 ```rust,ignore
-// Defining `storage_local::LocalStorage` as the concrete type for `S`
-Synapto::<(DotEnv, Env), storage_local::LocalStorage>::run::<(
-    MyMemoryPlugin<storage_local::LocalStorage>,
-)>().await;
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use std::marker::PhantomData;
+use std::sync::Arc;
+use synapto_interface::data_dir::DataDirProvider;
+use synapto_interface::storage::{
+    EmptyStorageConfig, KeyValueStore, RecordStore, SortOrder,
+    StorageConnection, StorageProviderPool, StorageRegistry,
+};
+
+// 1. Shared connection pool / client instance
+struct CustomDbClient {
+    // Database client / connection pool handle
+}
+
+impl StorageProviderPool for CustomDbClient {}
+
+// 2. Per-plugin scoped storage handle
+pub struct CustomStorage<P: DataDirProvider> {
+    client: Arc<CustomDbClient>,
+    namespace: String,
+    _marker: PhantomData<P>,
+}
+
+// 3. Connection lifecycle implementation
+#[async_trait]
+impl<P: DataDirProvider> StorageConnection for CustomStorage<P> {
+    type Config = EmptyStorageConfig;
+
+    async fn connect(
+        _config: Self::Config,
+        storage_registry: Arc<StorageRegistry>,
+        plugin_namespace: &str,
+    ) -> Result<Self, String> {
+        let base_path = P::get_data_dir();
+        
+        let client = storage_registry
+            .get_or_init::<CustomDbClient, _, _, String>(|| async move {
+                // Initialize the database client once
+                Ok(CustomDbClient {})
+            })
+            .await?;
+
+        Ok(Self {
+            client,
+            namespace: plugin_namespace.to_string(),
+            _marker: PhantomData,
+        })
+    }
+}
+
+// 4. Implement required storage capability traits
+#[async_trait]
+impl<P: DataDirProvider> KeyValueStore for CustomStorage<P> {
+    async fn set<T>(&self, collection: &str, key: &str, value: T) -> Result<(), String>
+    where
+        T: Serialize + Send + Sync + 'static,
+    {
+        // Save value scoped to self.namespace and collection
+        Ok(())
+    }
+
+    async fn get<T>(&self, collection: &str, key: &str) -> Result<Option<T>, String>
+    where
+        T: DeserializeOwned + Send + Sync + 'static,
+    {
+        // Retrieve value
+        Ok(None)
+    }
+
+    async fn delete(&self, collection: &str, key: &str) -> Result<(), String> {
+        // Delete key
+        Ok(())
+    }
+
+    async fn get_all<T>(&self, collection: &str) -> Result<Vec<T>, String>
+    where
+        T: DeserializeOwned + Send + Sync + 'static,
+    {
+        // List all items
+        Ok(Vec::new())
+    }
+}
+
+#[async_trait]
+impl<P: DataDirProvider> RecordStore for CustomStorage<P> {
+    async fn upsert_record<T>(&self, collection: &str, key: &str, value: T) -> Result<(), String>
+    where
+        T: Serialize + Send + Sync + 'static,
+    {
+        Ok(())
+    }
+
+    async fn get_ordered_records<T>(
+        &self,
+        collection: &str,
+        limit: Option<usize>,
+        order: SortOrder,
+    ) -> Result<Vec<(String, T)>, String>
+    where
+        T: DeserializeOwned + Send + Sync + 'static,
+    {
+        Ok(Vec::new())
+    }
+
+    async fn delete_record(&self, collection: &str, key: &str) -> Result<(), String> {
+        Ok(())
+    }
+
+    async fn trim_records_before(&self, collection: &str, cutoff_key: &str) -> Result<(), String> {
+        Ok(())
+    }
+}
 ```
