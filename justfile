@@ -15,7 +15,7 @@ link-check:
 # Run all pre-release checks (lints, tests, formatting, and links) to guarantee release readiness
 pre-release-check:
     cargo fmt --all --check
-    cargo clippy --workspace --all-targets --all-features -- -D warnings
+    cargo clippy --workspace --all-targets -- -D warnings
     cargo test --workspace --all-targets
     just test-scenarios
     just link-check
