@@ -613,12 +613,11 @@ impl<
                 while current_update_rx.changed().await.is_ok() {
                     let request = synapto_interface::context::ContextRequest::default();
                     let current_contexts = registries.current.gather_contexts(&request).await;
-                    if let Ok(value) = serde_json::to_value(current_contexts) {
-                        if current_context_tx.receiver_count() > 0 {
-                            if let Err(e) = current_context_tx.send(value) {
-                                tracing::error!("Failed to broadcast current context: {:?}", e);
-                            }
-                        }
+                    if let Ok(value) = serde_json::to_value(current_contexts)
+                        && current_context_tx.receiver_count() > 0
+                        && let Err(e) = current_context_tx.send(value)
+                    {
+                        tracing::error!("Failed to broadcast current context: {:?}", e);
                     }
                 }
             });

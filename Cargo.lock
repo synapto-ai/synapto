@@ -4680,7 +4680,6 @@ dependencies = [
 name = "synapto-telemetry"
 version = "0.1.0-dev.2"
 dependencies = [
- "better_tokio_select",
  "chrono",
  "dashmap",
  "file-rotate",

@@ -11,10 +11,8 @@ impl crate::config::ConfigProvider for DotEnv {
     fn init() -> Self {
         let mut vars = Vec::new();
         if let Ok(iter) = dotenvy::dotenv_iter() {
-            for item in iter {
-                if let Ok(pair) = item {
-                    vars.push(pair);
-                }
+            for pair in iter.flatten() {
+                vars.push(pair);
             }
         }
         DotEnv { vars }

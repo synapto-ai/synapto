@@ -6,6 +6,9 @@ edition = "2024"
 license.workspace = true
 repository.workspace = true
 
+[lints]
+# TODO consider adding workspace = true
+
 [dependencies]
 synapto = { workspace = true, features = ["rerun"] }
 synapto-interface.workspace = true

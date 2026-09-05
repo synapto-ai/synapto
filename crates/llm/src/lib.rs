@@ -206,15 +206,14 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
         };
 
         #[cfg(feature = "rerun")]
-        if !current_tools.is_empty() {
-            if let Ok(tools_json) = serde_json::to_string_pretty(&current_tools)
+        if !current_tools.is_empty()
+            && let Ok(tools_json) = serde_json::to_string_pretty(&current_tools)
                 .inspect_err(|e| tracing::error!("{}", e))
-            {
-                synapto_telemetry::log_to_rerun(
-                    format!("llm/{}/tools", self.name),
-                    &synapto_telemetry::rerun_core::archetypes::TextDocument::new(tools_json),
-                );
-            }
+        {
+            synapto_telemetry::log_to_rerun(
+                format!("llm/{}/tools", self.name),
+                &synapto_telemetry::rerun_core::archetypes::TextDocument::new(tools_json),
+            );
         }
 
         let prompt = format!(
