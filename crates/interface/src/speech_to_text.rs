@@ -110,12 +110,11 @@ pub struct WordOverlap {
     pub word: String,
 }
 
+pub type SpeakerHeuristicFn =
+    dyn Fn(&[WordOverlap], &[SpeakerSegment]) -> Vec<Option<SpeakerId>> + Send + Sync;
+
 #[derive(Clone)]
-pub struct SpeakerHeuristicCallback(
-    std::sync::Arc<
-        dyn Fn(&[WordOverlap], &[SpeakerSegment]) -> Vec<Option<SpeakerId>> + Send + Sync,
-    >,
-);
+pub struct SpeakerHeuristicCallback(std::sync::Arc<SpeakerHeuristicFn>);
 
 impl std::fmt::Debug for SpeakerHeuristicCallback {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
