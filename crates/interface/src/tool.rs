@@ -88,6 +88,65 @@ where
     }
 }
 
+/// Opaque handle wrapping a type-erased tool for dynamic registration.
+#[derive(Clone)]
+pub struct ToolHandle(std::sync::Arc<dyn ErasedTool>);
+
+impl std::fmt::Debug for ToolHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ToolHandle")
+            .field("name", &self.0.name())
+            .finish()
+    }
+}
+
+impl ToolHandle {
+    pub fn new<T: ErasedTool + 'static>(tool: T) -> Self {
+        Self(std::sync::Arc::new(tool))
+    }
+
+    pub fn from_arc(tool: std::sync::Arc<dyn ErasedTool>) -> Self {
+        Self(tool)
+    }
+
+    pub fn into_inner(self) -> std::sync::Arc<dyn ErasedTool> {
+        self.0
+    }
+
+    pub fn inner(&self) -> &std::sync::Arc<dyn ErasedTool> {
+        &self.0
+    }
+}
+
+#[async_trait::async_trait]
+impl ErasedTool for ToolHandle {
+    fn name(&self) -> &'static str {
+        self.0.name()
+    }
+    fn description(&self) -> &'static str {
+        self.0.description()
+    }
+    fn schema(&self) -> schemars::Schema {
+        self.0.schema()
+    }
+    async fn erased_is_available(
+        &self,
+        ctx_request: &ContextRequest,
+        compiled_context: &serde_json::Value,
+    ) -> Result<bool, String> {
+        self.0
+            .erased_is_available(ctx_request, compiled_context)
+            .await
+    }
+    async fn erased_execute(
+        &self,
+        ctx_request: &ContextRequest,
+        args: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        self.0.erased_execute(ctx_request, args).await
+    }
+}
+
 #[derive(Default)]
 pub struct ToolRegistryBuilder {
     pub tools: std::sync::RwLock<std::collections::HashMap<String, std::sync::Arc<dyn ErasedTool>>>,

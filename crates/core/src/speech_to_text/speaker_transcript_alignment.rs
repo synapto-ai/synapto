@@ -18,7 +18,9 @@ pub(super) async fn start(
 ) {
     let mut speaker_segments: VecDeque<SpeakerSegment> = VecDeque::new();
     let use_stt_diarization = speaker_rx.is_none();
-    let heuristic = heuristic_callback.unwrap_or_else(|| std::sync::Arc::new(fallback_heuristic));
+    let heuristic = heuristic_callback.unwrap_or_else(|| {
+        synapto_interface::speech_to_text::SpeakerHeuristicCallback::new(fallback_heuristic)
+    });
 
     loop {
         better_tokio_select::tokio_select!(match .. {
@@ -257,8 +259,8 @@ pub(super) async fn start(
                             );
                         }
 
-                        let resolved_speakers =
-                            heuristic(&precomputed_overlaps, speaker_segments.make_contiguous());
+                        let resolved_speakers = heuristic
+                            .evaluate(&precomputed_overlaps, speaker_segments.make_contiguous());
 
                         let mut processed_words = Vec::new();
                         for (i, word_overlap) in precomputed_overlaps.into_iter().enumerate() {

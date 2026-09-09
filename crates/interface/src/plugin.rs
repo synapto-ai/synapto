@@ -92,15 +92,12 @@ pub trait PluginRegistry {
         plugin: std::sync::Arc<P>,
     );
     fn register_camera<P: CameraPlugin>(&mut self, plugin: std::sync::Arc<P>);
-    fn register_context_provider<P: crate::context::ContextProvider>(
-        &mut self,
-        provider: std::sync::Arc<P>,
-    );
+    fn register_context_provider<P: crate::context::IntoContextProvider>(&mut self, provider: P);
     fn register_command<C: crate::command::Command>(&mut self, command: C);
     #[doc = " Registers a static tool implementation."]
     fn register_tool<T: crate::tool::Tool>(&mut self, tool: T);
-    #[doc = " Registers a type-erased tool implementation (e.g. dynamically discovered at runtime)."]
-    fn register_erased_tool(&mut self, tool: std::sync::Arc<dyn crate::tool::ErasedTool>);
+    #[doc = " Registers a type-erased dynamic tool handle (e.g. dynamically discovered at runtime)."]
+    fn register_erased_tool(&mut self, tool: crate::tool::ToolHandle);
     fn register_call<P: CallPlugin>(
         &mut self,
         plugin: std::sync::Arc<P>,

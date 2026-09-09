@@ -57,9 +57,7 @@ pub(crate) async fn start<P: CognitivePromptProvider>(
     new_interaction_tx: mpsc::Sender<Interaction>,
     video_rx: Option<watch::Receiver<synapto_interface::camera::CameraInputFrame>>,
 
-    registries: Arc<synapto_interface::context::ContextRegistries>,
-    tools: Arc<synapto_interface::tool::ToolRegistryBuilder>,
-    commands: Arc<synapto_interface::command::CommandRegistryBuilder>,
+    registries: synapto_interface::context::EngineRegistries,
 
     cognitive_output_text_tx: Option<mpsc::Sender<CognitiveOutputText>>,
 
@@ -76,8 +74,6 @@ pub(crate) async fn start<P: CognitivePromptProvider>(
             interaction_memory_rx.clone(),
             new_interaction_tx.clone(),
             registries.clone(),
-            tools.clone(),
-            commands.clone(),
             cognitive_output_text_tx.clone(),
             cognitive_state_tx.clone(),
             llm_executor.clone(),
@@ -97,8 +93,6 @@ pub(crate) async fn start<P: CognitivePromptProvider>(
             new_interaction_tx,
             video_rx,
             registries,
-            tools,
-            commands,
             cognitive_output_text_tx,
             llm_executor,
             resolve_in_flight_tool_tx,

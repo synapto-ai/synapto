@@ -203,9 +203,7 @@ pub struct Synapto<
     audio_recorder_spawners: Vec<RecorderSpawner>,
     plugins_names: Vec<String>,
     plugins: std::collections::HashMap<std::any::TypeId, Arc<dyn std::any::Any + Send + Sync>>,
-    registries: Arc<synapto_interface::context::ContextRegistries>,
-    tools: Arc<synapto_interface::tool::ToolRegistryBuilder>,
-    commands: Arc<synapto_interface::command::CommandRegistryBuilder>,
+    registries: synapto_interface::context::EngineRegistries,
     storage: synapto_interface::storage::StorageHandle,
     #[allow(clippy::type_complexity)]
     interaction_observer_spawners: Vec<(
@@ -283,9 +281,7 @@ impl<
 
         let (current_context_tx, _current_context_rx) = watch::channel(serde_json::Value::Null);
 
-        let registries = Arc::new(synapto_interface::context::ContextRegistries::default());
-        let tools = Arc::new(synapto_interface::tool::ToolRegistryBuilder::default());
-        let commands = Arc::new(synapto_interface::command::CommandRegistryBuilder::default());
+        let registries = synapto_interface::context::EngineRegistries::default();
         let storage_resolver = Arc::new(CoreStorageConfigResolver {
             provider: config_provider.clone(),
         });
@@ -311,8 +307,6 @@ impl<
             plugins_names: Vec::new(),
             plugins: std::collections::HashMap::new(),
             registries,
-            tools,
-            commands,
             storage,
             interaction_observer_spawners: Vec::new(),
             rollout_controller_spawners: Vec::new(),
@@ -605,12 +599,13 @@ impl<
         // and broadcasts them over `current_context_tx`.
         {
             let current_context_tx = self.current_context_tx;
-            let mut current_update_rx = registries.current.subscribe();
+            let mut current_update_rx = registries.context.current.subscribe();
             let registries = registries.clone();
             tokio::spawn(async move {
                 while current_update_rx.changed().await.is_ok() {
                     let request = synapto_interface::context::ContextRequest::default();
-                    let current_contexts = registries.current.gather_contexts(&request).await;
+                    let current_contexts =
+                        registries.context.current.gather_contexts(&request).await;
                     if let Ok(value) = serde_json::to_value(current_contexts)
                         && current_context_tx.receiver_count() > 0
                         && let Err(e) = current_context_tx.send(value)
@@ -622,7 +617,10 @@ impl<
         }
 
         if let Some(gui_spawner) = self.gui_spawner {
-            gui_spawner(registries.clone(), self.error_rx.expect("error_rx missing"));
+            gui_spawner(
+                registries.context.clone(),
+                self.error_rx.expect("error_rx missing"),
+            );
         }
 
         let mut peer_input_audio_tx_opt = Some(peer_input_audio_tx);
@@ -696,8 +694,6 @@ impl<
             new_interaction_tx,
             video_rx_opt,
             registries.clone(),
-            self.tools.clone(),
-            self.commands.clone(),
             if has_chat_plugin {
                 Some(cognitive_output_text_tx)
             } else {
@@ -962,41 +958,41 @@ impl<
         tracing::info!("  Retrospective consolidation capability registered.");
     }
 
-    fn register_context_provider<P: synapto_interface::context::ContextProvider>(
+    fn register_context_provider<P: synapto_interface::context::IntoContextProvider>(
         &mut self,
-        provider: Arc<P>,
+        provider: P,
     ) {
-        let scope_str = match P::SCOPE {
+        let erased = provider.into_erased_context_provider();
+        let name = erased.name();
+        let scope_str = match erased.scope() {
             synapto_interface::context::TemporalScope::Historical => {
-                self.registries.historical.register_erased(provider.clone());
+                self.registries.context.historical.register_erased(erased);
                 "Historical"
             }
             synapto_interface::context::TemporalScope::Current => {
-                self.registries.current.register_erased(provider.clone());
+                self.registries.context.current.register_erased(erased);
                 "Current"
             }
             synapto_interface::context::TemporalScope::Prospective => {
-                self.registries
-                    .prospective
-                    .register_erased(provider.clone());
+                self.registries.context.prospective.register_erased(erased);
                 "Prospective"
             }
         };
-        tracing::info!("  {} context provider '{}' registered.", scope_str, P::NAME);
+        tracing::info!("  {} context provider '{}' registered.", scope_str, name);
     }
 
     fn register_command<Cmd: synapto_interface::command::Command>(&mut self, command: Cmd) {
         let command_arc: Arc<dyn synapto_interface::command::ErasedCommand> = Arc::new(command);
-        self.commands.register_erased(command_arc);
+        self.registries.commands.register_erased(command_arc);
     }
 
     fn register_tool<T: synapto_interface::tool::Tool>(&mut self, tool: T) {
         let tool_arc: Arc<dyn synapto_interface::tool::ErasedTool> = Arc::new(tool);
-        self.tools.register_erased(tool_arc);
+        self.registries.tools.register_erased(tool_arc);
     }
 
-    fn register_erased_tool(&mut self, tool: Arc<dyn synapto_interface::tool::ErasedTool>) {
-        self.tools.register_erased(tool);
+    fn register_erased_tool(&mut self, tool: synapto_interface::tool::ToolHandle) {
+        self.registries.tools.register_erased(tool.into_inner());
     }
 
     fn register_diarization<P: DiarizationPlugin>(&mut self, plugin: Arc<P>) {

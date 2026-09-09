@@ -184,9 +184,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
     cognitive_speech_tx: broadcast::Sender<CognitiveOutputSpeech>,
     new_interaction_tx: mpsc::Sender<Interaction>,
     video_rx: Option<watch::Receiver<synapto_interface::camera::CameraInputFrame>>,
-    registries: Arc<synapto_interface::context::ContextRegistries>,
-    tools: Arc<synapto_interface::tool::ToolRegistryBuilder>,
-    commands: Arc<synapto_interface::command::CommandRegistryBuilder>,
+    registries: synapto_interface::context::EngineRegistries,
     cognitive_output_text_tx: Option<mpsc::Sender<CognitiveOutputText>>,
     llm_executor: synapto_interface::llm::LlmExecutor,
     resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::tool::ToolCallId>,
@@ -195,7 +193,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
 
     let executor = crate::cognitive::types::RegistryToolExecutor {
         tool_resolved_tx,
-        tools: tools.clone(),
+        tools: registries.tools.clone(),
     };
 
     let llm_client: LLMClient<
@@ -246,14 +244,15 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
 
     let mut run_after_unpaused = false;
 
-    let mut historical_rx =
-        registries.subscribe(synapto_interface::context::TemporalScope::Historical);
+    let mut historical_rx = registries
+        .context
+        .subscribe(synapto_interface::context::TemporalScope::Historical);
 
     // wait for all memories are loaded
     tokio::try_join!(
         interaction_memory_rx.changed(),
         async {
-            if !registries.historical.is_empty() {
+            if !registries.context.historical.is_empty() {
                 historical_rx.changed().await
             } else {
                 Ok(())
@@ -383,9 +382,17 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
             initial_run: initial_cognitive_trigger,
         };
 
-        let historical_contexts = registries.historical.gather_contexts(&request).await;
-        let current_contexts = registries.current.gather_contexts(&request).await;
-        let prospective_contexts = registries.prospective.gather_contexts(&request).await;
+        let historical_contexts = registries
+            .context
+            .historical
+            .gather_contexts(&request)
+            .await;
+        let current_contexts = registries.context.current.gather_contexts(&request).await;
+        let prospective_contexts = registries
+            .context
+            .prospective
+            .gather_contexts(&request)
+            .await;
 
         let content = CognitiveLLMContent {
             historical_contexts,
@@ -412,7 +419,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
         let content_value = serde_json::to_value(&content)
             .unwrap_or_else(|e| panic!("Failed to serialize content: {}", e));
         let dynamic_tools =
-            super::types::evaluate_dynamic_tools(&tools, &request, &content_value).await;
+            super::types::evaluate_dynamic_tools(&registries.tools, &request, &content_value).await;
 
         let prompt_config: P::Config =
             serde_json::from_value(config.prompt.clone()).unwrap_or_default();
@@ -445,7 +452,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
             cognitive_speech_tx: &cognitive_speech_tx,
             cognitive_output_text_tx: cognitive_output_text_tx.as_ref(),
             initial_cognitive_trigger: &mut initial_cognitive_trigger,
-            commands_registry: &commands,
+            commands_registry: &registries.commands,
         };
 
         let in_flight_tools = match &generated_text_result {

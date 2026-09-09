@@ -158,6 +158,22 @@ impl ContextRegistryBuilder {
     }
 }
 
+pub trait IntoContextProvider {
+    fn into_erased_context_provider(self) -> std::sync::Arc<dyn ErasedContextProvider>;
+}
+
+impl<T: ContextProvider> IntoContextProvider for T {
+    fn into_erased_context_provider(self) -> std::sync::Arc<dyn ErasedContextProvider> {
+        std::sync::Arc::new(self)
+    }
+}
+
+impl<T: ContextProvider> IntoContextProvider for std::sync::Arc<T> {
+    fn into_erased_context_provider(self) -> std::sync::Arc<dyn ErasedContextProvider> {
+        self
+    }
+}
+
 #[derive(Default)]
 pub struct ContextRegistries {
     pub historical: ContextRegistryBuilder,
@@ -172,5 +188,19 @@ impl ContextRegistries {
             TemporalScope::Current => self.current.subscribe(),
             TemporalScope::Prospective => self.prospective.subscribe(),
         }
+    }
+}
+
+/// Unified registries container for the cognitive engine.
+#[derive(Clone, Default)]
+pub struct EngineRegistries {
+    pub context: std::sync::Arc<ContextRegistries>,
+    pub tools: std::sync::Arc<crate::tool::ToolRegistryBuilder>,
+    pub commands: std::sync::Arc<crate::command::CommandRegistryBuilder>,
+}
+
+impl std::fmt::Debug for EngineRegistries {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EngineRegistries").finish_non_exhaustive()
     }
 }

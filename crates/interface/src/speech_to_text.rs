@@ -110,9 +110,36 @@ pub struct WordOverlap {
     pub word: String,
 }
 
-pub type SpeakerHeuristicCallback = std::sync::Arc<
-    dyn Fn(&[WordOverlap], &[SpeakerSegment]) -> Vec<Option<SpeakerId>> + Send + Sync,
->;
+#[derive(Clone)]
+pub struct SpeakerHeuristicCallback(
+    std::sync::Arc<
+        dyn Fn(&[WordOverlap], &[SpeakerSegment]) -> Vec<Option<SpeakerId>> + Send + Sync,
+    >,
+);
+
+impl std::fmt::Debug for SpeakerHeuristicCallback {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SpeakerHeuristicCallback")
+            .finish_non_exhaustive()
+    }
+}
+
+impl SpeakerHeuristicCallback {
+    pub fn new<F>(callback: F) -> Self
+    where
+        F: Fn(&[WordOverlap], &[SpeakerSegment]) -> Vec<Option<SpeakerId>> + Send + Sync + 'static,
+    {
+        Self(std::sync::Arc::new(callback))
+    }
+
+    pub fn evaluate(
+        &self,
+        words: &[WordOverlap],
+        segments: &[SpeakerSegment],
+    ) -> Vec<Option<SpeakerId>> {
+        (self.0)(words, segments)
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum InternalSpeaker {

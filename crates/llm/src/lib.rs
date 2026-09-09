@@ -49,7 +49,7 @@ where
 }
 
 #[derive(Clone)]
-pub struct ToolOutput(pub std::sync::Arc<dyn ErasedToolOutput>);
+pub struct ToolOutput(std::sync::Arc<dyn ErasedToolOutput>);
 
 impl std::fmt::Debug for ToolOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -63,6 +63,10 @@ impl ToolOutput {
         T: Serialize + std::fmt::Debug + Send + Sync + 'static,
     {
         Self(std::sync::Arc::new(value))
+    }
+
+    pub fn to_json_string(&self) -> String {
+        self.0.to_json_string()
     }
 }
 
@@ -253,7 +257,7 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
             },
             resolved_tools: resolved_tools.as_ref().map(|rt| {
                 rt.iter()
-                    .map(|(call, output)| (call.clone(), output.0.to_json_string()))
+                    .map(|(call, output)| (call.clone(), output.to_json_string()))
                     .collect::<Vec<_>>()
             }),
             output_schema: Some(self.output_schema.clone()),
