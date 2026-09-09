@@ -19,5 +19,14 @@ pre-release-check:
     cargo test --workspace --all-targets
     just link-check
 
-release *args:
-    cargo release {{ args }} --sign-commit
+# Prepare release PR with changelog updates and version bumps using release-plz
+release-pr *args: pre-release-check
+    release-plz release-pr {{ args }}
+
+# Run full release lifecycle locally (validate, bump versions and changelogs, commit, push, tag, and publish)
+release: pre-release-check
+    release-plz update
+    git add -u
+    git commit -m "chore: release"
+    git push origin main
+    release-plz release
