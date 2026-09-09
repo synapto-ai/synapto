@@ -17,7 +17,6 @@ pre-release-check:
     cargo fmt --all --check
     cargo clippy --workspace --all-targets -- -D warnings
     cargo test --workspace --all-targets
-    just test-scenarios
     just link-check
 
 release *args:

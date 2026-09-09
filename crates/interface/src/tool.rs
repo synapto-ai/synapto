@@ -116,6 +116,36 @@ impl ToolHandle {
     pub fn inner(&self) -> &std::sync::Arc<dyn ErasedTool> {
         &self.0
     }
+
+    pub fn name(&self) -> &'static str {
+        self.0.name()
+    }
+
+    pub fn description(&self) -> &'static str {
+        self.0.description()
+    }
+
+    pub fn schema(&self) -> schemars::Schema {
+        self.0.schema()
+    }
+
+    pub async fn erased_is_available(
+        &self,
+        ctx_request: &ContextRequest,
+        compiled_context: &serde_json::Value,
+    ) -> Result<bool, String> {
+        self.0
+            .erased_is_available(ctx_request, compiled_context)
+            .await
+    }
+
+    pub async fn erased_execute(
+        &self,
+        ctx_request: &ContextRequest,
+        args: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        self.0.erased_execute(ctx_request, args).await
+    }
 }
 
 #[async_trait::async_trait]
