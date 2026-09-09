@@ -1,0 +1,3 @@
+consolidate-commits = true
+pre-release-hook = ["just", "pre-release-check"]
+shared-version = false

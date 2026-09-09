@@ -1,4 +1,3 @@
-
 # Run scenario tests.
 # Usage:
 #   just test-scenarios                        (run all)
@@ -19,15 +18,11 @@ pre-release-check:
     cargo test --workspace --all-targets
     just link-check
 
-# Prepare release PR with changelog updates and version bumps using release-plz
-release-pr *args: pre-release-check
-    release-plz release-pr {{ args }}
+# Calculate and apply version bumps across changed crates (core group + independent crates)
+update *args:
+    # TODO remove after https://github.com/crate-ci/cargo-release/issues/298
+    release-plz update {{ args }}
 
-# Run full release lifecycle locally
-release: pre-release-check
-    release-plz update
-    git add -u
-    git commit -m "chore: release"
-    git push origin main
-    release-plz release
-    git push --tags
+# Publish all unpublished crates to the registry, create git tags, and push
+release *args:
+    cargo release --unpublished {{ args }} --sign-commit

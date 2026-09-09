@@ -1,11 +1,8 @@
 [workspace]
 changelog_update = false
 dependencies_update = false
-git_release_enable = false
-git_tag_enable = true
-pr_branch_prefix = "release/"
-publish = true
-semver_check = true
+publish = false
+semver_check = false
 
 [[package]]
 name = "synapto"
