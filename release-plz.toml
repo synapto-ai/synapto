@@ -1,0 +1,37 @@
+[workspace]
+changelog_update = true
+dependencies_update = false
+git_release_enable = true
+git_tag_enable = true
+git_tag_name = "{{ package }}-v{{ version }}"
+pr_branch_prefix = "release-plz-"
+publish = true
+semver_check = false
+
+[[package]]
+name = "synapto"
+version_group = "synapto-core"
+
+[[package]]
+name = "synapto-derive"
+version_group = "synapto-core"
+
+[[package]]
+name = "synapto-interface"
+version_group = "synapto-core"
+
+[[package]]
+name = "synapto-llm"
+version_group = "synapto-core"
+
+[[package]]
+name = "synapto-shutdown"
+version_group = "synapto-core"
+
+[[package]]
+name = "synapto-telemetry"
+version_group = "synapto-core"
+
+[[package]]
+name = "synapto-test"
+version_group = "synapto-core"
