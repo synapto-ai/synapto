@@ -23,10 +23,11 @@ pre-release-check:
 release-pr *args: pre-release-check
     release-plz release-pr {{ args }}
 
-# Run full release lifecycle locally (validate, bump versions and changelogs, commit, push, tag, and publish)
+# Run full release lifecycle locally
 release: pre-release-check
     release-plz update
     git add -u
     git commit -m "chore: release"
     git push origin main
     release-plz release
+    git push --tags

@@ -1,10 +1,9 @@
 [workspace]
-changelog_update = true
+changelog_update = false
 dependencies_update = false
-git_release_enable = false   # Disables GitHub API release creation
+git_release_enable = false
 git_tag_enable = true
-git_tag_name = "{{ package }}-v{{ version }}"
-pr_branch_prefix = "release-plz-"
+pr_branch_prefix = "release/"
 publish = true
 semver_check = true
 

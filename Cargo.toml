@@ -11,18 +11,18 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0-dev.5"
+version = "0.1.0-dev.6"
 license = "MPL-2.0"
 repository = "https://github.com/synapto-ai/synapto"
 
 [workspace.dependencies]
-synapto = { path = "crates/core", version = "0.1.0-dev.5" }
-synapto-derive = { path = "crates/derive", version = "0.1.0-dev.5" }
-synapto-interface = { path = "crates/interface", version = "0.1.0-dev.5" }
-synapto-telemetry = { path = "crates/telemetry", version = "0.1.0-dev.5" }
-synapto-llm = { path = "crates/llm", version = "0.1.0-dev.5" }
-synapto-shutdown = { path = "crates/shutdown", version = "0.1.0-dev.5" }
-synapto-test = { path = "crates/test", version = "0.1.0-dev.5" }
+synapto = { path = "crates/core", version = "0.1.0-dev.6" }
+synapto-derive = { path = "crates/derive", version = "0.1.0-dev.6" }
+synapto-interface = { path = "crates/interface", version = "0.1.0-dev.6" }
+synapto-telemetry = { path = "crates/telemetry", version = "0.1.0-dev.6" }
+synapto-llm = { path = "crates/llm", version = "0.1.0-dev.6" }
+synapto-shutdown = { path = "crates/shutdown", version = "0.1.0-dev.6" }
+synapto-test = { path = "crates/test", version = "0.1.0-dev.6" }
 
 schemars = "1.2"
 serde = { version = "1", default-features = false, features = [
