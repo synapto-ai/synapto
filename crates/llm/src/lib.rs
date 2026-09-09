@@ -128,7 +128,7 @@ impl<E: ToolExecutor> ToolMode for WithTools<E> {
 }
 
 pub struct LLMClient<Content, Output, Tools = WithoutTools> {
-    executor: std::sync::Arc<dyn synapto_interface::llm::LlmExecutor>,
+    executor: synapto_interface::llm::LlmExecutor,
     pub name: String,
     pub model: String,
     input_schema: String,
@@ -263,7 +263,7 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
         // Call the abstract, injected executor
         let response_obj = self
             .executor
-            .execute_raw(&self.model, &self.system_prompt, &prompt, raw_options)
+            .execute_internal(&self.model, &self.system_prompt, &prompt, raw_options)
             .await
             .map_err(|e| anyhow::anyhow!("{}", e))?;
 
@@ -359,7 +359,7 @@ pub trait LLM {
 
     #[instrument(level = "trace", skip_all)]
     fn create_client(
-        executor: std::sync::Arc<dyn synapto_interface::llm::LlmExecutor>,
+        executor: synapto_interface::llm::LlmExecutor,
         config: synapto_interface::llm::ModelConfig,
         system_prompt: Vec<Instruction>,
     ) -> LLMClient<Self::Content, Self::Output, WithoutTools> {
@@ -390,7 +390,7 @@ pub trait LLM {
 
     #[instrument(level = "trace", skip_all)]
     fn create_client_with_tools<Executor>(
-        executor: std::sync::Arc<dyn synapto_interface::llm::LlmExecutor>,
+        executor: synapto_interface::llm::LlmExecutor,
         config: synapto_interface::llm::ModelConfig,
         system_prompt: Vec<Instruction>,
         tool_executor: Executor,
@@ -534,7 +534,7 @@ impl ConcreteLlmExecutor {
 }
 
 #[async_trait]
-impl synapto_interface::llm::LlmExecutor for ConcreteLlmExecutor {
+impl synapto_interface::llm::RawLlmExecutor for ConcreteLlmExecutor {
     async fn execute_raw(
         &self,
         model: &str,

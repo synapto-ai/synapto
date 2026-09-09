@@ -188,7 +188,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
     tools: Arc<synapto_interface::tool::ToolRegistryBuilder>,
     commands: Arc<synapto_interface::command::CommandRegistryBuilder>,
     cognitive_output_text_tx: Option<mpsc::Sender<CognitiveOutputText>>,
-    llm_executor: std::sync::Arc<dyn synapto_interface::llm::LlmExecutor>,
+    llm_executor: synapto_interface::llm::LlmExecutor,
     resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::tool::ToolCallId>,
 ) {
     let (tool_resolved_tx, mut tool_resolved_rx) = tokio::sync::mpsc::channel(10);

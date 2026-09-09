@@ -51,9 +51,10 @@ pub struct RawLlmOptions {
     pub messages: Option<Vec<genai::chat::ChatMessage>>,
 }
 
-/// Abstract, object-safe raw executor contract, completely decoupled from any specific client library.
+/// Internal raw executor contract, completely decoupled from any specific client library.
+#[doc(hidden)]
 #[async_trait::async_trait]
-pub trait LlmExecutor: Send + Sync + 'static {
+pub trait RawLlmExecutor: Send + Sync + 'static {
     async fn execute_raw(
         &self,
         model: &str,
@@ -63,8 +64,9 @@ pub trait LlmExecutor: Send + Sync + 'static {
     ) -> Result<genai::chat::ChatResponse, String>;
 }
 
+#[doc(hidden)]
 #[async_trait::async_trait]
-impl<T: LlmExecutor + ?Sized> LlmExecutor for std::sync::Arc<T> {
+impl<T: RawLlmExecutor + ?Sized> RawLlmExecutor for std::sync::Arc<T> {
     async fn execute_raw(
         &self,
         model: &str,
@@ -73,6 +75,46 @@ impl<T: LlmExecutor + ?Sized> LlmExecutor for std::sync::Arc<T> {
         options: RawLlmOptions,
     ) -> Result<genai::chat::ChatResponse, String> {
         (**self)
+            .execute_raw(model, system_prompt, prompt, options)
+            .await
+    }
+}
+
+/// Opaque handle to the LLM execution runtime.
+///
+/// This struct wraps the execution backend and exposes zero public execution methods.
+/// Pass this handle to `LLM::create_client` to construct a typed, structured LLM client.
+#[derive(Clone)]
+pub struct LlmExecutor {
+    backend: std::sync::Arc<dyn RawLlmExecutor>,
+}
+
+impl std::fmt::Debug for LlmExecutor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LlmExecutor").finish_non_exhaustive()
+    }
+}
+
+impl LlmExecutor {
+    pub fn new<B: RawLlmExecutor + 'static>(backend: B) -> Self {
+        Self {
+            backend: std::sync::Arc::new(backend),
+        }
+    }
+
+    pub fn from_arc(backend: std::sync::Arc<dyn RawLlmExecutor>) -> Self {
+        Self { backend }
+    }
+
+    #[doc(hidden)]
+    pub async fn execute_internal(
+        &self,
+        model: &str,
+        system_prompt: &str,
+        prompt: &str,
+        options: RawLlmOptions,
+    ) -> Result<genai::chat::ChatResponse, String> {
+        self.backend
             .execute_raw(model, system_prompt, prompt, options)
             .await
     }

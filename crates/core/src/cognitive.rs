@@ -46,7 +46,7 @@ use side::cognitive_side_task;
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn start<P: CognitivePromptProvider>(
     config: Config,
-    llm_executor: std::sync::Arc<dyn synapto_interface::llm::LlmExecutor>,
+    llm_executor: synapto_interface::llm::LlmExecutor,
     trigger_cognitive_direct: CognitiveDirectTrigger,
     interrupt_cognitive_direct: CognitiveDirectInterrupt,
     cognitive_speaking_semaphore: Arc<tokio::sync::Semaphore>,

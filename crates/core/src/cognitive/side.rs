@@ -127,7 +127,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
     cognitive_output_text_tx: Option<mpsc::Sender<CognitiveOutputText>>,
 
     cognitive_state_tx: broadcast::Sender<CognitiveStateUpdate>,
-    llm_executor: std::sync::Arc<dyn synapto_interface::llm::LlmExecutor>,
+    llm_executor: synapto_interface::llm::LlmExecutor,
     resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::tool::ToolCallId>,
 ) {
     let (tool_resolved_tx, mut tool_resolved_rx) = tokio::sync::mpsc::channel(10);

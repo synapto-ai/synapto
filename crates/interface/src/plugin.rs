@@ -14,7 +14,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 pub struct PluginInitContext<'a> {
-    llm_executor: std::sync::Arc<dyn crate::llm::LlmExecutor>,
+    llm_executor: crate::llm::LlmExecutor,
     plugin_config: &'a serde_json::Value,
     storage: std::sync::Arc<crate::storage::StorageRegistry>,
     plugin_namespace: &'a str,
@@ -25,7 +25,7 @@ impl<'a> PluginInitContext<'a> {
     #[doc = " Internal constructor used by the Core AI engine."]
     #[doc(hidden)]
     pub fn new(
-        llm_executor: std::sync::Arc<dyn crate::llm::LlmExecutor>,
+        llm_executor: crate::llm::LlmExecutor,
         plugin_config: &'a serde_json::Value,
         storage: std::sync::Arc<crate::storage::StorageRegistry>,
         plugin_namespace: &'a str,
@@ -90,7 +90,7 @@ impl<'a> PluginInitContext<'a> {
         S::connect(config, self.storage.clone(), self.plugin_namespace).await
     }
 
-    pub fn llm_executor(&self) -> std::sync::Arc<dyn crate::llm::LlmExecutor> {
+    pub fn llm_executor(&self) -> crate::llm::LlmExecutor {
         self.llm_executor.clone()
     }
 }

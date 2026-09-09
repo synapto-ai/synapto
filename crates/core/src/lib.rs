@@ -231,7 +231,7 @@ pub struct Synapto<
                 + Sync,
         >,
     >,
-    llm_executor: std::sync::Arc<dyn synapto_interface::llm::LlmExecutor>,
+    llm_executor: synapto_interface::llm::LlmExecutor,
     gui_spawner: Option<GuiSpawner>,
     camera_spawner: Option<CameraSpawner>,
     error_rx: Option<std::sync::mpsc::Receiver<String>>,
@@ -277,8 +277,9 @@ impl<
                 .map(|secret| secret.into_secret()),
             gemini_api_key: config.gemini_api_key.clone(),
         };
-        let llm_executor =
-            std::sync::Arc::new(synapto_llm::ConcreteLlmExecutor::new(executor_config));
+        let llm_executor = synapto_interface::llm::LlmExecutor::new(
+            synapto_llm::ConcreteLlmExecutor::new(executor_config),
+        );
 
         let (current_context_tx, _current_context_rx) = watch::channel(serde_json::Value::Null);
 
