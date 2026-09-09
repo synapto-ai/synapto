@@ -14,10 +14,8 @@ use tracing::instrument;
 use synapto_interface::llm::LLMSafe;
 use synapto_interface::llm::ReasoningEffort;
 
-pub mod ext;
 pub mod instruction;
 
-pub use ext::{LlmExecutorExt, LlmInput, LlmOutput};
 pub use instruction::Instruction;
 
 #[derive(Clone, Debug, Default)]

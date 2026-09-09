@@ -4,7 +4,7 @@
 #   just test-scenarios                        (run all)
 #   just test-scenarios <filter>               (run specific test across workspace)
 #   just test-scenarios -p <package>           (run all tests in a crate)
-#   just test-scenarios -p <package> <filter>  (run specific test in a crate)
+# just test-scenarios -p <package> <filter>  (run specific test in a crate)
 test-scenarios *ARGS:
     cargo test {{ if ARGS == "" { "--workspace" } else { ARGS } }} --test scenario_tests -- --ignored --test-threads=1 --nocapture
 
@@ -19,3 +19,6 @@ pre-release-check:
     cargo test --workspace --all-targets
     just test-scenarios
     just link-check
+
+release *args:
+    cargo release {{ args }} --sign-commit
