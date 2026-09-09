@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use serde::{Serialize, de::DeserializeOwned};
 use std::path::PathBuf;
-use std::sync::Arc;
 use synapto_interface::storage::{
     EmptyStorageConfig, FileStore, KeyValueStore, RecordStore, StorageConnection, VectorStore,
 };
@@ -33,7 +32,7 @@ impl<P: synapto_interface::data_dir::DataDirProvider> StorageConnection for Loca
 
     async fn connect(
         _config: Self::Config,
-        _storage_registry: Arc<synapto_interface::storage::StorageRegistry>,
+        _storage_handle: &synapto_interface::storage::StorageHandle,
         plugin_namespace: &str,
     ) -> Result<Self, String> {
         let base_dir = P::get_data_dir().join("storage").join(plugin_namespace);
@@ -585,7 +584,7 @@ mod tests {
     async fn test_json_storage_provider() {
         let provider = LocalStorage::<EphemeralDir>::connect(
             EmptyStorageConfig {},
-            Arc::new(synapto_interface::storage::StorageRegistry::default()),
+            &synapto_interface::storage::StorageHandle::default(),
             "test_namespace",
         )
         .await
@@ -683,7 +682,7 @@ mod tests {
     async fn test_file_storage() {
         let provider = LocalStorage::<EphemeralDir>::connect(
             EmptyStorageConfig {},
-            Arc::new(synapto_interface::storage::StorageRegistry::default()),
+            &synapto_interface::storage::StorageHandle::default(),
             "test_namespace",
         )
         .await
@@ -731,7 +730,7 @@ mod tests {
     async fn test_kv_storage() {
         let provider = LocalStorage::<EphemeralDir>::connect(
             EmptyStorageConfig {},
-            Arc::new(synapto_interface::storage::StorageRegistry::default()),
+            &synapto_interface::storage::StorageHandle::default(),
             "test_namespace",
         )
         .await
@@ -779,7 +778,7 @@ mod tests {
     async fn test_vector_storage() {
         let provider = LocalStorage::<EphemeralDir>::connect(
             EmptyStorageConfig {},
-            Arc::new(synapto_interface::storage::StorageRegistry::default()),
+            &synapto_interface::storage::StorageHandle::default(),
             "test_namespace",
         )
         .await

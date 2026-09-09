@@ -54,7 +54,7 @@ pub struct MemoryPlugin<S: RecordStore + StorageConnection> {
 #[async_trait]
 impl<S: RecordStore + StorageConnection> Plugin for MemoryPlugin<S> {
     async fn create(context: &PluginInitContext<'_>) -> Result<Self, String> {
-        let store = Arc::new(context.store::<S>().await?);
+        let store = context.store::<S>().await?;
         Ok(Self { store })
     }
 

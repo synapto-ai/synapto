@@ -90,6 +90,11 @@ The system is built on an open-core architecture with loosely coupled plugins, c
 
 25. **Core Boundary Resilience & Schema Sanitization**: The core system MUST be resilient against invalid, non-standard, or extended metadata introduced by third-party plugins or external protocols. All tool definitions and schemas supplied by external plugins MUST be sanitized at the core compilation boundary before being forwarded to underlying LLM providers. The core is solely responsible for guaranteeing schema compliance and isolating the reasoning loop from external payload defects.
 
+26. **Encapsulated Handles and Shared Ownership (Opaque Handles over Explicit `Arc`)**: Public API boundaries must hide explicit smart pointer indirection (`std::sync::Arc<dyn Trait>` or raw pointer manipulation) behind opaque, cheap-to-clone handles (`LlmExecutor`, `StorageHandle`, `PluginInitContext::store::<S>()`).
+    - **Opaque Handle Structs**: Public traits must not expose raw `Arc<dyn Trait>` or raw backend traits across crate boundaries. Instead, wrap the shared backend in an opaque `struct Handle` that exposes only safe domain capabilities.
+    - **Automatic Wrapping at API Boundaries**: Factory and connector methods (such as `context.store::<S>()`) that return shared resources must encapsulate the `Arc` allocation internally. Callers receive `Arc<T>` directly without manually writing `Arc::new(...)` boilerplate in plugin initializations.
+    - **Developer Ergonomics**: Hiding pointer indirection simplifies type signatures, prevents illegal low-level method calls, and protects system encapsulation.
+
 ### Cognitive Core (`src/cognitive.rs` and `src/cognitive/`)
 
 The brain of the system. It is divided into direct (`src/cognitive/direct.rs`) and side (`src/cognitive/side.rs`) evaluation tasks. They run infinite loops waiting for notifications from input channels. When awakened, they snapshot the current state, memories, and sensor data, sending them to the LLM. They produce the unified `CognitiveLLMOutput<CognitiveCommands>` structure, which contains reasoning and the relevant command block (`CognitiveDirectCommands` or `CognitiveSideCommands`).

@@ -206,7 +206,7 @@ pub struct Synapto<
     registries: Arc<synapto_interface::context::ContextRegistries>,
     tools: Arc<synapto_interface::tool::ToolRegistryBuilder>,
     commands: Arc<synapto_interface::command::CommandRegistryBuilder>,
-    storage: Arc<synapto_interface::storage::StorageRegistry>,
+    storage: synapto_interface::storage::StorageHandle,
     #[allow(clippy::type_complexity)]
     interaction_observer_spawners: Vec<(
         String,
@@ -286,7 +286,10 @@ impl<
         let registries = Arc::new(synapto_interface::context::ContextRegistries::default());
         let tools = Arc::new(synapto_interface::tool::ToolRegistryBuilder::default());
         let commands = Arc::new(synapto_interface::command::CommandRegistryBuilder::default());
-        let storage = Arc::new(synapto_interface::storage::StorageRegistry::default());
+        let storage_resolver = Arc::new(CoreStorageConfigResolver {
+            provider: config_provider.clone(),
+        });
+        let storage = synapto_interface::storage::StorageHandle::new(storage_resolver);
 
         Self {
             config_provider,
@@ -362,9 +365,6 @@ impl<
                 &plugin_config,
                 self.storage.clone(),
                 &safe_namespace,
-                std::sync::Arc::new(CoreStorageConfigResolver {
-                    provider: self.config_provider.clone(),
-                }),
             );
 
             // Safely bridge the async initialization back into the synchronous builder
@@ -578,13 +578,10 @@ impl<
             &core_config,
             self.storage.clone(),
             core_namespace,
-            std::sync::Arc::new(CoreStorageConfigResolver {
-                provider: self.config_provider.clone(),
-            }),
         );
 
         let core_storage = match core_plugin_context.store::<S>().await {
-            Ok(store) => std::sync::Arc::new(store),
+            Ok(store) => store,
             Err(e) => {
                 panic!("Failed to initialize core storage: {e}");
             }

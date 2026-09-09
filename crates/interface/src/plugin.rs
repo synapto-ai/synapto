@@ -16,9 +16,8 @@ use serde::{Deserialize, Serialize};
 pub struct PluginInitContext<'a> {
     llm_executor: crate::llm::LlmExecutor,
     plugin_config: &'a serde_json::Value,
-    storage: std::sync::Arc<crate::storage::StorageRegistry>,
+    storage: crate::storage::StorageHandle,
     plugin_namespace: &'a str,
-    storage_config_resolver: std::sync::Arc<dyn crate::storage::StorageConfigResolver>,
 }
 
 impl<'a> PluginInitContext<'a> {
@@ -27,16 +26,14 @@ impl<'a> PluginInitContext<'a> {
     pub fn new(
         llm_executor: crate::llm::LlmExecutor,
         plugin_config: &'a serde_json::Value,
-        storage: std::sync::Arc<crate::storage::StorageRegistry>,
+        storage: crate::storage::StorageHandle,
         plugin_namespace: &'a str,
-        storage_config_resolver: std::sync::Arc<dyn crate::storage::StorageConfigResolver>,
     ) -> Self {
         Self {
             llm_executor,
             plugin_config,
             storage,
             plugin_namespace,
-            storage_config_resolver,
         }
     }
 
@@ -66,28 +63,11 @@ impl<'a> PluginInitContext<'a> {
         self.config().map(Some)
     }
 
-    #[doc = " Initializes and returns a database connection scoped strictly to this plugin's namespace."]
-    pub async fn store<S: crate::storage::StorageConnection>(&self) -> Result<S, String> {
-        let full_path = std::any::type_name::<S>();
-        let crate_name = full_path
-            .split("::")
-            .next()
-            .unwrap_or("")
-            .to_string()
-            .replace('-', "_");
-        let base_path = full_path.split('<').next().unwrap_or(full_path);
-        let storage_type_name = base_path.split("::").last().unwrap_or("").to_string();
-        let config_val = self
-            .storage_config_resolver
-            .resolve_config(&crate_name, &storage_type_name)
-            .unwrap_or_else(|| serde_json::json!({}));
-        let config: S::Config = serde_json::from_value(config_val).map_err(|e| {
-            format!(
-                "Failed to parse config for storage '{}::{}': {}",
-                crate_name, storage_type_name, e
-            )
-        })?;
-        S::connect(config, self.storage.clone(), self.plugin_namespace).await
+    #[doc = " Initializes and returns a shared database connection scoped strictly to this plugin's namespace."]
+    pub async fn store<S: crate::storage::StorageConnection>(
+        &self,
+    ) -> Result<std::sync::Arc<S>, String> {
+        self.storage.connect_store::<S>(self.plugin_namespace).await
     }
 
     pub fn llm_executor(&self) -> crate::llm::LlmExecutor {

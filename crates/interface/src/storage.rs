@@ -53,16 +53,109 @@ pub trait StorageConfigResolver: Send + Sync + 'static {
     ) -> Option<serde_json::Value>;
 }
 
+/// Opaque handle encapsulating storage connection pooling and configuration resolution.
+#[derive(Clone)]
+pub struct StorageHandle {
+    registry: std::sync::Arc<StorageRegistry>,
+    resolver: std::sync::Arc<dyn StorageConfigResolver>,
+}
+
+impl std::fmt::Debug for StorageHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StorageHandle").finish_non_exhaustive()
+    }
+}
+
+struct DefaultStorageConfigResolver;
+
+impl StorageConfigResolver for DefaultStorageConfigResolver {
+    fn resolve_config(
+        &self,
+        _crate_name: &str,
+        _storage_type_name: &str,
+    ) -> Option<serde_json::Value> {
+        None
+    }
+}
+
+impl Default for StorageHandle {
+    fn default() -> Self {
+        Self {
+            registry: std::sync::Arc::new(StorageRegistry::default()),
+            resolver: std::sync::Arc::new(DefaultStorageConfigResolver),
+        }
+    }
+}
+
+impl StorageHandle {
+    pub fn new(resolver: std::sync::Arc<dyn StorageConfigResolver>) -> Self {
+        Self {
+            registry: std::sync::Arc::new(StorageRegistry::default()),
+            resolver,
+        }
+    }
+
+    pub fn with_registry(
+        registry: std::sync::Arc<StorageRegistry>,
+        resolver: std::sync::Arc<dyn StorageConfigResolver>,
+    ) -> Self {
+        Self { registry, resolver }
+    }
+
+    /// Resolves configuration and establishes a scoped storage connection.
+    pub async fn connect_store<S: StorageConnection>(
+        &self,
+        plugin_namespace: &str,
+    ) -> Result<std::sync::Arc<S>, String> {
+        let full_path = std::any::type_name::<S>();
+        let crate_name = full_path
+            .split("::")
+            .next()
+            .unwrap_or("")
+            .to_string()
+            .replace('-', "_");
+        let base_path = full_path.split('<').next().unwrap_or(full_path);
+        let storage_type_name = base_path.split("::").last().unwrap_or("").to_string();
+
+        let config_val = self
+            .resolver
+            .resolve_config(&crate_name, &storage_type_name)
+            .unwrap_or_else(|| serde_json::json!({}));
+
+        let config: S::Config = serde_json::from_value(config_val).map_err(|e| {
+            format!(
+                "Failed to parse config for storage '{}::{}': {}",
+                crate_name, storage_type_name, e
+            )
+        })?;
+
+        let store = S::connect(config, self, plugin_namespace).await?;
+        Ok(std::sync::Arc::new(store))
+    }
+
+    /// Accesses or initializes a pooled storage resource safely.
+    pub async fn get_or_init_pool<T: StorageProviderPool, F, Fut>(
+        &self,
+        init: F,
+    ) -> Result<std::sync::Arc<T>, String>
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = Result<T, String>>,
+    {
+        self.registry.get_or_init(init).await
+    }
+}
+
 /// The entry point for a generic storage adapter.
 /// It guarantees that plugins can seamlessly initialize their underlying connection
-/// using the shared StorageRegistry without requiring manual setup in main.rs.
+/// using the shared StorageHandle without requiring manual setup in main.rs.
 #[async_trait]
 pub trait StorageConnection: Send + Sync + Sized + 'static {
     type Config: serde::de::DeserializeOwned + Send + Sync;
 
     async fn connect(
         config: Self::Config,
-        storage_registry: std::sync::Arc<StorageRegistry>,
+        storage_handle: &StorageHandle,
         plugin_namespace: &str,
     ) -> Result<Self, String>;
 }
