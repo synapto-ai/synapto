@@ -13,7 +13,7 @@ workspace = true
 [features]
 default = []
 log-to-file = ["dep:tracing-appender", "dep:file-rotate", "dep:chrono"]
-rerun = ["dep:rerun"]
+rerun = ["dep:rerun", "dep:dashmap"]
 tracy = ["dep:tracing-tracy", "dep:tracy-client"]
 
 [dependencies]
@@ -25,7 +25,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tracing-appender = { version = "0.2", optional = true }
 file-rotate = { version = "0.8", optional = true }
 chrono = { version = "0.4", optional = true }
-dashmap = "6"
+dashmap = { version = "6", optional = true }
 rerun = { version = "0.33", optional = true, default-features=false, features=["sdk"] }
 tracing-tracy = { version = "0.11", optional = true, features = ["manual-lifetime"] }
 tracy-client = { version = "0.18", optional = true, features = ["manual-lifetime"] }

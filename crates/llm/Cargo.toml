@@ -12,11 +12,11 @@ workspace = true
 
 [features]
 default = []
-rerun = ["synapto-telemetry/rerun"]
+rerun = ["dep:synapto-telemetry", "synapto-telemetry/rerun"]
 
 [dependencies]
 synapto-interface.workspace = true
-synapto-telemetry.workspace = true
+synapto-telemetry = { workspace = true, optional = true }
 schemars.workspace = true
 tokio.workspace = true
 async-trait.workspace = true
