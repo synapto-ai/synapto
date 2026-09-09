@@ -1,0 +1,12 @@
+{
+  "plugins": {
+    "synapto_plugin_behavioral_memory": {
+      "BehavioralMemoryPlugin": {
+        "insight": {
+          "model": "gemini-3-flash-preview",
+          "reasoning_effort": "Minimal"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "plugins": {
+    "synapto_plugin_tts_google": {
+      "TtsGooglePlugin": {
+        "language_code": "cs-cz",
+        "voice_name": "cs-CZ-Chirp3-HD-Schedar",
+        "voice_gender": "MALE"
+      }
+    }
+  }
+}

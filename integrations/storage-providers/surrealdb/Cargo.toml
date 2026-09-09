@@ -1,0 +1,24 @@
+[package]
+name = "synapto-storage-surrealdb"
+description = "SurrealDB storage provider for the Synapto framework"
+version = "0.1.0-dev.1"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+synapto-interface.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json = { workspace = true }
+tracing.workspace = true
+
+surrealdb = { version = "2", features = ["kv-surrealkv", "kv-mem"] }
+
+[dev-dependencies]
+synapto-test.workspace = true
+synapto.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

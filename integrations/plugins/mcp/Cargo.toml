@@ -1,0 +1,24 @@
+[package]
+name = "synapto-plugin-mcp"
+description = "Model Context Protocol (MCP) plugin for the Synapto framework"
+version = "0.1.0-dev.1"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+synapto-interface.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+reqwest = { version = "0.13", features = ["json"] }
+
+[dev-dependencies]
+synapto-test.workspace = true
+synapto.workspace = true

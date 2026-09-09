@@ -1,0 +1,20 @@
+{
+  "plugins": {
+    "synapto_plugin_episodic_memory": {
+      "EpisodicMemoryPlugin": {
+        "session": {
+          "model": "gemini-3-flash-preview",
+          "reasoning_effort": "Minimal"
+        },
+        "progression": {
+          "model": "gemini-3-flash-preview",
+          "reasoning_effort": "Minimal"
+        },
+        "continuum": {
+          "model": "gemini-3-flash-preview",
+          "reasoning_effort": "Minimal"
+        }
+      }
+    }
+  }
+}

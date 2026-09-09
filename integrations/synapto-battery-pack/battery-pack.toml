@@ -1,0 +1,7 @@
+version = 2
+
+[[battery-pack]]
+name = "battery-pack"
+features = ["default"]
+managed-deps = []
+applied-templates = ["default"]

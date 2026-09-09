@@ -1,0 +1,31 @@
+{
+  "plugins": {
+    "synapto_plugin_mcp": {
+      "McpPlugin": {
+        "mcpServers": {
+          "filesystem": {
+            "command": "python3",
+            "args": [
+              "-c",
+              "import sys, json\nfor line in sys.stdin:\n  line=line.strip()\n  if not line: continue\n  msg=json.loads(line)\n  mid=msg.get('id')\n  method=msg.get('method')\n  if method=='initialize':\n    print(json.dumps({'jsonrpc':'2.0','id':mid,'result':{'protocolVersion':'2024-11-05','capabilities':{}}}), flush=True)\n  elif method=='tools/list':\n    print(json.dumps({'jsonrpc':'2.0','id':mid,'result':{'tools':[{'name':'read_file','description':'Read file content','inputSchema':{'type':'object'}},{'name':'write_file','description':'Write file content','inputSchema':{'type':'object'}}]}}), flush=True)\n  elif method=='tools/call':\n    print(json.dumps({'jsonrpc':'2.0','id':mid,'result':{'content':[{'type':'text','text':'file operation ok'}]}}), flush=True)\n"
+            ]
+          },
+          "memory": {
+            "command": "python3",
+            "args": [
+              "-c",
+              "import sys, json\nfor line in sys.stdin:\n  line=line.strip()\n  if not line: continue\n  msg=json.loads(line)\n  mid=msg.get('id')\n  method=msg.get('method')\n  if method=='initialize':\n    print(json.dumps({'jsonrpc':'2.0','id':mid,'result':{'protocolVersion':'2024-11-05','capabilities':{}}}), flush=True)\n  elif method=='tools/list':\n    print(json.dumps({'jsonrpc':'2.0','id':mid,'result':{'tools':[{'name':'create_graph','description':'Create knowledge graph node','inputSchema':{'type':'object'}}]}}), flush=True)\n  elif method=='tools/call':\n    print(json.dumps({'jsonrpc':'2.0','id':mid,'result':{'content':[{'type':'text','text':'knowledge graph updated'}]}}), flush=True)\n"
+            ]
+          },
+          "github": {
+            "command": "python3",
+            "args": [
+              "-c",
+              "import sys, json\nfor line in sys.stdin:\n  line=line.strip()\n  if not line: continue\n  msg=json.loads(line)\n  mid=msg.get('id')\n  method=msg.get('method')\n  if method=='initialize':\n    print(json.dumps({'jsonrpc':'2.0','id':mid,'result':{'protocolVersion':'2024-11-05','capabilities':{}}}), flush=True)\n  elif method=='tools/list':\n    print(json.dumps({'jsonrpc':'2.0','id':mid,'result':{'tools':[{'name':'search_repositories','description':'Search GitHub repositories','inputSchema':{'type':'object'}}]}}), flush=True)\n  elif method=='tools/call':\n    print(json.dumps({'jsonrpc':'2.0','id':mid,'result':{'content':[{'type':'text','text':'repositories retrieved'}]}}), flush=True)\n"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

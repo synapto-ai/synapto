@@ -10,7 +10,7 @@ test-scenarios *ARGS:
 
 # Check for broken local and relative links in markdown documentation using lychee
 link-check:
-    lychee --offline "crates/**/*.md" "docs/**/*.md" "README.md"
+    lychee --offline "crates/**/*.md" "integrations/**/*.md" "docs/**/*.md" "README.md"
 
 # Run all pre-release checks (lints, tests, formatting, and links) to guarantee release readiness
 pre-release-check:

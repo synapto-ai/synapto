@@ -3,6 +3,11 @@ resolver = "2"
 
 members = [
     "crates/*",
+    "integrations/plugins/*",
+    "integrations/storage-providers/*",
+    "integrations/prompt-providers/*",
+    "integrations/datadir-providers/*",
+    "integrations/synapto-battery-pack",
 ]
 
 [workspace.package]
@@ -17,6 +22,7 @@ synapto-interface = { path = "crates/interface", version = "0.1.0-dev.4" }
 synapto-telemetry = { path = "crates/telemetry", version = "0.1.0-dev.4" }
 synapto-llm = { path = "crates/llm", version = "0.1.0-dev.4" }
 synapto-shutdown = { path = "crates/shutdown", version = "0.1.0-dev.4" }
+synapto-test = { path = "crates/test", version = "0.1.0-dev.4" }
 
 schemars = "1.2"
 serde = { version = "1", default-features = false, features = [
@@ -24,11 +30,13 @@ serde = { version = "1", default-features = false, features = [
     "alloc",
 ] }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
-tokio = { version = "1", features = ["macros", "signal", "rt", "rt-multi-thread", "net", "time"] }
+tokio = { version = "1", features = ["macros", "signal", "rt", "rt-multi-thread", "net", "time", "process", "io-util"] }
 better_tokio_select = "0.2.0"
+bytes = "1"
 derive_more= {version = "2", features=["full"]}
 async-trait= "0.1"
 tracing = "0.1"
+url = "2"
 serde_yaml = "0.9"
 
 [workspace.lints.rust]

@@ -1,0 +1,9 @@
+{
+  "plugins": {
+    "synapto_plugin_tts_elevenlabs": {
+      "TtsElevenLabsPlugin": {
+        "voice_id": "FIXME"
+      }
+    }
+  }
+}

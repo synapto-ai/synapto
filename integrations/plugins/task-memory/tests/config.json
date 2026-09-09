@@ -1,0 +1,20 @@
+{
+  "plugins": {
+    "synapto_plugin_task_memory": {
+      "TaskMemoryPlugin": {
+        "task": {
+          "model": "gemini-3-flash-preview",
+          "reasoning_effort": "Minimal"
+        },
+        "goal": {
+          "model": "gemini-3-flash-preview",
+          "reasoning_effort": "Minimal"
+        },
+        "mission": {
+          "model": "gemini-3-flash-preview",
+          "reasoning_effort": "Minimal"
+        }
+      }
+    }
+  }
+}

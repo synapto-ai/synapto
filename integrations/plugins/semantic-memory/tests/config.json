@@ -1,0 +1,12 @@
+{
+  "plugins": {
+    "synapto_plugin_semantic_memory": {
+      "SemanticMemoryPlugin": {
+        "insight": {
+          "model": "gemini-3-flash-preview",
+          "reasoning_effort": "Minimal"
+        }
+      }
+    }
+  }
+}

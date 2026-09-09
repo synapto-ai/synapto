@@ -1,0 +1,29 @@
+[package]
+name = "synapto-plugin-episodic-memory"
+description = "Episodic memory plugin for the Synapto framework"
+version = "0.1.0-dev.1"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = []
+extended-episodic-memory = []
+
+[dependencies]
+synapto-interface.workspace = true
+synapto-llm.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+schemars.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+derive_more.workspace = true
+
+[dev-dependencies]
+synapto-test.workspace = true
+synapto.workspace = true
+
