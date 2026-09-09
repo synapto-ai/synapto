@@ -1,6 +1,6 @@
 [package]
 name = "synapto-battery-pack"
-version = "0.0.1-dev.1"
+version = "0.0.1-dev.2"
 edition = "2024"
 description = "Synapto battery pack"
 license = "Apache-2.0"
