@@ -24,5 +24,5 @@ update *args:
     release-plz update {{ args }}
 
 # Publish all unpublished crates to the registry, create git tags, and push
-release *args:
+release *args: pre-release-check
     cargo release --unpublished {{ args }} --sign-commit
