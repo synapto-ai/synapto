@@ -281,15 +281,15 @@ impl Tracing {
                         .map(|stem| stem.to_string_lossy().into_owned())
                 })
                 .unwrap_or_else(|| "unknown".to_string());
-            let rec = rerun::RecordingStreamBuilder::new(binary_name.clone())
+            let rec = re_sdk::RecordingStreamBuilder::new(binary_name.clone())
                 .spawn()
                 .or_else(|_e| {
-                    rerun::RecordingStreamBuilder::new(binary_name)
+                    re_sdk::RecordingStreamBuilder::new(binary_name)
                         .connect_grpc_opts("rerun+http://host.docker.internal:9876/proxy") // TODO consider security concerns
                 })
                 .unwrap_or_else(|e| panic!("Rerun problem: {:?}", e));
 
-            rerun::RecordingStream::set_global(rerun::StoreKind::Recording, Some(rec.clone()));
+            re_sdk::RecordingStream::set_global(re_sdk::StoreKind::Recording, Some(rec.clone()));
             subscriber
                 .with(
                     super::rerun_logging::RerunLoggingLayer {

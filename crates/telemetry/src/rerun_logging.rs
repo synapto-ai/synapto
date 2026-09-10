@@ -1,5 +1,9 @@
 #![cfg(feature = "rerun")]
 
+use re_sdk::{RecordingStream, StoreKind};
+use re_sdk_types::archetypes::TextLog;
+use re_sdk_types::components::TextLogLevel;
+
 pub struct RerunLoggingLayer {
     pub path: String,
 }
@@ -58,19 +62,19 @@ where
         let mut v = Visitor { buf: &mut msg };
         event.record(&mut v);
 
-        let Some(rec) = rerun::RecordingStream::global(rerun::StoreKind::Recording) else {
+        let Some(rec) = RecordingStream::global(StoreKind::Recording) else {
             return;
         };
 
         let rerun_level = match *meta.level() {
-            tracing::Level::ERROR => rerun::TextLogLevel::ERROR,
-            tracing::Level::WARN => rerun::TextLogLevel::WARN,
-            tracing::Level::INFO => rerun::TextLogLevel::INFO,
-            tracing::Level::DEBUG => rerun::TextLogLevel::DEBUG,
-            tracing::Level::TRACE => rerun::TextLogLevel::TRACE,
+            tracing::Level::ERROR => TextLogLevel::ERROR,
+            tracing::Level::WARN => TextLogLevel::WARN,
+            tracing::Level::INFO => TextLogLevel::INFO,
+            tracing::Level::DEBUG => TextLogLevel::DEBUG,
+            tracing::Level::TRACE => TextLogLevel::TRACE,
         };
 
-        let text = rerun::archetypes::TextLog::new(msg).with_level(rerun_level);
+        let text = TextLog::new(msg).with_level(rerun_level);
         if let Err(e) = rec.log(self.path.as_str(), &text) {
             // SAFETY: Do not use `tracing::error!` here to avoid triggering infinite recursion.
             eprintln!("Failed to log to Rerun: {:?}", e);

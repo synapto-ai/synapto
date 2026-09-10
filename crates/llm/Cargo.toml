@@ -12,7 +12,7 @@ workspace = true
 
 [features]
 default = []
-rerun = ["dep:synapto-telemetry", "synapto-telemetry/rerun"]
+rerun = ["dep:synapto-telemetry", "synapto-telemetry/rerun", "dep:re_sdk_types"]
 
 [dependencies]
 synapto-interface.workspace = true
@@ -28,3 +28,4 @@ serde_yaml = { workspace = true }
 gcp_auth = { version = "0.12" }
 genai = { version = "0.6" }
 anyhow = "1.0"
+re_sdk_types = { version = "0.33", optional = true, default-features = false }

@@ -34,16 +34,6 @@ async fn smoke_scenario() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[ignore]
-async fn non_actionable_input_scenario() {
-    run_scenario(
-        "tests/scenarios/non-actionable-input/scenario.yaml",
-        test_bundle,
-    )
-    .await;
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_multiple_mcp_servers_integration() {
     let script_fs = r#"
 while read line; do

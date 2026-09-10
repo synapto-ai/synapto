@@ -64,8 +64,11 @@ pub mod rerun_logging;
 pub mod tracing;
 
 #[cfg(feature = "rerun")]
-pub fn log_to_rerun<A: ::rerun::AsComponents>(path: impl Into<::rerun::EntityPath>, archetype: &A) {
-    if let Some(rec) = ::rerun::RecordingStream::global(::rerun::StoreKind::Recording) {
+pub fn log_to_rerun<A: ::re_sdk::AsComponents>(
+    path: impl Into<::re_sdk::EntityPath>,
+    archetype: &A,
+) {
+    if let Some(rec) = ::re_sdk::RecordingStream::global(::re_sdk::StoreKind::Recording) {
         rec.log(path, archetype)
             .inspect_err(|e| ::tracing::error!("{}", e))
             .ok();
@@ -74,9 +77,6 @@ pub fn log_to_rerun<A: ::rerun::AsComponents>(path: impl Into<::rerun::EntityPat
 
 #[cfg(not(feature = "rerun"))]
 pub fn log_to_rerun<T>(_path: &str, _archetype: &T) {}
-
-#[cfg(feature = "rerun")]
-pub use ::rerun as rerun_core;
 
 #[cfg(feature = "rerun")]
 pub fn find_parent_subsystem<S>(span: tracing_subscriber::registry::SpanRef<S>) -> Option<String>

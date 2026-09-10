@@ -203,7 +203,7 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
         {
             synapto_telemetry::log_to_rerun(
                 format!("llm/{}/content", self.name),
-                &synapto_telemetry::rerun_core::archetypes::TextDocument::new(content),
+                &re_sdk_types::archetypes::TextDocument::new(content),
             );
         };
 
@@ -214,7 +214,7 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
         {
             synapto_telemetry::log_to_rerun(
                 format!("llm/{}/tools", self.name),
-                &synapto_telemetry::rerun_core::archetypes::TextDocument::new(tools_json),
+                &re_sdk_types::archetypes::TextDocument::new(tools_json),
             );
         }
 

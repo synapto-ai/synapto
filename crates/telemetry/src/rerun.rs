@@ -85,6 +85,8 @@
 
 use crate::find_parent_subsystem;
 use dashmap::{DashMap, DashSet};
+use re_sdk::{RecordingStream, StoreKind};
+use re_sdk_types::archetypes::{Scalars, SeriesPoints, TextLog};
 use std::time::Instant;
 use tracing::Subscriber;
 use tracing::field::Visit;
@@ -116,16 +118,16 @@ struct SpanStartTime(Instant);
 
 impl RerunTelemetryLayer {
     fn log_metric(&self, path: String, value: f64) {
-        let Some(rec) = rerun::RecordingStream::global(rerun::StoreKind::Recording) else {
+        let Some(rec) = RecordingStream::global(StoreKind::Recording) else {
             return;
         };
         let metric_path = format!("metrics/{path}");
         if self.initialized_paths.insert(metric_path.clone()) {
-            rec.log_static(metric_path.clone(), &rerun::SeriesPoints::new())
+            rec.log_static(metric_path.clone(), &SeriesPoints::new())
                 .inspect_err(|e| tracing::error!("{}", e))
                 .ok();
         }
-        rec.log(metric_path, &rerun::Scalars::new([value])).ok();
+        rec.log(metric_path, &Scalars::new([value])).ok();
     }
 }
 
@@ -285,7 +287,7 @@ where
         }
 
         if let Some(role) = chat_visitor.role {
-            let Some(rec) = rerun::RecordingStream::global(rerun::StoreKind::Recording) else {
+            let Some(rec) = RecordingStream::global(StoreKind::Recording) else {
                 return;
             };
 
@@ -297,24 +299,17 @@ where
 
             rec.log(
                 path,
-                &rerun::archetypes::TextLog::new(chat_visitor.messages.unwrap_or_default()),
+                &TextLog::new(chat_visitor.messages.unwrap_or_default()),
             )
             .ok();
 
             if role == "assistant" {
                 if let Some(tools) = chat_visitor.tools {
-                    rec.log(
-                        "chat/assistant/tools",
-                        &rerun::archetypes::TextLog::new(tools),
-                    )
-                    .ok();
+                    rec.log("chat/assistant/tools", &TextLog::new(tools)).ok();
                 }
                 if let Some(reasoning) = chat_visitor.reasoning {
-                    rec.log(
-                        "chat/assistant/reasoning",
-                        &rerun::archetypes::TextLog::new(reasoning),
-                    )
-                    .ok();
+                    rec.log("chat/assistant/reasoning", &TextLog::new(reasoning))
+                        .ok();
                 }
             }
         }
