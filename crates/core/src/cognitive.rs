@@ -103,7 +103,7 @@ pub(crate) async fn start<P: CognitivePromptProvider>(
 pub(crate) use direct::{CognitiveDirectInterrupt, CognitiveDirectTrigger};
 
 fn get_cognitive_system_prompt<P: CognitivePromptProvider>(config: &Config) -> Vec<Instruction> {
-    tracing::info!(
+    tracing::debug!(
         "Initializing prompt provider: {}",
         core::any::type_name::<P>()
     );
