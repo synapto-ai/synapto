@@ -55,15 +55,12 @@ impl TTSPlugin for TtsElevenLabsPlugin {
         cognitive_speech_rx: synapto_interface::sync::broadcast::Receiver<CognitiveOutputSpeech>,
         cognitive_output_audio_tx: mpsc::Sender<CognitiveOutputAudio>,
     ) -> Result<(), String> {
+        let key = self
+            .credentials
+            .resolve_api_key(&synapto_credentials_provider_elevenlabs::ElevenLabsTarget)
+            .await?;
         let mut config = self.config.clone();
-        if config.elevenlabs_api_key.is_empty()
-            && let Ok(key) = self
-                .credentials
-                .resolve_api_key(&synapto_credentials_provider_elevenlabs::ElevenLabsTarget)
-                .await
-        {
-            config.elevenlabs_api_key = key.expose_secret().clone();
-        }
+        config.elevenlabs_api_key = key.expose_secret().clone();
         run_elevenlabs_tts(config, cognitive_speech_rx, cognitive_output_audio_tx).await;
         Ok(())
     }

@@ -58,15 +58,12 @@ impl STTPlugin for SttElevenLabsPlugin {
         transcript_tx: mpsc::Sender<SpeechTranscript>,
         speech_detected: SpeechDetected,
     ) -> Result<(), String> {
+        let key = self
+            .credentials
+            .resolve_api_key(&synapto_credentials_provider_elevenlabs::ElevenLabsTarget)
+            .await?;
         let mut config = self.config.clone();
-        if config.elevenlabs_api_key.is_empty()
-            && let Ok(key) = self
-                .credentials
-                .resolve_api_key(&synapto_credentials_provider_elevenlabs::ElevenLabsTarget)
-                .await
-        {
-            config.elevenlabs_api_key = key.expose_secret().clone();
-        }
+        config.elevenlabs_api_key = key.expose_secret().clone();
         run_elevenlabs(config, audio_rx, transcript_tx, speech_detected).await;
         Ok(())
     }

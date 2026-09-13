@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use gcp_auth::TokenProvider;
 use serde::Deserialize;
 use std::time::Duration;
 use synapto_interface::plugin::Plugin;
@@ -36,8 +35,6 @@ use googleapis_tonic_google_cloud_speech_v2::google::cloud::speech::v2::{
 
 use tonic::transport::ClientTlsConfig;
 
-const SCOPES: &[&str; 1] = &["https://www.googleapis.com/auth/cloud-platform"];
-
 #[derive(Deserialize, Clone, Debug, Default)]
 pub enum GoogleSttVersion {
     #[default]
@@ -46,22 +43,11 @@ pub enum GoogleSttVersion {
 }
 
 #[derive(Deserialize, Clone, Debug, Default)]
-pub struct GoogleServiceAccountCredentials(serde_json::Value);
-
-impl From<GoogleServiceAccountCredentials> for String {
-    fn from(value: GoogleServiceAccountCredentials) -> Self {
-        serde_json::to_string(&value.0).unwrap_or_else(|e| panic!("Failed to serialize: {:?}", e))
-    }
-}
-
-#[derive(Deserialize, Clone, Debug, Default)]
 pub struct GoogleSttConfig {
     #[serde(default)]
     pub version: GoogleSttVersion,
     #[serde(default)]
     pub google_project_id: String,
-    #[serde(default)]
-    pub google_service_account_credentials: GoogleServiceAccountCredentials,
     pub language_code: Option<String>,
 }
 
@@ -134,10 +120,6 @@ async fn run_v1(
     speech_detected: SpeechDetected,
 ) {
     let url = "https://speech.googleapis.com".to_string();
-    let account = gcp_auth::CustomServiceAccount::from_json(&String::from(
-        config.google_service_account_credentials.clone(),
-    ))
-    .ok();
     let target = synapto_credentials_provider_google::GoogleCloudTarget {
         scopes: vec!["https://www.googleapis.com/auth/cloud-platform".to_string()],
     };
@@ -193,21 +175,16 @@ async fn run_v1(
             }
         };
 
-        let token_str = if let Ok(t) = credentials.resolve_bearer_token(&target).await {
-            t.expose_secret().clone()
-        } else if let Some(ref acc) = account {
-            match acc.token(SCOPES).await {
-                Ok(t) => t.as_str().to_string(),
-                Err(e) => {
-                    tracing::error!("Failed to get GCP token: {}. Retrying...", e);
-                    tokio::time::sleep(Duration::from_millis(500)).await;
-                    continue;
-                }
+        let token_str = match credentials.resolve_bearer_token(&target).await {
+            Ok(t) => t.expose_secret().clone(),
+            Err(e) => {
+                tracing::error!(
+                    "Failed to resolve GCP token for Google STT: {}. Retrying...",
+                    e
+                );
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                continue;
             }
-        } else {
-            tracing::error!("No valid credentials found for Google STT");
-            tokio::time::sleep(Duration::from_millis(500)).await;
-            continue;
         };
 
         let token_value = token_str.clone();
@@ -411,10 +388,6 @@ async fn run_v2(
         config.google_project_id, location
     );
     let url = format!("https://{location}-speech.googleapis.com");
-    let account = gcp_auth::CustomServiceAccount::from_json(&String::from(
-        config.google_service_account_credentials.clone(),
-    ))
-    .ok();
     let target = synapto_credentials_provider_google::GoogleCloudTarget {
         scopes: vec!["https://www.googleapis.com/auth/cloud-platform".to_string()],
     };
@@ -482,21 +455,16 @@ async fn run_v2(
             }
         };
 
-        let token_str = if let Ok(t) = credentials.resolve_bearer_token(&target).await {
-            t.expose_secret().clone()
-        } else if let Some(ref acc) = account {
-            match acc.token(SCOPES).await {
-                Ok(t) => t.as_str().to_string(),
-                Err(e) => {
-                    tracing::error!("Failed to get GCP token: {}. Retrying...", e);
-                    tokio::time::sleep(Duration::from_millis(500)).await;
-                    continue;
-                }
+        let token_str = match credentials.resolve_bearer_token(&target).await {
+            Ok(t) => t.expose_secret().clone(),
+            Err(e) => {
+                tracing::error!(
+                    "Failed to resolve GCP token for Google STT: {}. Retrying...",
+                    e
+                );
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                continue;
             }
-        } else {
-            tracing::error!("No valid credentials found for Google STT");
-            tokio::time::sleep(Duration::from_millis(500)).await;
-            continue;
         };
 
         let token_value = token_str.clone();

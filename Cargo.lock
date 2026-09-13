@@ -8898,7 +8898,6 @@ version = "0.1.0-dev.3"
 dependencies = [
  "async-trait",
  "better_tokio_select",
- "gcp_auth",
  "googleapis-tonic-google-cloud-speech-v1",
  "googleapis-tonic-google-cloud-speech-v2",
  "serde",

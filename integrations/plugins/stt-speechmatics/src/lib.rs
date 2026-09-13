@@ -88,15 +88,12 @@ impl STTPlugin for SttSpeechmaticsPlugin {
         transcript_tx: mpsc::Sender<SpeechTranscript>,
         speech_detected: SpeechDetected,
     ) -> Result<(), String> {
+        let key = self
+            .credentials
+            .resolve_api_key(&synapto_credentials_provider_speechmatics::SpeechmaticsTarget)
+            .await?;
         let mut config = self.config.clone();
-        if config.speechmatics_api_key.is_empty()
-            && let Ok(key) = self
-                .credentials
-                .resolve_api_key(&synapto_credentials_provider_speechmatics::SpeechmaticsTarget)
-                .await
-        {
-            config.speechmatics_api_key = key.expose_secret().clone();
-        }
+        config.speechmatics_api_key = key.expose_secret().clone();
         run_speechmatics(config, audio_rx, transcript_tx, speech_detected).await;
         Ok(())
     }
