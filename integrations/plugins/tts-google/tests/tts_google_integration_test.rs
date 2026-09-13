@@ -76,6 +76,7 @@ async fn test_google_tts_live_synthesis_xml_escaping() {
         &config,
         storage_handle,
         "tts_google",
+        synapto_interface::credentials::CredentialsHandle::default(),
     ))
     .await
     .expect("Failed to create Google TTS plugin");

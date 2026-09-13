@@ -18,12 +18,14 @@ const PEER_INPUT_AUDIO_SAMPLE_RATE: usize = 16_000;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ElevenLabsSttConfig {
+    #[serde(default)]
     pub elevenlabs_api_key: String,
     pub language_code: Option<String>,
 }
 
 pub struct SttElevenLabsPlugin {
     config: ElevenLabsSttConfig,
+    credentials: synapto_interface::credentials::CredentialsHandle,
 }
 
 #[async_trait]
@@ -41,7 +43,10 @@ impl Plugin for SttElevenLabsPlugin {
         context: &synapto_interface::plugin::PluginInitContext<'_>,
     ) -> Result<Self, String> {
         let config: ElevenLabsSttConfig = context.config()?;
-        Ok(Self { config })
+        Ok(Self {
+            config,
+            credentials: context.credentials(),
+        })
     }
 }
 
@@ -53,13 +58,16 @@ impl STTPlugin for SttElevenLabsPlugin {
         transcript_tx: mpsc::Sender<SpeechTranscript>,
         speech_detected: SpeechDetected,
     ) -> Result<(), String> {
-        run_elevenlabs(
-            self.config.clone(),
-            audio_rx,
-            transcript_tx,
-            speech_detected,
-        )
-        .await;
+        let mut config = self.config.clone();
+        if config.elevenlabs_api_key.is_empty()
+            && let Ok(key) = self
+                .credentials
+                .resolve_api_key(&synapto_credentials_provider_elevenlabs::ElevenLabsTarget)
+                .await
+        {
+            config.elevenlabs_api_key = key.expose_secret().clone();
+        }
+        run_elevenlabs(config, audio_rx, transcript_tx, speech_detected).await;
         Ok(())
     }
 }

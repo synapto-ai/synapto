@@ -58,13 +58,16 @@ impl From<GoogleServiceAccountCredentials> for String {
 pub struct GoogleSttConfig {
     #[serde(default)]
     pub version: GoogleSttVersion,
+    #[serde(default)]
     pub google_project_id: String,
+    #[serde(default)]
     pub google_service_account_credentials: GoogleServiceAccountCredentials,
     pub language_code: Option<String>,
 }
 
 pub struct SttGooglePlugin {
     config: GoogleSttConfig,
+    credentials: synapto_interface::credentials::CredentialsHandle,
 }
 
 #[async_trait::async_trait]
@@ -82,7 +85,10 @@ impl Plugin for SttGooglePlugin {
         context: &synapto_interface::plugin::PluginInitContext<'_>,
     ) -> Result<Self, String> {
         let config: GoogleSttConfig = context.config()?;
-        Ok(Self { config })
+        Ok(Self {
+            config,
+            credentials: context.credentials(),
+        })
     }
 }
 
@@ -98,6 +104,7 @@ impl STTPlugin for SttGooglePlugin {
             GoogleSttVersion::V1 => {
                 run_v1(
                     self.config.clone(),
+                    self.credentials.clone(),
                     audio_rx,
                     transcript_tx,
                     speech_detected,
@@ -107,6 +114,7 @@ impl STTPlugin for SttGooglePlugin {
             GoogleSttVersion::V2 => {
                 run_v2(
                     self.config.clone(),
+                    self.credentials.clone(),
                     audio_rx,
                     transcript_tx,
                     speech_detected,
@@ -120,19 +128,18 @@ impl STTPlugin for SttGooglePlugin {
 
 async fn run_v1(
     config: GoogleSttConfig,
+    credentials: synapto_interface::credentials::CredentialsHandle,
     mut audio_rx: mpsc::Receiver<InputVoiceAudio>,
     transcript_tx: mpsc::Sender<SpeechTranscript>,
     speech_detected: SpeechDetected,
 ) {
     let url = "https://speech.googleapis.com".to_string();
-    let account = match gcp_auth::CustomServiceAccount::from_json(&String::from(
-        config.google_service_account_credentials,
-    )) {
-        Ok(acc) => acc,
-        Err(e) => {
-            tracing::error!("Failed to load Google service account credentials: {}", e);
-            return;
-        }
+    let account = gcp_auth::CustomServiceAccount::from_json(&String::from(
+        config.google_service_account_credentials.clone(),
+    ))
+    .ok();
+    let target = synapto_credentials_provider_google::GoogleCloudTarget {
+        scopes: vec!["https://www.googleapis.com/auth/cloud-platform".to_string()],
     };
 
     let streaming_config = StreamingRecognitionConfigV1 {
@@ -186,22 +193,31 @@ async fn run_v1(
             }
         };
 
-        let token = match account.token(SCOPES).await {
-            Ok(t) => t,
-            Err(e) => {
-                tracing::error!("Failed to get GCP token: {}. Retrying...", e);
-                tokio::time::sleep(Duration::from_millis(500)).await;
-                continue;
+        let token_str = if let Ok(t) = credentials.resolve_bearer_token(&target).await {
+            t.expose_secret().clone()
+        } else if let Some(ref acc) = account {
+            match acc.token(SCOPES).await {
+                Ok(t) => t.as_str().to_string(),
+                Err(e) => {
+                    tracing::error!("Failed to get GCP token: {}. Retrying...", e);
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    continue;
+                }
             }
+        } else {
+            tracing::error!("No valid credentials found for Google STT");
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            continue;
         };
 
+        let token_value = token_str.clone();
         let mut client =
             SpeechClientV1::with_interceptor(channel, move |mut req: tonic::Request<()>| {
                 req.metadata_mut().insert(
                     "authorization",
-                    format!("Bearer {}", token.as_str())
+                    format!("Bearer {}", token_value)
                         .parse()
-                        .unwrap_or_else(|e| panic!("Failed to parse: {:?}", e)),
+                        .unwrap_or_else(|e| panic!("Error: {:?}", e)),
                 );
                 Ok(req)
             });
@@ -384,6 +400,7 @@ async fn audio_bridge_v1(
 
 async fn run_v2(
     config: GoogleSttConfig,
+    credentials: synapto_interface::credentials::CredentialsHandle,
     mut audio_rx: mpsc::Receiver<InputVoiceAudio>,
     transcript_tx: mpsc::Sender<SpeechTranscript>,
     speech_detected: SpeechDetected,
@@ -394,14 +411,12 @@ async fn run_v2(
         config.google_project_id, location
     );
     let url = format!("https://{location}-speech.googleapis.com");
-    let account = match gcp_auth::CustomServiceAccount::from_json(&String::from(
-        config.google_service_account_credentials,
-    )) {
-        Ok(acc) => acc,
-        Err(e) => {
-            tracing::error!("Failed to load Google service account credentials: {}", e);
-            return;
-        }
+    let account = gcp_auth::CustomServiceAccount::from_json(&String::from(
+        config.google_service_account_credentials.clone(),
+    ))
+    .ok();
+    let target = synapto_credentials_provider_google::GoogleCloudTarget {
+        scopes: vec!["https://www.googleapis.com/auth/cloud-platform".to_string()],
     };
 
     let streaming_config_request = StreamingRecognizeRequestV2 {
@@ -467,20 +482,29 @@ async fn run_v2(
             }
         };
 
-        let token = match account.token(SCOPES).await {
-            Ok(t) => t,
-            Err(e) => {
-                tracing::error!("Failed to get GCP token: {}. Retrying...", e);
-                tokio::time::sleep(Duration::from_millis(500)).await;
-                continue;
+        let token_str = if let Ok(t) = credentials.resolve_bearer_token(&target).await {
+            t.expose_secret().clone()
+        } else if let Some(ref acc) = account {
+            match acc.token(SCOPES).await {
+                Ok(t) => t.as_str().to_string(),
+                Err(e) => {
+                    tracing::error!("Failed to get GCP token: {}. Retrying...", e);
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    continue;
+                }
             }
+        } else {
+            tracing::error!("No valid credentials found for Google STT");
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            continue;
         };
 
+        let token_value = token_str.clone();
         let mut client =
             SpeechClientV2::with_interceptor(channel, move |mut req: tonic::Request<()>| {
                 req.metadata_mut().insert(
                     "authorization",
-                    format!("Bearer {}", token.as_str())
+                    format!("Bearer {}", token_value)
                         .parse()
                         .unwrap_or_else(|e| panic!("Failed to parse: {:?}", e)),
                 );

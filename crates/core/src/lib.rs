@@ -29,6 +29,7 @@ use synapto_telemetry::tracing::Tracing;
 mod cognitive;
 pub use cognitive::CognitiveLLMContent;
 pub mod config;
+pub mod credentials;
 pub mod prompt_provider;
 pub mod storage;
 mod utils;
@@ -50,9 +51,10 @@ pub trait PluginTuple<
         + synapto_interface::storage::KeyValueStore
         + synapto_interface::storage::RecordStore,
     PR: prompt_provider::CognitivePromptProvider,
+    CR: credentials::CredentialsTuple = (),
 >
 {
-    fn register_plugins(synapto: Synapto<C, S, PR>) -> Synapto<C, S, PR>;
+    fn register_plugins(synapto: Synapto<C, S, PR, CR>) -> Synapto<C, S, PR, CR>;
 }
 
 impl<
@@ -61,9 +63,10 @@ impl<
         + synapto_interface::storage::KeyValueStore
         + synapto_interface::storage::RecordStore,
     PR: prompt_provider::CognitivePromptProvider,
-> PluginTuple<C, S, PR> for ()
+    CR: credentials::CredentialsTuple,
+> PluginTuple<C, S, PR, CR> for ()
 {
-    fn register_plugins(synapto: Synapto<C, S, PR>) -> Synapto<C, S, PR> {
+    fn register_plugins(synapto: Synapto<C, S, PR, CR>) -> Synapto<C, S, PR, CR> {
         synapto
     }
 }
@@ -74,9 +77,10 @@ macro_rules! impl_plugin_tuple {
             C: config::ConfigProvider,
             S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
             PR: prompt_provider::CognitivePromptProvider,
+            CR: credentials::CredentialsTuple,
             $($T: synapto_interface::plugin::Plugin),+
-        > PluginTuple<C, S, PR> for ($($T,)+) {
-            fn register_plugins(synapto: Synapto<C, S, PR>) -> Synapto<C, S, PR> {
+        > PluginTuple<C, S, PR, CR> for ($($T,)+) {
+            fn register_plugins(synapto: Synapto<C, S, PR, CR>) -> Synapto<C, S, PR, CR> {
                 synapto
                 $(.register_plugin::<$T>())+
             }
@@ -185,11 +189,14 @@ pub struct Synapto<
         + synapto_interface::storage::KeyValueStore
         + synapto_interface::storage::RecordStore,
     PR: prompt_provider::CognitivePromptProvider = prompt_provider::EmptyPromptProvider,
+    CR: credentials::CredentialsTuple = (),
 > {
     config: config::Config,
     config_provider: Arc<C>,
     _prompt_provider: std::marker::PhantomData<PR>,
     _storage_provider: std::marker::PhantomData<S>,
+    _credentials_provider: std::marker::PhantomData<CR>,
+    credentials: synapto_interface::credentials::CredentialsHandle,
     audio_input_spawners: Vec<AudioInputSpawner>,
     audio_output_spawners: Vec<AudioOutputSpawner>,
     stt_spawners: Vec<SttSpawner>,
@@ -243,7 +250,8 @@ impl<
         + synapto_interface::storage::KeyValueStore
         + synapto_interface::storage::RecordStore,
     PR: prompt_provider::CognitivePromptProvider,
-> Synapto<C, S, PR>
+    CR: credentials::CredentialsTuple,
+> Synapto<C, S, PR, CR>
 {
     #[allow(clippy::new_without_default)]
     fn new() -> Self {
@@ -251,6 +259,8 @@ impl<
     }
 
     fn with_config_provider(config_provider: C) -> Self {
+        let credentials = CR::build_handle(&config_provider)
+            .unwrap_or_else(|e| panic!("Failed to build credentials handle: {}", e));
         let config_provider = std::sync::Arc::new(config_provider);
         rustls::crypto::ring::default_provider()
             .install_default()
@@ -291,6 +301,8 @@ impl<
             config_provider,
             _prompt_provider: std::marker::PhantomData,
             _storage_provider: std::marker::PhantomData,
+            _credentials_provider: std::marker::PhantomData,
+            credentials,
             config,
             _tracing: tracing,
             audio_input_spawners: Vec::new(),
@@ -359,6 +371,7 @@ impl<
                 &plugin_config,
                 self.storage.clone(),
                 &safe_namespace,
+                self.credentials.clone(),
             );
 
             // Safely bridge the async initialization back into the synchronous builder
@@ -405,7 +418,7 @@ impl<
         self
     }
 
-    pub async fn run<T: PluginTuple<C, S, PR>>() -> ExitCode {
+    pub async fn run<T: PluginTuple<C, S, PR, CR>>() -> ExitCode {
         T::register_plugins(Self::new()).run_internal().await
     }
 
@@ -572,6 +585,7 @@ impl<
             &core_config,
             self.storage.clone(),
             core_namespace,
+            self.credentials.clone(),
         );
 
         let core_storage = match core_plugin_context.store::<S>().await {
@@ -773,7 +787,8 @@ impl<
         + synapto_interface::storage::KeyValueStore
         + synapto_interface::storage::RecordStore,
     PR: prompt_provider::CognitivePromptProvider,
-> synapto_interface::plugin::PluginRegistry for Synapto<C, S, PR>
+    CR: credentials::CredentialsTuple,
+> synapto_interface::plugin::PluginRegistry for Synapto<C, S, PR, CR>
 {
     fn register_audio_input<P: AudioInputPlugin>(&mut self, plugin: Arc<P>) {
         self.audio_input_spawners.push(Box::new(move |tx_opt| {

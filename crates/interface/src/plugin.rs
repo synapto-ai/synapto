@@ -18,6 +18,7 @@ pub struct PluginInitContext<'a> {
     plugin_config: &'a serde_json::Value,
     storage: crate::storage::StorageHandle,
     plugin_namespace: &'a str,
+    credentials: crate::credentials::CredentialsHandle,
 }
 
 impl<'a> PluginInitContext<'a> {
@@ -28,13 +29,19 @@ impl<'a> PluginInitContext<'a> {
         plugin_config: &'a serde_json::Value,
         storage: crate::storage::StorageHandle,
         plugin_namespace: &'a str,
+        credentials: crate::credentials::CredentialsHandle,
     ) -> Self {
         Self {
             llm_executor,
             plugin_config,
             storage,
             plugin_namespace,
+            credentials,
         }
+    }
+
+    pub fn credentials(&self) -> crate::credentials::CredentialsHandle {
+        self.credentials.clone()
     }
 
     #[doc = " Deserializes the raw JSON configuration into the plugin's requested config struct."]

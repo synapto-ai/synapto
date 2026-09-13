@@ -13,6 +13,7 @@ use tracing::{Instrument, info_span};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ElevenLabsTtsConfig {
+    #[serde(default)]
     pub elevenlabs_api_key: String,
     pub voice_id: String,
     pub model_id: Option<String>,
@@ -22,6 +23,7 @@ pub struct ElevenLabsTtsConfig {
 
 pub struct TtsElevenLabsPlugin {
     config: ElevenLabsTtsConfig,
+    credentials: synapto_interface::credentials::CredentialsHandle,
 }
 
 #[async_trait]
@@ -39,7 +41,10 @@ impl Plugin for TtsElevenLabsPlugin {
         context: &synapto_interface::plugin::PluginInitContext<'_>,
     ) -> Result<Self, String> {
         let config: ElevenLabsTtsConfig = context.config()?;
-        Ok(Self { config })
+        Ok(Self {
+            config,
+            credentials: context.credentials(),
+        })
     }
 }
 
@@ -50,12 +55,16 @@ impl TTSPlugin for TtsElevenLabsPlugin {
         cognitive_speech_rx: synapto_interface::sync::broadcast::Receiver<CognitiveOutputSpeech>,
         cognitive_output_audio_tx: mpsc::Sender<CognitiveOutputAudio>,
     ) -> Result<(), String> {
-        run_elevenlabs_tts(
-            self.config.clone(),
-            cognitive_speech_rx,
-            cognitive_output_audio_tx,
-        )
-        .await;
+        let mut config = self.config.clone();
+        if config.elevenlabs_api_key.is_empty()
+            && let Ok(key) = self
+                .credentials
+                .resolve_api_key(&synapto_credentials_provider_elevenlabs::ElevenLabsTarget)
+                .await
+        {
+            config.elevenlabs_api_key = key.expose_secret().clone();
+        }
+        run_elevenlabs_tts(config, cognitive_speech_rx, cognitive_output_audio_tx).await;
         Ok(())
     }
 }

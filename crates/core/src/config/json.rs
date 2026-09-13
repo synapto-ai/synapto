@@ -31,6 +31,7 @@ impl<P: DataDirProvider> crate::config::ConfigProvider for ConfigJson<P> {
         if let Some(obj) = core_config.as_object_mut() {
             obj.remove("plugins");
             obj.remove("storage");
+            obj.remove("credentials");
         };
         core_config
     }
@@ -49,6 +50,22 @@ impl<P: DataDirProvider> crate::config::ConfigProvider for ConfigJson<P> {
             .get("storage")
             .and_then(|s| s.get(crate_name))
             .and_then(|c| c.get(storage_type_name))
+            .cloned()
+            .unwrap_or_else(|| Value::Object(serde_json::Map::new()))
+    }
+
+    fn load_credentials_config(&self, crate_name: &str, provider_type_name: &str) -> Value {
+        self.config
+            .get("credentials")
+            .and_then(|c| {
+                c.get(crate_name).or_else(|| {
+                    let short_name = crate_name
+                        .strip_prefix("synapto_credentials_provider_")
+                        .or_else(|| crate_name.strip_prefix("credentials_provider_"));
+                    short_name.and_then(|sn| c.get(sn))
+                })
+            })
+            .and_then(|p| p.get(provider_type_name))
             .cloned()
             .unwrap_or_else(|| Value::Object(serde_json::Map::new()))
     }

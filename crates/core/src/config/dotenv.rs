@@ -24,6 +24,7 @@ impl crate::config::ConfigProvider for DotEnv {
         if let Some(obj) = core_config.as_object_mut() {
             obj.remove("PLUGINS");
             obj.remove("STORAGE");
+            obj.remove("CREDENTIALS");
         };
         core_config
     }
@@ -44,5 +45,32 @@ impl crate::config::ConfigProvider for DotEnv {
             storage_type_name.replace(['-', '.'], "_")
         );
         crate::config::env::build_json_from_vars(self.vars.clone(), &prefix)
+    }
+
+    fn load_credentials_config(
+        &self,
+        crate_name: &str,
+        provider_type_name: &str,
+    ) -> serde_json::Value {
+        let prefix = format!(
+            "SYNAPTO__CREDENTIALS__{}__{}__",
+            crate_name.replace(['-', '.'], "_"),
+            provider_type_name.replace(['-', '.'], "_")
+        );
+        let val = crate::config::env::build_json_from_vars(self.vars.clone(), &prefix);
+        if let serde_json::Value::Object(map) = &val
+            && map.is_empty()
+            && let Some(short_name) = crate_name
+                .strip_prefix("synapto_credentials_provider_")
+                .or_else(|| crate_name.strip_prefix("credentials_provider_"))
+        {
+            let short_prefix = format!(
+                "SYNAPTO__CREDENTIALS__{}__{}__",
+                short_name.replace(['-', '.'], "_"),
+                provider_type_name.replace(['-', '.'], "_")
+            );
+            return crate::config::env::build_json_from_vars(self.vars.clone(), &short_prefix);
+        }
+        val
     }
 }

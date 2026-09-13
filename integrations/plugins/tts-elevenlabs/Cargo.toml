@@ -10,6 +10,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+synapto-credentials-provider-elevenlabs = { path = "../../credentials-providers/elevenlabs" }
 synapto-interface.workspace = true
 async-trait.workspace = true
 serde.workspace = true
