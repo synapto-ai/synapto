@@ -37,9 +37,33 @@ pub struct GoogleServiceAccountCredentials {
     pub token_uri: Option<String>,
 }
 
+fn deserialize_optional_secret_string_or_value<'de, D>(
+    deserializer: D,
+) -> Result<Option<Secret<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let opt = Option::<serde_json::Value>::deserialize(deserializer)?;
+    match opt {
+        Some(serde_json::Value::String(s)) => Ok(Some(Secret::new(s))),
+        Some(serde_json::Value::Object(map)) => {
+            let s = serde_json::to_string(&map).map_err(serde::de::Error::custom)?;
+            Ok(Some(Secret::new(s)))
+        }
+        Some(other) => {
+            let s = serde_json::to_string(&other).map_err(serde::de::Error::custom)?;
+            Ok(Some(Secret::new(s)))
+        }
+        None => Ok(None),
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GoogleCredentialsConfig {
-    #[serde(default)]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_secret_string_or_value"
+    )]
     pub service_account_key: Option<Secret<String>>,
     #[serde(default)]
     pub service_account: Option<GoogleServiceAccountCredentials>,
@@ -314,6 +338,27 @@ mod tests {
     fn test_config_with_service_account_key_string() {
         let json = serde_json::json!({
             "service_account_key": "{\"project_id\":\"test-project\",\"private_key\":\"pem\",\"client_email\":\"a@b.com\"}"
+        });
+
+        let config: GoogleCredentialsConfig =
+            serde_json::from_value(json).unwrap_or_else(|e| panic!("Deserialization failed: {e}"));
+        let provider = GoogleCredentials::new(config);
+        let creds = provider
+            .extract_service_account_credentials()
+            .unwrap_or_else(|e| panic!("Extraction failed: {e}"))
+            .unwrap_or_else(|| panic!("Expected service account credentials"));
+        assert_eq!(creds.project_id, "test-project");
+        assert_eq!(creds.client_email, "a@b.com");
+    }
+
+    #[test]
+    fn test_config_with_service_account_key_object() {
+        let json = serde_json::json!({
+            "service_account_key": {
+                "project_id": "test-project",
+                "private_key": "pem",
+                "client_email": "a@b.com"
+            }
         });
 
         let config: GoogleCredentialsConfig =
