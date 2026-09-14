@@ -10,7 +10,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-synapto-credentials-google = { path = "../../credentials-providers/google" }
+synapto-credentials-google.workspace = true
 better_tokio_select = { workspace = true }
 synapto-interface.workspace = true
 async-trait.workspace = true
