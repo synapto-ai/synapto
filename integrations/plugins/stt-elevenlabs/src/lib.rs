@@ -18,8 +18,6 @@ const PEER_INPUT_AUDIO_SAMPLE_RATE: usize = 16_000;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ElevenLabsSttConfig {
-    #[serde(default)]
-    pub elevenlabs_api_key: String,
     pub language_code: Option<String>,
 }
 
@@ -58,18 +56,24 @@ impl STTPlugin for SttElevenLabsPlugin {
         transcript_tx: mpsc::Sender<SpeechTranscript>,
         speech_detected: SpeechDetected,
     ) -> Result<(), String> {
-        let key = self
+        let api_key = self
             .credentials
             .resolve_api_key(&synapto_credentials_provider_elevenlabs::ElevenLabsTarget)
             .await?;
-        let mut config = self.config.clone();
-        config.elevenlabs_api_key = key.expose_secret().clone();
-        run_elevenlabs(config, audio_rx, transcript_tx, speech_detected).await;
+        run_elevenlabs(
+            api_key.expose_secret().clone(),
+            self.config.clone(),
+            audio_rx,
+            transcript_tx,
+            speech_detected,
+        )
+        .await;
         Ok(())
     }
 }
 
 async fn run_elevenlabs(
+    api_key: String,
     config: ElevenLabsSttConfig,
     mut audio_rx: mpsc::Receiver<InputVoiceAudio>,
     transcript_tx: mpsc::Sender<SpeechTranscript>,
@@ -105,9 +109,10 @@ async fn run_elevenlabs(
             "Sec-WebSocket-Key",
             HeaderValue::from_str(&generate_key()).unwrap_or_else(|e| panic!("Error: {:?}", e)),
         );
-        if let Ok(key_val) = HeaderValue::from_str(&config.elevenlabs_api_key) {
-            req.headers_mut().insert("xi-api-key", key_val);
-        }
+        req.headers_mut().insert(
+            "xi-api-key",
+            HeaderValue::from_str(&api_key).unwrap_or_else(|e| panic!("Error: {:?}", e)),
+        );
 
         let (ws_stream, _) = match connect_async(req).await {
             Ok(res) => res,

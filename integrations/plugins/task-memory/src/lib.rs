@@ -21,27 +21,10 @@ use crate::types::{
 // 1. Private Configuration Slice
 // -------------------------------------------------------------
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct GoogleServiceAccountCredentials(pub serde_json::Value);
-
-impl From<GoogleServiceAccountCredentials> for String {
-    fn from(value: GoogleServiceAccountCredentials) -> Self {
-        serde_json::to_string(&value.0).unwrap_or_else(|e| panic!("Failed to serialize: {:?}", e))
-    }
-}
-
 use synapto_interface::llm::ModelConfig;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TaskMemoryConfig {
-    #[serde(default)]
-    pub google_project_id: String,
-    #[serde(default)]
-    pub google_vertex_ai_location: String,
-    #[serde(default)]
-    pub google_service_account_credentials: GoogleServiceAccountCredentials,
-    #[serde(default)]
-    pub gemini_api_key: String,
     pub task: ModelConfig,
     pub goal: ModelConfig,
     pub mission: ModelConfig,

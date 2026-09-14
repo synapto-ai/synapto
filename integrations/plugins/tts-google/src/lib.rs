@@ -1,35 +1,18 @@
-//! # Google Text-to-Speech (TTS) Plugin
-//!
-//! Provides a high-fidelity Text-to-Speech (TTS) engine integration using Google Cloud Text-to-Speech API.
-//!
-//! ## Provided Plugins
-//!
-//! - `TtsGooglePlugin`: Connects to Google's Cloud Text-to-Speech API, handling speech synthesis requests, text normalization, shouting fixes, and robust XML/SSML escaping.
-
 use async_trait::async_trait;
-use google_cloud_texttospeech_v1::{
-    client::TextToSpeech,
-    model::{
-        AdvancedVoiceOptions, AudioConfig, AudioEncoding, SsmlVoiceGender, SynthesisInput,
-        VoiceSelectionParams,
-    },
-};
+use data_encoding::BASE64;
 use serde::Deserialize;
+use synapto_credentials_provider_google::GoogleCloudTarget;
 use synapto_interface::cognitive::CognitiveOutputSpeech;
 use synapto_interface::cognitive_output_audio::CognitiveOutputAudio;
+use synapto_interface::credentials::CredentialsHandle;
 use synapto_interface::plugin::Plugin;
 use synapto_interface::speech_to_text::TTSPlugin;
-use synapto_interface::sync::mpsc;
+use synapto_interface::sync::{broadcast, mpsc};
 use tracing::{Instrument, info_span, instrument};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Deserialize, Clone, Debug, Default)]
-pub struct GoogleServiceAccountCredentials(pub serde_json::Value);
-
-#[derive(Deserialize, Clone, Debug, Default)]
 pub struct GoogleTtsConfig {
-    /// Google service account credentials (standard service_account JSON key format).
-    pub google_service_account_credentials: GoogleServiceAccountCredentials,
     /// BCP-47 language code of the voice (e.g., "cs-CZ", "en-US").
     pub language_code: String,
     /// Exact voice name to use (e.g., "cs-CZ-Wavenet-A", "cs-CZ-Chirp3-HD-Schedar").
@@ -41,10 +24,9 @@ pub struct GoogleTtsConfig {
     pub relax_safety_filters: bool,
 }
 
-#[derive(Deserialize)]
 pub struct TtsGooglePlugin {
-    #[serde(default)]
     config: GoogleTtsConfig,
+    credentials: CredentialsHandle,
 }
 
 #[async_trait::async_trait]
@@ -62,7 +44,10 @@ impl Plugin for TtsGooglePlugin {
         context: &synapto_interface::plugin::PluginInitContext<'_>,
     ) -> Result<Self, String> {
         let config: GoogleTtsConfig = context.config()?;
-        Ok(Self { config })
+        Ok(Self {
+            config,
+            credentials: context.credentials(),
+        })
     }
 }
 
@@ -70,11 +55,12 @@ impl Plugin for TtsGooglePlugin {
 impl TTSPlugin for TtsGooglePlugin {
     async fn start(
         &self,
-        cognitive_speech_rx: synapto_interface::sync::broadcast::Receiver<CognitiveOutputSpeech>,
+        cognitive_speech_rx: broadcast::Receiver<CognitiveOutputSpeech>,
         cognitive_output_audio_tx: mpsc::Sender<CognitiveOutputAudio>,
     ) -> Result<(), String> {
         run_google_tts(
             self.config.clone(),
+            self.credentials.clone(),
             cognitive_speech_rx,
             cognitive_output_audio_tx,
         )
@@ -98,9 +84,9 @@ fn escape_xml(text: &str) -> String {
 }
 
 fn normalize(text: &str) -> String {
-    let fixed = fix_shouting(text).replace("`", "'");
+    let fixed = fix_shouting(text).replace('`', "'");
     format!(
-        "<speak><prosody rate=\"120%\">{}</prosody></speak>", // TODO configurable - also cognitive itself should change the speed when user want it explicitly
+        "<speak><prosody rate=\"120%\">{}</prosody></speak>",
         escape_xml(&fixed)
     )
 }
@@ -137,61 +123,92 @@ fn fix_shouting(text: &str) -> String {
 #[instrument(skip_all)]
 async fn run_google_tts(
     config: GoogleTtsConfig,
-    mut cognitive_speech_rx: synapto_interface::sync::broadcast::Receiver<CognitiveOutputSpeech>,
+    credentials: CredentialsHandle,
+    mut cognitive_speech_rx: broadcast::Receiver<CognitiveOutputSpeech>,
     cognitive_output_audio_tx: mpsc::Sender<CognitiveOutputAudio>,
 ) -> Result<(), String> {
-    let json_value = serde_json::to_value(&config.google_service_account_credentials.0)
-        .map_err(|e| format!("Failed to serialize credentials: {e}"))?;
-    let creds = google_cloud_auth::credentials::service_account::Builder::new(json_value)
-        .build()
-        .map_err(|e| format!("Failed to build Google credentials: {e}"))?;
-
-    let text_to_speech_client = TextToSpeech::builder()
-        .with_credentials(creds)
-        .build()
-        .await
-        .map_err(|e| format!("Failed to create Google TTS client: {e}"))?;
-
-    // Google Cloud TTS API deprecated `set_relax_safety_filters` in upstream definitions,
-    // but we retain this call to maintain backward compatibility with existing configuration options.
-    #[allow(deprecated)]
-    let prepared_response = text_to_speech_client
-        .synthesize_speech()
-        .set_audio_config(
-            AudioConfig::new()
-                .set_audio_encoding(AudioEncoding::OggOpus)
-                .set_sample_rate_hertz(16_000),
-        )
-        .set_voice(
-            VoiceSelectionParams::new()
-                .set_name(config.voice_name)
-                .set_ssml_gender(SsmlVoiceGender::from(config.voice_gender.as_str()))
-                .set_language_code(config.language_code),
-        )
-        .set_advanced_voice_options(
-            AdvancedVoiceOptions::default().set_relax_safety_filters(config.relax_safety_filters),
-        );
+    let client = reqwest::Client::new();
+    let target = GoogleCloudTarget {
+        scopes: vec!["https://www.googleapis.com/auth/cloud-platform".to_string()],
+    };
+    let url = "https://texttospeech.googleapis.com/v1/text:synthesize";
 
     loop {
         match cognitive_speech_rx.recv().await {
             Ok(text) => {
-                match prepared_response
-                    .clone()
-                    .set_input(SynthesisInput::new().set_ssml(normalize(text.text.as_str())))
+                let token = match credentials.resolve_bearer_token(&target).await {
+                    Ok(t) => t,
+                    Err(e) => {
+                        tracing::error!("Failed to resolve bearer token for Google TTS: {e}");
+                        continue;
+                    }
+                };
+
+                let request_body = serde_json::json!({
+                    "input": {
+                        "ssml": normalize(text.text.as_str())
+                    },
+                    "voice": {
+                        "languageCode": config.language_code,
+                        "name": config.voice_name,
+                        "ssmlGender": config.voice_gender
+                    },
+                    "audioConfig": {
+                        "audioEncoding": "OGG_OPUS",
+                        "sampleRateHertz": 16000
+                    },
+                    "advancedVoiceOptions": {
+                        "relaxSafetyFilters": config.relax_safety_filters
+                    }
+                });
+
+                let response = client
+                    .post(url)
+                    .bearer_auth(token.expose_secret())
+                    .json(&request_body)
                     .send()
                     .instrument(info_span!("Google TTS"))
-                    .await
-                {
-                    Ok(response) => {
-                        if let Err(e) = cognitive_output_audio_tx
-                            .send(CognitiveOutputAudio(response.audio_content.to_vec()))
-                            .await
-                        {
-                            tracing::error!("Failed to send output audio: {:?}", e);
+                    .await;
+
+                match response {
+                    Ok(resp) => {
+                        if !resp.status().is_success() {
+                            tracing::error!("Google TTS API returned HTTP {}", resp.status());
+                            continue;
+                        }
+                        match resp.json::<serde_json::Value>().await {
+                            Ok(json) => {
+                                if let Some(audio_b64) = json["audioContent"].as_str() {
+                                    match BASE64.decode(audio_b64.as_bytes()) {
+                                        Ok(audio_bytes) => {
+                                            if let Err(e) = cognitive_output_audio_tx
+                                                .send(CognitiveOutputAudio(audio_bytes))
+                                                .await
+                                            {
+                                                tracing::error!(
+                                                    "Failed to send output audio: {:?}",
+                                                    e
+                                                );
+                                            }
+                                        }
+                                        Err(e) => {
+                                            tracing::error!(
+                                                "Failed to decode base64 audio: {:?}",
+                                                e
+                                            );
+                                        }
+                                    }
+                                } else {
+                                    tracing::error!("Missing audioContent in TTS response");
+                                }
+                            }
+                            Err(e) => {
+                                tracing::error!("Failed to parse TTS JSON response: {:?}", e);
+                            }
                         }
                     }
                     Err(e) => {
-                        tracing::error!("Google TTS error: {:?}", e);
+                        tracing::error!("Google TTS request error: {:?}", e);
                     }
                 }
             }

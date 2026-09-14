@@ -47,8 +47,6 @@ struct InternalResult {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct SpeechmaticsConfig {
-    #[serde(default)]
-    pub speechmatics_api_key: String,
     pub language_code: Option<String>,
 }
 
@@ -88,18 +86,24 @@ impl STTPlugin for SttSpeechmaticsPlugin {
         transcript_tx: mpsc::Sender<SpeechTranscript>,
         speech_detected: SpeechDetected,
     ) -> Result<(), String> {
-        let key = self
+        let api_key = self
             .credentials
             .resolve_api_key(&synapto_credentials_provider_speechmatics::SpeechmaticsTarget)
             .await?;
-        let mut config = self.config.clone();
-        config.speechmatics_api_key = key.expose_secret().clone();
-        run_speechmatics(config, audio_rx, transcript_tx, speech_detected).await;
+        run_speechmatics(
+            api_key.expose_secret().clone(),
+            self.config.clone(),
+            audio_rx,
+            transcript_tx,
+            speech_detected,
+        )
+        .await;
         Ok(())
     }
 }
 
 async fn run_speechmatics(
+    api_key: String,
     config: SpeechmaticsConfig,
     mut audio_rx: mpsc::Receiver<InputVoiceAudio>,
     transcript_tx: mpsc::Sender<SpeechTranscript>,
@@ -130,7 +134,7 @@ async fn run_speechmatics(
         );
         req.headers_mut().insert(
             "Authorization",
-            HeaderValue::from_str(&format!("Bearer {}", config.speechmatics_api_key))
+            HeaderValue::from_str(&format!("Bearer {}", api_key))
                 .unwrap_or_else(|e| panic!("Error: {:?}", e)),
         );
 

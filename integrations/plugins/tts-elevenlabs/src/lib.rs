@@ -13,8 +13,6 @@ use tracing::{Instrument, info_span};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ElevenLabsTtsConfig {
-    #[serde(default)]
-    pub elevenlabs_api_key: String,
     pub voice_id: String,
     pub model_id: Option<String>,
     pub voice_settings: Option<VoiceSettings>,
@@ -59,19 +57,24 @@ impl TTSPlugin for TtsElevenLabsPlugin {
             .credentials
             .resolve_api_key(&synapto_credentials_provider_elevenlabs::ElevenLabsTarget)
             .await?;
-        let mut config = self.config.clone();
-        config.elevenlabs_api_key = key.expose_secret().clone();
-        run_elevenlabs_tts(config, cognitive_speech_rx, cognitive_output_audio_tx).await;
+        run_elevenlabs_tts(
+            key.expose_secret().clone(),
+            self.config.clone(),
+            cognitive_speech_rx,
+            cognitive_output_audio_tx,
+        )
+        .await;
         Ok(())
     }
 }
 
 async fn run_elevenlabs_tts(
+    api_key: String,
     config: ElevenLabsTtsConfig,
     mut cognitive_speech_rx: synapto_interface::sync::broadcast::Receiver<CognitiveOutputSpeech>,
     cognitive_output_audio_tx: mpsc::Sender<CognitiveOutputAudio>,
 ) {
-    let elevenlabs_config = ClientConfig::builder(config.elevenlabs_api_key).build();
+    let elevenlabs_config = ClientConfig::builder(api_key).build();
     let client =
         ElevenLabsClient::new(elevenlabs_config).unwrap_or_else(|e| panic!("Error: {:?}", e));
 
