@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use data_encoding::BASE64;
 use serde::Deserialize;
-use synapto_credentials_provider_google::GoogleCloudTarget;
+use synapto_credentials_google::GoogleCloudTarget;
 use synapto_interface::cognitive::CognitiveOutputSpeech;
 use synapto_interface::cognitive_output_audio::CognitiveOutputAudio;
 use synapto_interface::credentials::CredentialsHandle;

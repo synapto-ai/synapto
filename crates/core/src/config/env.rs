@@ -45,21 +45,7 @@ impl crate::config::ConfigProvider for Env {
             crate_name.replace(['-', '.'], "_"),
             provider_type_name.replace(['-', '.'], "_")
         );
-        let val = build_env_json(&prefix);
-        if let serde_json::Value::Object(map) = &val
-            && map.is_empty()
-            && let Some(short_name) = crate_name
-                .strip_prefix("synapto_credentials_provider_")
-                .or_else(|| crate_name.strip_prefix("credentials_provider_"))
-        {
-            let short_prefix = format!(
-                "SYNAPTO__CREDENTIALS__{}__{}__",
-                short_name.replace(['-', '.'], "_"),
-                provider_type_name.replace(['-', '.'], "_")
-            );
-            return build_env_json(&short_prefix);
-        }
-        val
+        build_env_json(&prefix)
     }
 }
 

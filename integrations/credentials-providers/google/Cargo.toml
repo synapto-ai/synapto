@@ -1,5 +1,5 @@
 [package]
-name = "synapto-credentials-provider-google"
+name = "synapto-credentials-google"
 description = "Google Cloud credentials provider for Synapto"
 version = "0.1.0-dev.10"
 edition = "2024"

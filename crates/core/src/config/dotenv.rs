@@ -57,20 +57,6 @@ impl crate::config::ConfigProvider for DotEnv {
             crate_name.replace(['-', '.'], "_"),
             provider_type_name.replace(['-', '.'], "_")
         );
-        let val = crate::config::env::build_json_from_vars(self.vars.clone(), &prefix);
-        if let serde_json::Value::Object(map) = &val
-            && map.is_empty()
-            && let Some(short_name) = crate_name
-                .strip_prefix("synapto_credentials_provider_")
-                .or_else(|| crate_name.strip_prefix("credentials_provider_"))
-        {
-            let short_prefix = format!(
-                "SYNAPTO__CREDENTIALS__{}__{}__",
-                short_name.replace(['-', '.'], "_"),
-                provider_type_name.replace(['-', '.'], "_")
-            );
-            return crate::config::env::build_json_from_vars(self.vars.clone(), &short_prefix);
-        }
-        val
+        crate::config::env::build_json_from_vars(self.vars.clone(), &prefix)
     }
 }

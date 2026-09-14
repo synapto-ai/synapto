@@ -88,7 +88,7 @@ impl STTPlugin for SttSpeechmaticsPlugin {
     ) -> Result<(), String> {
         let api_key = self
             .credentials
-            .resolve_api_key(&synapto_credentials_provider_speechmatics::SpeechmaticsTarget)
+            .resolve_api_key(&synapto_credentials_speechmatics::SpeechmaticsTarget)
             .await?;
         run_speechmatics(
             api_key.expose_secret().clone(),

@@ -57,14 +57,7 @@ impl<P: DataDirProvider> crate::config::ConfigProvider for ConfigJson<P> {
     fn load_credentials_config(&self, crate_name: &str, provider_type_name: &str) -> Value {
         self.config
             .get("credentials")
-            .and_then(|c| {
-                c.get(crate_name).or_else(|| {
-                    let short_name = crate_name
-                        .strip_prefix("synapto_credentials_provider_")
-                        .or_else(|| crate_name.strip_prefix("credentials_provider_"));
-                    short_name.and_then(|sn| c.get(sn))
-                })
-            })
+            .and_then(|c| c.get(crate_name))
             .and_then(|p| p.get(provider_type_name))
             .cloned()
             .unwrap_or_else(|| Value::Object(serde_json::Map::new()))

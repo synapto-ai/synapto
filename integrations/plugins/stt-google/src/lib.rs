@@ -120,7 +120,7 @@ async fn run_v1(
     speech_detected: SpeechDetected,
 ) {
     let url = "https://speech.googleapis.com".to_string();
-    let target = synapto_credentials_provider_google::GoogleCloudTarget {
+    let target = synapto_credentials_google::GoogleCloudTarget {
         scopes: vec!["https://www.googleapis.com/auth/cloud-platform".to_string()],
     };
 
@@ -388,7 +388,7 @@ async fn run_v2(
         config.google_project_id, location
     );
     let url = format!("https://{location}-speech.googleapis.com");
-    let target = synapto_credentials_provider_google::GoogleCloudTarget {
+    let target = synapto_credentials_google::GoogleCloudTarget {
         scopes: vec!["https://www.googleapis.com/auth/cloud-platform".to_string()],
     };
 

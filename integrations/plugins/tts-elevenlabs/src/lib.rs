@@ -55,7 +55,7 @@ impl TTSPlugin for TtsElevenLabsPlugin {
     ) -> Result<(), String> {
         let key = self
             .credentials
-            .resolve_api_key(&synapto_credentials_provider_elevenlabs::ElevenLabsTarget)
+            .resolve_api_key(&synapto_credentials_elevenlabs::ElevenLabsTarget)
             .await?;
         run_elevenlabs_tts(
             key.expose_secret().clone(),
