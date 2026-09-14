@@ -31,10 +31,7 @@ impl ElevenLabsCredentials {
 
 #[async_trait]
 impl ProvideApiKey<ElevenLabsTarget> for ElevenLabsCredentials {
-    async fn resolve_api_key(
-        &self,
-        _target: &ElevenLabsTarget,
-    ) -> Result<Secret<String>, String> {
+    async fn resolve_api_key(&self, _target: &ElevenLabsTarget) -> Result<Secret<String>, String> {
         if let Some(ref key) = self.config.api_key
             && !key.expose_secret().is_empty()
         {

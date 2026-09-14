@@ -138,10 +138,7 @@ impl GoogleCredentials {
             "https://oauth2.googleapis.com/token".to_string()
         };
 
-        let token_uri = creds
-            .token_uri
-            .as_deref()
-            .unwrap_or(&default_token_uri);
+        let token_uri = creds.token_uri.as_deref().unwrap_or(&default_token_uri);
 
         let scopes_joined = target.scopes.join(" ");
         let claims = JwtClaims {
@@ -307,7 +304,10 @@ mod tests {
         let creds: GoogleServiceAccountCredentials =
             serde_json::from_value(json).unwrap_or_else(|e| panic!("Deserialization failed: {e}"));
         assert_eq!(creds.project_id, "test-project");
-        assert_eq!(creds.client_email, "bot@test-project.iam.gserviceaccount.com");
+        assert_eq!(
+            creds.client_email,
+            "bot@test-project.iam.gserviceaccount.com"
+        );
     }
 
     #[test]
