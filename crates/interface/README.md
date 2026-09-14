@@ -24,6 +24,14 @@ For internal services that process data within the core (e.g., Speech-to-Text, T
 
 - _Example:_ `core_voice_audio_rx` (Core sends audio to service), `speech_transcript_tx` (Service sends transcript to core).
 
+## Authentication and Credentials Mandate (Rule 27)
+
+Plugins must never parse authentication keys from their own configuration schemas. Plugins must not read environment variables directly to find secrets.
+
+- Call `context.credentials()` during `Plugin::create` to get the `CredentialsHandle`.
+- Resolve required tokens or keys through typed `CredentialTarget` implementations (for example: `ProvideBearerToken<GoogleCloudTarget>` or `ProvideApiKey<Target>`).
+- If credentials are missing or invalid, fail through the credentials provider error channel. Do not implement fallback authentication mechanisms inside the plugin.
+
 ---
 
 # Creating a Custom Plugin
@@ -140,10 +148,8 @@ impl Plugin for MyChatPlugin {
 }
 ```
 
-> **Note on Serde Configuration Defaults:**
-> The `PluginContext::config()?` method performs strict JSON structural deserialization of the configuration at the boundary. If your configuration struct (which must derive `Deserialize`) expects a field that is omitted in the config file, `serde` will return a `missing field` error — even if your struct implements `Default`.
->
-> To make a configuration parameter optional, use the `#[serde(default)]` attribute on the field. This instructs `serde` to fall back to the type's `Default::default()` (or a custom function) if the user omits the key from their configuration file.
+> **Strict Configuration Mandate (Rule 28):**
+> The `PluginInitContext::config()?` method performs strict JSON structural deserialization of the configuration at the boundary. In accordance with Rule 28 (Explicit Configuration Mandate), plugins must not use `#[serde(default)]` or implicit fallback defaults for operational parameters. Every required parameter must be explicitly configured in the configuration file. If a parameter is missing, `serde` returns an immediate `missing field` error.
 
 ### 3. Implement the Specialized `ChatPlugin` Trait
 

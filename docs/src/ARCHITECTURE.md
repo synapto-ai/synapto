@@ -95,6 +95,12 @@ The system is built on an open-core architecture with loosely coupled plugins, c
     - **Automatic Wrapping at API Boundaries**: Factory and connector methods (such as `context.store::<S>()`) that return shared resources must encapsulate the `Arc` allocation internally. Callers receive `Arc<T>` directly without manually writing `Arc::new(...)` boilerplate in plugin initializations.
     - **Developer Ergonomics**: Hiding pointer indirection simplifies type signatures, prevents illegal low-level method calls, and protects system encapsulation.
 
+27. **Unified Credentials Provider Mandate (No Local Authentication Solutions)**:
+    Every plugin must get authentication credentials only through `context.credentials()`. Plugins must not implement custom credential resolution, custom environment variable lookups, static API key fields in plugin configuration, or custom token signing logic. Plugins must not implement local fallback authentication logic. When a plugin needs credentials (for example: Bearer tokens or API keys), the plugin must define or use a typed `CredentialTarget` and request resolution from the ambient `CredentialsHandle`. This rule keeps a Single Source of Truth, enables uniform secret rotation, and permits ambient cloud identity resolution across the system.
+
+28. **Explicit Configuration Mandate (No Implicit Defaults)**:
+    All configuration schemas must be fully explicit. Plugins and core components must not use `#[serde(default)]` or implicit fallback values for operational parameters. Every parameter (such as model names, cloud regions, project identifiers, and presets) must be defined explicitly by the operator in the configuration file. If a parameter is missing, deserialization must fail immediately with an explicit error. This rule prevents silent behavior changes, hidden operational assumptions, and configuration drift.
+
 ### Cognitive Core (`src/cognitive.rs` and `src/cognitive/`)
 
 The brain of the system. It is divided into direct (`src/cognitive/direct.rs`) and side (`src/cognitive/side.rs`) evaluation tasks. They run infinite loops waiting for notifications from input channels. When awakened, they snapshot the current state, memories, and sensor data, sending them to the LLM. They produce the unified `CognitiveLLMOutput<CognitiveCommands>` structure, which contains reasoning and the relevant command block (`CognitiveDirectCommands` or `CognitiveSideCommands`).
