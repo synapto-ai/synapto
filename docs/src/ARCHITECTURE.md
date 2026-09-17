@@ -101,6 +101,9 @@ The system is built on an open-core architecture with loosely coupled plugins, c
 28. **Explicit Configuration Mandate (No Implicit Defaults)**:
     All configuration schemas must be fully explicit. Plugins and core components must not use `#[serde(default)]` or implicit fallback values for operational parameters. Every parameter (such as model names, cloud regions, project identifiers, and presets) must be defined explicitly by the operator in the configuration file. If a parameter is missing, deserialization must fail immediately with an explicit error. This rule prevents silent behavior changes, hidden operational assumptions, and configuration drift.
 
+29. **Atomic Plugin Configuration Mandate (One Configuration Struct per Plugin)**:
+    Each plugin must define its own dedicated configuration struct. Do not define shared or composite configuration structs that combine fields across different plugins. A plugin must deserialize only the configuration parameters that the plugin uses. Bundling fields across distinct plugins violates data cohesion and creates configuration coupling. When a crate provides multiple plugins, define a separate configuration struct for each plugin.
+
 ### Cognitive Core (`src/cognitive.rs` and `src/cognitive/`)
 
 The brain of the system. It is divided into direct (`src/cognitive/direct.rs`) and side (`src/cognitive/side.rs`) evaluation tasks. They run infinite loops waiting for notifications from input channels. When awakened, they snapshot the current state, memories, and sensor data, sending them to the LLM. They produce the unified `CognitiveLLMOutput<CognitiveCommands>` structure, which contains reasoning and the relevant command block (`CognitiveDirectCommands` or `CognitiveSideCommands`).

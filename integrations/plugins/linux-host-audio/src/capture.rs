@@ -1,4 +1,4 @@
-use crate::{HostAudioConfig, Terminate};
+use crate::{HostAudioInputConfig, Terminate};
 use libspa::param::audio::AudioFormat;
 use pipewire as pw;
 use pw::properties::properties;
@@ -51,7 +51,7 @@ fn capture_merger(
 }
 
 pub(crate) fn run_capture_task(
-    config: HostAudioConfig,
+    config: HostAudioInputConfig,
     tx: mpsc::Sender<PeerInputAudio>,
     quit_tx_handle: Arc<Mutex<Option<pw::channel::Sender<Terminate>>>>,
 ) -> Result<(), pw::Error> {

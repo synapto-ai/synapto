@@ -1,4 +1,4 @@
-use crate::{HostAudioConfig, Terminate, audio_utils};
+use crate::{HostAudioOutputConfig, Terminate, audio_utils};
 use libspa_sys as spa_sys;
 use pipewire as pw;
 use pw::properties::properties;
@@ -11,7 +11,7 @@ use synapto_interface::cognitive_output_audio::CognitiveOutputAudio;
 use synapto_interface::sync::mpsc;
 
 pub(crate) fn run_playback_task(
-    config: HostAudioConfig,
+    config: HostAudioOutputConfig,
     mut rx: mpsc::Receiver<CognitiveOutputAudio>,
     quit_tx_handle: Arc<Mutex<Option<pw::channel::Sender<Terminate>>>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
