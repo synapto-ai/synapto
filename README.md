@@ -38,18 +38,19 @@ Here is what a complete, working custom bundle looks like:
 ```rust
 #[tokio::main]
 async fn main() -> ExitCode {
-    // 1. Initialize the core with configuration providers, storage, and prompt provider
-    Synapto::<
-        (ConfigJson<DataDir>, DotEnv, Env),
-        Storage,
-        FilePromptProvider<DataDir>,
-    >::run::<(
-        HostAudioInputPlugin,
-        HostAudioOutputPlugin,
-        // MyCustomPlugin
-    )>()
-    // 2. Let it run forever!
-    .await
+    // 1. Initialize the core using the fluent builder
+    Synapto::builder()
+        .configs::<(ConfigJson<DataDir>, DotEnv, Env)>()
+        .storage::<Storage>()
+        .prompt::<FilePromptProvider<DataDir>>()
+        .plugins::<(
+            HostAudioInputPlugin,
+            HostAudioOutputPlugin,
+            // MyCustomPlugin
+        )>()
+        .run()
+        // 2. Let it run forever!
+        .await
 }
 ```
 

@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use std::sync::Arc;
 use synapto_interface::cognitive::{CognitiveOutputSpeech, CognitiveStateUpdate};
 use synapto_interface::cognitive_output_audio::CognitiveOutputAudio;
@@ -183,14 +184,189 @@ impl<C: crate::config::ConfigProvider> synapto_interface::storage::StorageConfig
     }
 }
 
-pub struct Synapto<
-    C: crate::config::ConfigProvider,
+/// Marker for unconfigured mandatory configuration provider.
+pub struct NoConfig;
+
+/// Marker for unconfigured mandatory storage backend.
+pub struct NoStorage;
+
+/// Marker for absent decision provider.
+pub struct NoDecision;
+
+/// Marker for configured singleton decision provider.
+pub struct WithDecision<D>(pub(crate) PhantomData<D>);
+
+/// Public trait defining decision provider setup into Synapto core.
+pub trait DecisionSetup<
+    C: config::ConfigProvider,
     S: synapto_interface::storage::StorageConnection
         + synapto_interface::storage::KeyValueStore
         + synapto_interface::storage::RecordStore,
-    PR: prompt_provider::CognitivePromptProvider = prompt_provider::EmptyPromptProvider,
-    CR: credentials::CredentialsTuple = (),
-> {
+    PR: prompt_provider::CognitivePromptProvider,
+    CR: credentials::CredentialsTuple,
+>
+{
+    fn setup(synapto: &mut Synapto<C, S, PR, CR>) -> Result<(), String>;
+}
+
+impl<
+    C: config::ConfigProvider,
+    S: synapto_interface::storage::StorageConnection
+        + synapto_interface::storage::KeyValueStore
+        + synapto_interface::storage::RecordStore,
+    PR: prompt_provider::CognitivePromptProvider,
+    CR: credentials::CredentialsTuple,
+> DecisionSetup<C, S, PR, CR> for NoDecision
+{
+    fn setup(_synapto: &mut Synapto<C, S, PR, CR>) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+impl<
+    C: config::ConfigProvider,
+    S: synapto_interface::storage::StorageConnection
+        + synapto_interface::storage::KeyValueStore
+        + synapto_interface::storage::RecordStore,
+    PR: prompt_provider::CognitivePromptProvider,
+    CR: credentials::CredentialsTuple,
+    D,
+> DecisionSetup<C, S, PR, CR> for WithDecision<D>
+where
+    D: synapto_interface::decision::DecisionProvider,
+{
+    fn setup(synapto: &mut Synapto<C, S, PR, CR>) -> Result<(), String> {
+        let full_path = core::any::type_name::<D>();
+        let crate_name = full_path
+            .split("::")
+            .next()
+            .unwrap_or("")
+            .to_string()
+            .replace('-', "_");
+        let base_path = full_path.split('<').next().unwrap_or(full_path);
+        let provider_type_name = base_path.split("::").last().unwrap_or("").to_string();
+
+        let raw_config = synapto
+            .config_provider
+            .get_plugin_config_value(&crate_name, &provider_type_name);
+
+        let config: D::Config = serde_json::from_value(raw_config).map_err(|e| {
+            format!(
+                "Failed to parse config for decision provider '{}': {}",
+                provider_type_name, e
+            )
+        })?;
+
+        let provider = D::init(config, synapto.credentials.clone())?;
+        synapto
+            .decision_handle
+            .set_arc_backend(provider.raw_decision_executor());
+        Tracing::add_plugin_to_log(&provider_type_name);
+        tracing::info!("  Decision capability registered: {}", provider_type_name);
+        Ok(())
+    }
+}
+
+/// Zero-cost typestate builder for Synapto bundles.
+pub struct SynaptoBuilder<C, S, PR, CR, D, P> {
+    _marker: PhantomData<(C, S, PR, CR, D, P)>,
+}
+
+impl Synapto<NoConfig, NoStorage, prompt_provider::EmptyPromptProvider, ()> {
+    /// Entry point for fluent bundle composition.
+    pub fn builder()
+    -> SynaptoBuilder<NoConfig, NoStorage, prompt_provider::EmptyPromptProvider, (), NoDecision, ()>
+    {
+        SynaptoBuilder {
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<C, S, PR, CR, D, P> SynaptoBuilder<C, S, PR, CR, D, P> {
+    /// Sets the configuration provider sources (plural: accepts tuple).
+    pub fn configs<NewC: config::ConfigProvider>(self) -> SynaptoBuilder<NewC, S, PR, CR, D, P> {
+        SynaptoBuilder {
+            _marker: PhantomData,
+        }
+    }
+
+    /// Sets the shared storage backend (singular: accepts single storage type).
+    pub fn storage<NewS>(self) -> SynaptoBuilder<C, NewS, PR, CR, D, P>
+    where
+        NewS: synapto_interface::storage::StorageConnection
+            + synapto_interface::storage::KeyValueStore
+            + synapto_interface::storage::RecordStore,
+    {
+        SynaptoBuilder {
+            _marker: PhantomData,
+        }
+    }
+
+    /// Overrides the cognitive prompt provider (singular: accepts single prompt provider, defaults to EmptyPromptProvider).
+    pub fn prompt<NewPR: prompt_provider::CognitivePromptProvider>(
+        self,
+    ) -> SynaptoBuilder<C, S, NewPR, CR, D, P> {
+        SynaptoBuilder {
+            _marker: PhantomData,
+        }
+    }
+
+    /// Overrides credentials providers (plural: accepts tuple, defaults to ()).
+    pub fn credentials<NewCR: credentials::CredentialsTuple>(
+        self,
+    ) -> SynaptoBuilder<C, S, PR, NewCR, D, P> {
+        SynaptoBuilder {
+            _marker: PhantomData,
+        }
+    }
+
+    /// Registers the plugin tuple (plural: accepts tuple).
+    pub fn plugins<NewP>(self) -> SynaptoBuilder<C, S, PR, CR, D, NewP> {
+        SynaptoBuilder {
+            _marker: PhantomData,
+        }
+    }
+}
+
+/// Singleton decision provider registration is available only when NoDecision is present.
+impl<C, S, PR, CR, P> SynaptoBuilder<C, S, PR, CR, NoDecision, P> {
+    /// Registers the singular decision provider (singular: accepts single decision provider).
+    /// Calling this method a second time is prevented at compile time.
+    /// Cannot be called with standard plugins (must implement DecisionProvider).
+    pub fn decision<D: synapto_interface::decision::DecisionProvider>(
+        self,
+    ) -> SynaptoBuilder<C, S, PR, CR, WithDecision<D>, P> {
+        SynaptoBuilder {
+            _marker: PhantomData,
+        }
+    }
+}
+
+/// Terminal execution method: available only when mandatory infrastructure is provided.
+impl<C, S, PR, CR, D, P> SynaptoBuilder<C, S, PR, CR, D, P>
+where
+    C: config::ConfigProvider,
+    S: synapto_interface::storage::StorageConnection
+        + synapto_interface::storage::KeyValueStore
+        + synapto_interface::storage::RecordStore,
+    PR: prompt_provider::CognitivePromptProvider,
+    CR: credentials::CredentialsTuple,
+    D: DecisionSetup<C, S, PR, CR>,
+    P: PluginTuple<C, S, PR, CR>,
+{
+    pub async fn run(self) -> ExitCode {
+        let mut synapto = Synapto::<C, S, PR, CR>::new();
+        if let Err(e) = D::setup(&mut synapto) {
+            panic!("Failed to initialize decision provider: {}", e);
+        }
+        let synapto = P::register_plugins(synapto);
+        synapto.run_internal().await
+    }
+}
+
+pub struct Synapto<C = NoConfig, S = NoStorage, PR = prompt_provider::EmptyPromptProvider, CR = ()>
+{
     config: config::Config,
     config_provider: Arc<C>,
     _prompt_provider: std::marker::PhantomData<PR>,
@@ -237,6 +413,7 @@ pub struct Synapto<
         >,
     >,
     llm_executor: synapto_interface::llm::LlmExecutor,
+    decision_handle: synapto_interface::decision::DecisionHandle,
     gui_spawner: Option<GuiSpawner>,
     camera_spawner: Option<CameraSpawner>,
     error_rx: Option<std::sync::mpsc::Receiver<String>>,
@@ -329,6 +506,7 @@ impl<
             current_context_tx,
 
             llm_executor,
+            decision_handle: synapto_interface::decision::DecisionHandle::empty(),
         }
     }
 
@@ -368,6 +546,7 @@ impl<
 
             let init_context = synapto_interface::plugin::PluginInitContext::new(
                 self.llm_executor.clone(),
+                self.decision_handle.clone(),
                 &plugin_config,
                 self.storage.clone(),
                 &safe_namespace,
@@ -416,10 +595,6 @@ impl<
 
         plugin.register(&mut self);
         self
-    }
-
-    pub async fn run<T: PluginTuple<C, S, PR, CR>>() -> ExitCode {
-        T::register_plugins(Self::new()).run_internal().await
     }
 
     async fn run_internal(self) -> ExitCode {
@@ -582,6 +757,7 @@ impl<
         let core_namespace = "core";
         let core_plugin_context = synapto_interface::plugin::PluginInitContext::new(
             self.llm_executor.clone(),
+            self.decision_handle.clone(),
             &core_config,
             self.storage.clone(),
             core_namespace,

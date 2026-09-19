@@ -73,6 +73,7 @@ async fn test_google_tts_live_synthesis_xml_escaping() {
     ));
     let plugin = TtsGooglePlugin::create(&PluginInitContext::new(
         synapto_interface::llm::LlmExecutor::new(DummyLlmExecutor),
+        synapto_interface::decision::DecisionHandle::empty(),
         &config,
         storage_handle,
         "tts_google",

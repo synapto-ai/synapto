@@ -14,16 +14,20 @@ use synapto_test::{
 };
 
 async fn test_bundle() {
-    Synapto::<(ConfigJson<WorkspaceTestDir>, DotEnv, Env), LocalStorage<EphemeralDir>>::run::<(
-        MockDocumentsPlugin,
-        MockChatPlugin,
-        MockSlowReadPlugin,
-        MockTtsPlugin,
-        MockSttPlugin,
-        MockDiarizationPlugin,
-        HostAudioInputPlugin,
-    )>()
-    .await;
+    Synapto::builder()
+        .configs::<(ConfigJson<WorkspaceTestDir>, DotEnv, Env)>()
+        .storage::<LocalStorage<EphemeralDir>>()
+        .plugins::<(
+            MockDocumentsPlugin,
+            MockChatPlugin,
+            MockSlowReadPlugin,
+            MockTtsPlugin,
+            MockSttPlugin,
+            MockDiarizationPlugin,
+            HostAudioInputPlugin,
+        )>()
+        .run()
+        .await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

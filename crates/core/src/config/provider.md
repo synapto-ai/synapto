@@ -20,12 +20,23 @@ All core and plugin configuration structs use `#[serde(deny_unknown_fields)]`. I
 
 ### Environment Variable Overrides
 
-By including the built-in `Env` provider at the end of your tuple, environment variables are automatically merged into the base JSON using double underscores (`__`) to represent object nesting.
+By including the built-in `Env` provider at the end of your tuple (or `DotEnv` for `.env` files), environment variables are automatically merged into the base JSON using double underscores (`__`) to represent object nesting.
 
-*   **Core Config:** Prefix `SYNAPTO__`.
-    *   Example: `SYNAPTO__COGNITIVE__MODEL="gemini-1.5-pro"` overrides `Config::cognitive.model`.
-*   **Plugin Config:** Prefix `SYNAPTO__PLUGINS__<CRATE_NAME>__<PLUGIN_TYPE_NAME>__` (Crate and Plugin name are uppercase, hyphens/dots replaced with underscores).
-    *   Example: For `google-chat`, `SYNAPTO__PLUGINS__GOOGLE_CHAT__GOOGLECHATPLUGIN__API_KEY="secret"` overrides `GoogleChatConfig::api_key`.
+> [!WARNING]
+> **Strict Case-Sensitivity:**
+> Environment variable resolution is strictly case-sensitive. The subsystem prefixes are uppercase (`SYNAPTO__`, `PLUGINS__`, `STORAGE__`, `CREDENTIALS__`), but the interpolated crate names, type names, and field names MUST match the exact casing used in Rust code. Because structs derive `#[serde(deny_unknown_fields)]`, any case mismatch will fail deserialization.
+
+*   **Core Config:** Prefix `SYNAPTO__<field_name>` (fields are exact `snake_case`).
+    *   Example: `SYNAPTO__cognitive__model="gemini-1.5-pro"` overrides `Config::cognitive.model`.
+*   **Plugin Config:** Prefix `SYNAPTO__PLUGINS__<crate_name>__<PluginTypeName>__<field_name>`:
+    *   `<crate_name>`: Crate identifier with `-` replaced by `_` (`snake_case`).
+    *   `<PluginTypeName>`: Exact Rust struct name (`PascalCase`).
+    *   `<field_name>`: Target configuration struct field (`snake_case`).
+    *   Example: `SYNAPTO__PLUGINS__synapto_plugin_google_chat__GoogleChatPlugin__api_key="secret"` overrides `GoogleChatConfig::api_key`.
+*   **Credentials Config:** Prefix `SYNAPTO__CREDENTIALS__<crate_name>__<ProviderTypeName>__<field_name>`:
+    *   Example: `SYNAPTO__CREDENTIALS__synapto_credentials_typesafe__TypeSafeCredentials__api_key="secret"` overrides `TypeSafeCredentialsConfig::api_key`.
+*   **Storage Config:** Prefix `SYNAPTO__STORAGE__<crate_name>__<StorageTypeName>__<field_name>`:
+    *   Example: `SYNAPTO__STORAGE__synapto_storage_firestore__FirestoreStorage__project_id="my-project"`.
 
 ## Existing Providers
 
@@ -89,19 +100,23 @@ Instead of opting out of environment variables directly, you can strictly contro
 
 ```rust,ignore
 // Secure deployment without environment variable overrides:
-Synapto::<
-    datadir_cwd::CurrentWorkDir,
-    VaultConfigProvider, // Exclusively loads from Vault
-    prompt_file::FilePromptProvider
->::run::<(MyPlugin,)>().await
+Synapto::builder()
+    .configs::<VaultConfigProvider>() // Exclusively loads from Vault
+    .storage::<Storage>()
+    .prompt::<prompt_file::FilePromptProvider<DataDir>>()
+    .plugins::<(MyPlugin,)>()
+    .run()
+    .await
 ```
 
 If you do want layered overrides (File -> .env -> Real Env Variables):
 
 ```rust,ignore
-Synapto::<
-    datadir_cwd::CurrentWorkDir,
-    (ConfigJson, DotEnv, Env),
-    prompt_file::FilePromptProvider
->::run::<(MyPlugin,)>().await
+Synapto::builder()
+    .configs::<(ConfigJson<DataDir>, DotEnv, Env)>()
+    .storage::<Storage>()
+    .prompt::<prompt_file::FilePromptProvider<DataDir>>()
+    .plugins::<(MyPlugin,)>()
+    .run()
+    .await
 ```

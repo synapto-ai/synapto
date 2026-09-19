@@ -8,6 +8,7 @@ members = [
     "integrations/prompt-providers/*",
     "integrations/datadir-providers/*",
     "integrations/credentials-providers/*",
+    "integrations/decision-providers/*",
     "integrations/synapto-battery-pack",
 ]
 
@@ -27,6 +28,7 @@ synapto-test = { path = "crates/test", version = "0.1.0-dev.12" }
 synapto-credentials-elevenlabs = { path = "integrations/credentials-providers/elevenlabs", version = "0.1.0-dev.11" }
 synapto-credentials-google = { path = "integrations/credentials-providers/google", version = "0.1.0-dev.11" }
 synapto-credentials-speechmatics = { path = "integrations/credentials-providers/speechmatics", version = "0.1.0-dev.11" }
+synapto-credentials-typesafe = { path = "integrations/credentials-providers/typesafe", version = "0.1.0-dev.1" }
 
 schemars = "1.2"
 serde = { version = "1", default-features = false, features = [

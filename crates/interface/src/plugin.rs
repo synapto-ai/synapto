@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 
 pub struct PluginInitContext<'a> {
     llm_executor: crate::llm::LlmExecutor,
+    decision_handle: crate::decision::DecisionHandle,
     plugin_config: &'a serde_json::Value,
     storage: crate::storage::StorageHandle,
     plugin_namespace: &'a str,
@@ -26,6 +27,7 @@ impl<'a> PluginInitContext<'a> {
     #[doc(hidden)]
     pub fn new(
         llm_executor: crate::llm::LlmExecutor,
+        decision_handle: crate::decision::DecisionHandle,
         plugin_config: &'a serde_json::Value,
         storage: crate::storage::StorageHandle,
         plugin_namespace: &'a str,
@@ -33,6 +35,7 @@ impl<'a> PluginInitContext<'a> {
     ) -> Self {
         Self {
             llm_executor,
+            decision_handle,
             plugin_config,
             storage,
             plugin_namespace,
@@ -79,6 +82,10 @@ impl<'a> PluginInitContext<'a> {
 
     pub fn llm_executor(&self) -> crate::llm::LlmExecutor {
         self.llm_executor.clone()
+    }
+
+    pub fn decision_handle(&self) -> crate::decision::DecisionHandle {
+        self.decision_handle.clone()
     }
 }
 

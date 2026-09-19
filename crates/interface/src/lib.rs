@@ -17,6 +17,7 @@ pub mod command;
 pub mod context;
 pub mod credentials;
 pub mod data_dir;
+pub mod decision;
 pub mod document;
 pub mod gui;
 pub mod interaction;

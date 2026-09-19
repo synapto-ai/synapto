@@ -10,24 +10,25 @@ use synapto_test::{
 };
 
 async fn test_bundle() {
-    Synapto::<
-        (
+    Synapto::builder()
+        .configs::<(
             ConfigJson<ScenarioTestDir>,
             ConfigJson<WorkspaceTestDir>,
             DotEnv,
             Env,
-        ),
-        synapto_storage_firestore::FirestoreStorage,
-    >::run::<(
-        MockAudioInputPlugin,
-        MockDocumentsPlugin,
-        MockChatPlugin,
-        MockSlowReadPlugin,
-        MockTtsPlugin,
-        MockSttPlugin,
-        MockDiarizationPlugin,
-    )>()
-    .await;
+        )>()
+        .storage::<synapto_storage_firestore::FirestoreStorage>()
+        .plugins::<(
+            MockAudioInputPlugin,
+            MockDocumentsPlugin,
+            MockChatPlugin,
+            MockSlowReadPlugin,
+            MockTtsPlugin,
+            MockSttPlugin,
+            MockDiarizationPlugin,
+        )>()
+        .run()
+        .await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

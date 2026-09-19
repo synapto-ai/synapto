@@ -96,9 +96,84 @@ impl LLM for TaskLLMPrompt {
     type Output = TaskLLMOutput;
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum TaskEvaluationKind {
+    Trigger,
+    Cancel,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct TaskQuestionKey {
+    pub task_id: TaskId,
+    pub kind: TaskEvaluationKind,
+}
+
+impl TaskQuestionKey {
+    pub fn to_string_key(&self) -> String {
+        format!("{}:{:?}", self.task_id.0, self.kind)
+    }
+
+    pub fn parse_string_key(key: &str) -> Option<(TaskId, TaskEvaluationKind)> {
+        let (id, kind_str) = key.rsplit_once(':')?;
+        let kind = match kind_str {
+            "Trigger" => TaskEvaluationKind::Trigger,
+            "Cancel" => TaskEvaluationKind::Cancel,
+            _ => return None,
+        };
+        Some((TaskId(id.to_string()), kind))
+    }
+}
+
+pub fn generate_task_questions(
+    task: &Task,
+) -> (
+    Option<synapto_interface::decision::NoulQuestion>,
+    synapto_interface::decision::NoulQuestion,
+) {
+    let trigger_question =
+        task.trigger
+            .as_ref()
+            .map(|t| synapto_interface::decision::NoulQuestion {
+                instructions: format!(
+                    "Did the user trigger condition occur in the interaction for task '{}'?",
+                    task.title
+                ),
+                criteria: Some(synapto_interface::decision::NoulCriteria {
+                    r#true: format!(
+                        "The condition '{}' was satisfied in the conversation.",
+                        t.description
+                    ),
+                    r#false: format!("The condition '{}' did not occur.", t.description),
+                }),
+            });
+
+    let cancel_question = synapto_interface::decision::NoulQuestion {
+        instructions: format!(
+            "Did the user explicitly cancel, reject, or discard the task '{}'?",
+            task.title
+        ),
+        criteria: Some(synapto_interface::decision::NoulCriteria {
+            r#true: "The user commanded to stop, delete, or cancel this specific task.".to_string(),
+            r#false: "The user did not state an intention to cancel this task.".to_string(),
+        }),
+    };
+
+    (trigger_question, cancel_question)
+}
+
+enum TaskEvaluationBackend {
+    Decision(synapto_interface::decision::DecisionHandle),
+    Generative(
+        std::sync::Arc<
+            synapto_llm::LLMClient<TaskLLMContent, TaskLLMOutput, synapto_llm::WithoutTools>,
+        >,
+    ),
+}
+
 #[instrument(skip_all, fields(subsystem))]
 pub async fn task_memory_task<S: synapto_interface::storage::RecordStore>(
     llm_executor: synapto_interface::llm::LlmExecutor,
+    decision_handle: synapto_interface::decision::DecisionHandle,
     task_model_config: synapto_interface::llm::ModelConfig,
     store: std::sync::Arc<S>,
     mut interaction_rx: mpsc::Receiver<ObservedInteraction>,
@@ -125,20 +200,41 @@ pub async fn task_memory_task<S: synapto_interface::storage::RecordStore>(
         .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
         .ok();
 
-    let llm_client = TaskLLMPrompt::create_client(
-        llm_executor,
-        task_model_config,
-        vec![synapto_llm::Instruction::ImportantSection(
-            Box::new(synapto_llm::Instruction::Text("Executive Function Evaluator".to_string())),
-            vec![
-                synapto_llm::Instruction::Text("You are an Executive Function Evaluator.".to_string()),
-                synapto_llm::Instruction::Text("Your task is to check the list of `Pending` tasks (Pending Tasks) and decide whether events (new interaction) meet their activation conditions (Triggers).".to_string()),
-                synapto_llm::Instruction::ImportantItem("If the conditions are met, include the task ID in `activated_task_ids`.".to_string()),
-                synapto_llm::Instruction::ImportantItem("If a task is clearly unfeasible or obsolete, include it in `cancelled_task_ids`.".to_string()),
-                synapto_llm::Instruction::Text("If nothing has changed, return empty arrays.".to_string()),
-            ]
-        )],
-    );
+    let backend = if decision_handle.is_available() {
+        tracing::info!("TaskMemory using Decision backend");
+        TaskEvaluationBackend::Decision(decision_handle)
+    } else {
+        tracing::info!("TaskMemory using Generative LLM backend");
+        let client = TaskLLMPrompt::create_client(
+            llm_executor,
+            task_model_config,
+            vec![synapto_llm::Instruction::ImportantSection(
+                Box::new(synapto_llm::Instruction::Text(
+                    "Executive Function Evaluator".to_string(),
+                )),
+                vec![
+                    synapto_llm::Instruction::Text(
+                        "You are an Executive Function Evaluator.".to_string(),
+                    ),
+                    synapto_llm::Instruction::Text(
+                        "Your task is to check the list of `Pending` tasks (Pending Tasks) and decide whether events (new interaction) meet their activation conditions (Triggers).".to_string(),
+                    ),
+                    synapto_llm::Instruction::ImportantItem(
+                        "If the conditions are met, include the task ID in `activated_task_ids`."
+                            .to_string(),
+                    ),
+                    synapto_llm::Instruction::ImportantItem(
+                        "If a task is clearly unfeasible or obsolete, include it in `cancelled_task_ids`."
+                            .to_string(),
+                    ),
+                    synapto_llm::Instruction::Text(
+                        "If nothing has changed, return empty arrays.".to_string(),
+                    ),
+                ],
+            )],
+        );
+        TaskEvaluationBackend::Generative(std::sync::Arc::new(client))
+    };
 
     loop {
         let batch = better_tokio_select::tokio_select!(match .. {
@@ -197,26 +293,127 @@ pub async fn task_memory_task<S: synapto_interface::storage::RecordStore>(
             continue;
         }
 
-        let llm_output = match llm_client
-            .call(
-                TaskLLMContent {
-                    pending_tasks,
-                    recent_interactions,
-                },
-                None,
-                None,
-            )
-            .await
-        {
-            Ok(output) => output,
-            Err(e) => {
-                tracing::error!("Failed to evaluate tasks: {:?}", e);
-                continue;
+        let (activated_task_ids, cancelled_task_ids) = match &backend {
+            TaskEvaluationBackend::Decision(decision) => {
+                let mut questions = std::collections::BTreeMap::new();
+                for pt in &pending_tasks {
+                    if let Some(task) = tasks.get(&pt.id) {
+                        let (trigger_q, cancel_q) = generate_task_questions(task);
+                        if let Some(t_q) = trigger_q {
+                            let key = TaskQuestionKey {
+                                task_id: pt.id.clone(),
+                                kind: TaskEvaluationKind::Trigger,
+                            }
+                            .to_string_key();
+                            questions.insert(
+                                key,
+                                synapto_interface::decision::DecisionQuestion::Noul(t_q),
+                            );
+                        }
+                        let key = TaskQuestionKey {
+                            task_id: pt.id.clone(),
+                            kind: TaskEvaluationKind::Cancel,
+                        }
+                        .to_string_key();
+                        questions.insert(
+                            key,
+                            synapto_interface::decision::DecisionQuestion::Noul(cancel_q),
+                        );
+                    }
+                }
+
+                let state = serde_json::json!({
+                    "pending_tasks": pending_tasks,
+                    "recent_interactions": recent_interactions,
+                });
+
+                let answers = match decision.evaluate(None, state, questions).await {
+                    Ok(ans) => ans,
+                    Err(e) => {
+                        tracing::error!("Failed to evaluate tasks via decision backend: {:?}", e);
+                        continue;
+                    }
+                };
+
+                let mut activated = Vec::new();
+                let mut cancelled = Vec::new();
+
+                for pt in &pending_tasks {
+                    let cancel_key = TaskQuestionKey {
+                        task_id: pt.id.clone(),
+                        kind: TaskEvaluationKind::Cancel,
+                    }
+                    .to_string_key();
+
+                    let trigger_key = TaskQuestionKey {
+                        task_id: pt.id.clone(),
+                        kind: TaskEvaluationKind::Trigger,
+                    }
+                    .to_string_key();
+
+                    let cancel_prob = match answers.get(&cancel_key) {
+                        Some(synapto_interface::decision::DecisionAnswer::Noul { noul }) => *noul,
+                        Some(other) => {
+                            tracing::warn!(
+                                "Unexpected answer variant for {}: {:?}",
+                                cancel_key,
+                                other
+                            );
+                            0.0
+                        }
+                        None => {
+                            tracing::warn!("Missing decision answer for {}", cancel_key);
+                            0.0
+                        }
+                    };
+
+                    let trigger_prob = match answers.get(&trigger_key) {
+                        Some(synapto_interface::decision::DecisionAnswer::Noul { noul }) => *noul,
+                        Some(other) => {
+                            tracing::warn!(
+                                "Unexpected answer variant for {}: {:?}",
+                                trigger_key,
+                                other
+                            );
+                            0.0
+                        }
+                        None => 0.0,
+                    };
+
+                    // Precedence rule: cancellation overrides activation
+                    if cancel_prob > 0.75 {
+                        cancelled.push(pt.id.clone());
+                    } else if trigger_prob > 0.75 {
+                        activated.push(pt.id.clone());
+                    }
+                }
+
+                (activated, cancelled)
+            }
+            TaskEvaluationBackend::Generative(llm_client) => {
+                let llm_output = match llm_client
+                    .call(
+                        TaskLLMContent {
+                            pending_tasks,
+                            recent_interactions,
+                        },
+                        None,
+                        None,
+                    )
+                    .await
+                {
+                    Ok(output) => output,
+                    Err(e) => {
+                        tracing::error!("Failed to evaluate tasks: {:?}", e);
+                        continue;
+                    }
+                };
+                (llm_output.activated_task_ids, llm_output.cancelled_task_ids)
             }
         };
 
         let mut dirty = false;
-        for id in llm_output.activated_task_ids {
+        for id in activated_task_ids {
             if let Some(task) = tasks.get_mut(&id)
                 && task.status == TaskStatus::Pending
             {
@@ -224,7 +421,7 @@ pub async fn task_memory_task<S: synapto_interface::storage::RecordStore>(
                 dirty = true;
             }
         }
-        for id in llm_output.cancelled_task_ids {
+        for id in cancelled_task_ids {
             if let Some(task) = tasks.get_mut(&id)
                 && task.status == TaskStatus::Pending
             {
@@ -309,5 +506,94 @@ async fn save_tasks<S: synapto_interface::storage::RecordStore>(store: &S, tasks
         if let Err(e) = store.upsert_record("tasks", &task.id.0, task.clone()).await {
             tracing::error!("Failed to write task {}: {:?}", task.id.0, e);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{TaskId, TriggerCondition, TriggerType};
+
+    #[test]
+    fn test_task_question_key_roundtrip() {
+        let key = TaskQuestionKey {
+            task_id: TaskId("task-123".to_string()),
+            kind: TaskEvaluationKind::Trigger,
+        };
+        let s = key.to_string_key();
+        assert_eq!(s, "task-123:Trigger");
+        let parsed = TaskQuestionKey::parse_string_key(&s).expect("parse failed");
+        assert_eq!(parsed.0.0, "task-123");
+        assert_eq!(parsed.1, TaskEvaluationKind::Trigger);
+    }
+
+    #[test]
+    fn test_task_question_key_with_colons() {
+        let key = TaskQuestionKey {
+            task_id: TaskId("urn:task:01J8Y".to_string()),
+            kind: TaskEvaluationKind::Cancel,
+        };
+        let s = key.to_string_key();
+        assert_eq!(s, "urn:task:01J8Y:Cancel");
+        let parsed = TaskQuestionKey::parse_string_key(&s).expect("parse failed");
+        assert_eq!(parsed.0.0, "urn:task:01J8Y");
+        assert_eq!(parsed.1, TaskEvaluationKind::Cancel);
+    }
+
+    #[test]
+    fn test_generate_task_questions_with_trigger() {
+        let task = Task {
+            id: TaskId("t1".to_string()),
+            goal_id: None,
+            title: "Turn off lamp".to_string(),
+            steps: vec![],
+            trigger: Some(TriggerCondition {
+                condition_type: TriggerType::Event,
+                description: "leaving home".to_string(),
+            }),
+            status: TaskStatus::Pending,
+            priority: 1,
+        };
+
+        let (trigger_q, cancel_q) = generate_task_questions(&task);
+        assert!(trigger_q.is_some());
+        assert!(trigger_q.unwrap().instructions.contains("Turn off lamp"));
+        assert!(cancel_q.instructions.contains("Turn off lamp"));
+    }
+
+    #[test]
+    fn test_generate_task_questions_without_trigger() {
+        let task = Task {
+            id: TaskId("t1".to_string()),
+            goal_id: None,
+            title: "Turn off lamp".to_string(),
+            steps: vec![],
+            trigger: None,
+            status: TaskStatus::Pending,
+            priority: 1,
+        };
+
+        let (trigger_q, cancel_q) = generate_task_questions(&task);
+        assert!(trigger_q.is_none());
+        assert!(cancel_q.instructions.contains("Turn off lamp"));
+    }
+
+    #[test]
+    fn test_conflict_precedence_cancellation_overrides_activation() {
+        let cancel_prob = 0.95;
+        let trigger_prob = 0.88;
+
+        let mut activated = Vec::new();
+        let mut cancelled = Vec::new();
+        let task_id = TaskId("t1".to_string());
+
+        if cancel_prob > 0.75 {
+            cancelled.push(task_id.clone());
+        } else if trigger_prob > 0.75 {
+            activated.push(task_id.clone());
+        }
+
+        assert_eq!(cancelled.len(), 1);
+        assert_eq!(activated.len(), 0);
     }
 }

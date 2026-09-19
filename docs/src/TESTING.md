@@ -65,13 +65,17 @@ use synapto_test::{run_scenario, MockAudioInputPlugin, MockChatPlugin, MockSlowR
 
 // Define your bundle with Ephemeral datadirs and Mock plugins
 async fn test_bundle() {
-    Synapto::<(DotEnv, Env), LocalStorage<EphemeralDir>>::run::<(
-        MockAudioInputPlugin,
-        MockChatPlugin,
-        MockSlowReadPlugin,
-        // ... other mock/real plugins
-    )>()
-    .await;
+    Synapto::builder()
+        .configs::<(DotEnv, Env)>()
+        .storage::<LocalStorage<EphemeralDir>>()
+        .plugins::<(
+            MockAudioInputPlugin,
+            MockChatPlugin,
+            MockSlowReadPlugin,
+            // ... other mock/real plugins
+        )>()
+        .run()
+        .await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -131,16 +135,20 @@ use synapto_test::{
 
 // Define a test bundle substituting MockChatPlugin for your Real plugin
 async fn test_bundle() {
-    Synapto::<(DotEnv, Env), LocalStorage<EphemeralDir>>::run::<(
-        MockAudioInputPlugin,
-        MyChatPlugin, // Inject your real plugin here
-        MockDocumentsPlugin,
-        MockSlowReadPlugin,
-        MockTtsPlugin,
-        MockSttPlugin,
-        MockDiarizationPlugin,
-    )>()
-    .await;
+    Synapto::builder()
+        .configs::<(DotEnv, Env)>()
+        .storage::<LocalStorage<EphemeralDir>>()
+        .plugins::<(
+            MockAudioInputPlugin,
+            MyChatPlugin, // Inject your real plugin here
+            MockDocumentsPlugin,
+            MockSlowReadPlugin,
+            MockTtsPlugin,
+            MockSttPlugin,
+            MockDiarizationPlugin,
+        )>()
+        .run()
+        .await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

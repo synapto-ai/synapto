@@ -14,23 +14,24 @@ use synapto_test::{
 use testcontainers::{GenericImage, ImageExt, core::IntoContainerPort, runners::AsyncRunner};
 
 async fn test_bundle() {
-    Synapto::<
-        (
+    Synapto::builder()
+        .configs::<(
             ConfigJson<ScenarioTestDir>,
             ConfigJson<WorkspaceTestDir>,
             DotEnv,
             Env,
-        ),
-        LocalStorage<EphemeralDir>,
-    >::run::<(
-        MockDocumentsPlugin,
-        MockSlowReadPlugin,
-        MockTtsPlugin,
-        MockSttPlugin,
-        MockDiarizationPlugin,
-        MumblePlugin,
-    )>()
-    .await;
+        )>()
+        .storage::<LocalStorage<EphemeralDir>>()
+        .plugins::<(
+            MockDocumentsPlugin,
+            MockSlowReadPlugin,
+            MockTtsPlugin,
+            MockSttPlugin,
+            MockDiarizationPlugin,
+            MumblePlugin,
+        )>()
+        .run()
+        .await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

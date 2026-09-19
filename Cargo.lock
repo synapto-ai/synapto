@@ -8412,6 +8412,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "synapto-credentials-typesafe"
+version = "0.1.0-dev.1"
+dependencies = [
+ "async-trait",
+ "serde",
+ "synapto-interface",
+ "synapto-test",
+]
+
+[[package]]
 name = "synapto-datadir-local"
 version = "0.1.0-dev.6"
 dependencies = [
@@ -8420,6 +8430,23 @@ dependencies = [
  "synapto-interface",
  "synapto-test",
  "tokio",
+]
+
+[[package]]
+name = "synapto-decision-typesafe"
+version = "0.1.0-dev.1"
+dependencies = [
+ "async-trait",
+ "reqwest 0.13.4",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "synapto",
+ "synapto-credentials-typesafe",
+ "synapto-interface",
+ "synapto-test",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

@@ -13,16 +13,20 @@ use synapto_test::{
 
 // Global Test Bundle Definition
 async fn test_bundle() {
-    Synapto::<(ConfigJson<WorkspaceTestDir>, DotEnv, Env), LocalStorage<EphemeralDir>>::run::<(
-        MockAudioInputPlugin,
-        MockDocumentsPlugin,
-        MockChatPlugin,
-        MockSlowReadPlugin,
-        MockTtsPlugin,
-        MockSttPlugin,
-        MockDiarizationPlugin,
-    )>()
-    .await;
+    Synapto::builder()
+        .configs::<(ConfigJson<WorkspaceTestDir>, DotEnv, Env)>()
+        .storage::<LocalStorage<EphemeralDir>>()
+        .plugins::<(
+            MockAudioInputPlugin,
+            MockDocumentsPlugin,
+            MockChatPlugin,
+            MockSlowReadPlugin,
+            MockTtsPlugin,
+            MockSttPlugin,
+            MockDiarizationPlugin,
+        )>()
+        .run()
+        .await;
 }
 
 #[ignore]

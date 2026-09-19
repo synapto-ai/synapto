@@ -181,6 +181,7 @@ pub struct TaskMemoryPlugin<
 > {
     config: TaskMemoryConfig,
     llm_executor: synapto_interface::llm::LlmExecutor,
+    decision_handle: synapto_interface::decision::DecisionHandle,
     store: Arc<S>,
 
     // Providers & Executors
@@ -228,6 +229,7 @@ where
         Ok(Self {
             config,
             llm_executor: context.llm_executor(),
+            decision_handle: context.decision_handle(),
             store,
             tasks_provider,
             goals_provider,
@@ -291,6 +293,7 @@ where
 
         // Spawn evaluator tasks
         let llm_executor = self.llm_executor.clone();
+        let decision_handle = self.decision_handle.clone();
         let task_model_config = self.config.task.clone();
         let store = self.store.clone();
         let task_memory_rx = self.tasks_provider.rx.clone();
@@ -298,6 +301,7 @@ where
         tokio::spawn(async move {
             crate::tasks::task_memory_task(
                 llm_executor_clone,
+                decision_handle,
                 task_model_config,
                 store,
                 interaction_rx,

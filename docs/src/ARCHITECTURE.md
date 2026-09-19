@@ -104,6 +104,12 @@ The system is built on an open-core architecture with loosely coupled plugins, c
 29. **Atomic Plugin Configuration Mandate (One Configuration Struct per Plugin)**:
     Each plugin must define its own dedicated configuration struct. Do not define shared or composite configuration structs that combine fields across different plugins. A plugin must deserialize only the configuration parameters that the plugin uses. Bundling fields across distinct plugins violates data cohesion and creates configuration coupling. When a crate provides multiple plugins, define a separate configuration struct for each plugin.
 
+30. **Pluggable Decision Subsystem**:
+    When a component requires semantic understanding only to make discrete choices, evaluate conditions, or classify state without generating free-form text, the component must use the Decision Subsystem (`DecisionHandle`). Decision providers implement `DecisionProvider` (`synapto_interface::decision::DecisionProvider`) as dedicated singleton providers registered via the fluent bundle builder (`.decision::<D>()`). Consuming plugins inspect `context.decision_handle().is_available()` to deterministically select between fast typed judgments (`Choice`, `Noul`, `Score`) and generative LLM fallbacks. This avoids unneeded generative LLM calls, lowers latency, and eliminates text-parsing failure modes.
+
+31. **Fluent Bundle Builder Pattern**:
+    Deployable bundles are composed via `Synapto::builder()` in `main.rs`. Bundle composition strictly separates configuration (`.configs()`), storage backend (`.storage()`), prompt injection (`.prompt()`), credentials (`.credentials()`), singular decision engine (`.decision()`), and actor plugins (`.plugins()`) into typed, compile-time validated builder stages before calling `.run().await`. Method cardinality is strictly enforced: plural names (`.configs()`, `.credentials()`, `.plugins()`) accept tuples; singular names (`.storage()`, `.prompt()`, `.decision()`) accept single types. Singletons like decision backends cannot be registered multiple times or misplaced in the plugins list. Mandatory core infrastructure (`configs` and `storage`) must be provided before terminal `.run()` becomes available.
+
 ### Cognitive Core (`src/cognitive.rs` and `src/cognitive/`)
 
 The brain of the system. It is divided into direct (`src/cognitive/direct.rs`) and side (`src/cognitive/side.rs`) evaluation tasks. They run infinite loops waiting for notifications from input channels. When awakened, they snapshot the current state, memories, and sensor data, sending them to the LLM. They produce the unified `CognitiveLLMOutput<CognitiveCommands>` structure, which contains reasoning and the relevant command block (`CognitiveDirectCommands` or `CognitiveSideCommands`).
@@ -153,6 +159,7 @@ To keep the `synapto` agnostic to external environments, we isolate static promp
 
 - **Prompt Providers**: Implementation of the `CognitivePromptProvider` trait live in the `prompt-providers/` directory (e.g., `prompt-providers/empty`, `prompt-providers/file`). They dictate the static system instructions and dynamic runtime rules injected into the LLM context.
 - **Config Providers**: Implementation of the `ConfigProvider` trait live in the `config-providers/` directory (e.g., `config-providers/memory`, `config-providers/file`). They manage how settings (API keys, models, system flags) are retrieved and parsed.
+  - **Environment Variable Overrides & Case-Sensitivity**: Providers that read environment variables (`Env`, `DotEnv`) map double-underscore (`__`) separated variables into nested JSON structures. Operators must strictly observe code casing because environment variable lookup is case-sensitive on Unix systems and Serde models enforce `#[serde(deny_unknown_fields)]`. Subsystem prefixes are uppercase (`SYNAPTO__`, `PLUGINS__`, `STORAGE__`, `CREDENTIALS__`), whereas crate names are `snake_case`, provider/plugin struct names are `PascalCase`, and struct fields are `snake_case` (e.g., `SYNAPTO__CREDENTIALS__synapto_credentials_typesafe__TypeSafeCredentials__api_key`).
 - **Strict Mock Isolation (No Mocks in Core)**: Under no circumstances should "Mock" or "Dummy" providers (such as dummy config providers, mock prompt providers, mock LLM executors, or mock plugins) be defined within the `synapto` or `synapto-interface` crates—even for testing purposes. All testing mocks and dummy implementations MUST reside in their respective modular workspace crates (e.g., `config-providers/memory`, `prompt-providers/empty`, or dedicated testing plugins like `plugins/dummy` and those defined inside `bundles/test-mode`).
 
 ## Source Code Map
@@ -167,11 +174,13 @@ The project is organized into strictly decoupled workspaces to enforce boundarie
     - `scenarist/`: RPG story management (Saga, Chapter, Scene).
   - **`llm/`**: The provider-agnostic LLM interface layer.
   - **`telemetry/`**: Tracing and profiling setup.
-- **`integrations/` (Integrations Workspace)**: Contains official and community-maintained plugins, prompt providers, datadir providers, and storage providers. Code here implements traits from `synapto-interface` (e.g., Mumble, Google STT, Firestore).
+- **`integrations/` (Integrations Workspace)**: Contains official and community-maintained plugins, prompt providers, datadir providers, storage providers, decision providers, and credentials providers. Code here implements traits from `synapto-interface` (e.g., Mumble, Google STT, Firestore, TypeSafe).
   - **`plugins/*/`**: Independent integration crates (e.g., clock, mumble, host audio, STT/TTS).
   - **`storage-providers/*/`**: Concrete database/storage integrations (e.g., Firestore).
   - **`prompt-providers/*/`**: Cognitive prompt providers (e.g., file prompt provider).
   - **`datadir-providers/*/`**: Filesystem strategy providers (e.g., local data dir).
+  - **`decision-providers/*/`**: Concrete decision subsystem providers (e.g., TypeSafe).
+  - **`credentials-providers/*/`**: Cloud and API key credentials providers (e.g., Google, ElevenLabs, Speechmatics, TypeSafe).
 - **`synapto-plugins/` (Domain Plugins Workspace)**: Contains domain memory and assistant plugins (e.g., behavioral memory, episodic memory, semantic memory, documents, speaker recognizer, google chat, google meet, call recorder, task memory).
 - **`bundles/` (Deployable Agents Workspace)**: Acts as composition roots. Brings together core, `integrations`, and `synapto-plugins` crates to build standalone deployable binaries (`home-assistant`, `org-assistant`, `personal-assistant`, `research`, `rpg`, `teacher`).
   - `src/main.rs`: Entry point, configuration loading, plugin registration.
