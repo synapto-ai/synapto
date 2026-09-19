@@ -36,6 +36,16 @@
 //! are dropped by those layers. However, the `RerunTelemetryLayer` has no local level restrictions, allowing the
 //! Global Filter's `telemetry=trace` directive to pass these events exclusively to the Rerun UI.
 //!
+//! ### Automatic Span Latency Tracking (`track_stats = true`)
+//!
+//! Spans annotated with `fields(track_stats = true)` automatically track operation latency.
+//! The `RerunTelemetryLayer` intercepts the span opening and closing lifecycle, computing:
+//! - `duration`: Current execution latency in milliseconds.
+//! - `avg`: Rolling average latency.
+//! - `max`: Peak observed latency.
+//! These metrics are streamed under `metrics/<path>/duration`, `metrics/<path>/avg`, and `metrics/<path>/max`.
+//! Used centrally in `LLMClient::call_inner` and `DecisionHandle::evaluate`.
+//!
 //! ## How to Setup
 //!
 //! The entire logging stack is initialized at startup by calling `Tracing::setup(gui_layer)`.

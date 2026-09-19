@@ -120,6 +120,15 @@ impl DecisionHandle {
             .is_some()
     }
 
+    #[tracing::instrument(
+        level = "info",
+        skip_all,
+        fields(
+            track_stats = true,
+            model = model.unwrap_or("default"),
+            questions_count = questions.len()
+        )
+    )]
     pub async fn evaluate(
         &self,
         model: Option<&str>,

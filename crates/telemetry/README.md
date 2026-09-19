@@ -45,10 +45,38 @@ It is important to distinguish between **Profiling** and **Telemetry** in this s
 - **Telemetry (Rerun)**: Real-time, streaming visualization. Metrics are sent to the Rerun viewer as they happen. This is enabled via the `rerun` feature. Metrics are automatically enriched with hierarchical context (`Subsystem/SpanName`) if emitted within an instrumented span.
 - **Profiling (Tracy)**: Deep instrumentation via the Tracy profiler. Enabled via the `tracy` feature.
 
-### Hierarchical Metrics
+### Hierarchical Metrics & Automatic Latency Tracking
 
 When logging metrics with the `telemetry` target inside an instrumented span, the metric name is automatically prefixed:
 
 `metrics/<subsystem>/<span_name>/<metric_name>`
 
-For LLM calls, this is handled automatically via the `track_stats = true` field on the span, which generates `duration`, `avg`, and `max` metrics.
+#### Generic Span Latency Instrumentation (`track_stats = true`)
+
+Any asynchronous or synchronous operation can automatically measure and record execution latency by annotating its `tracing` span with `track_stats = true`:
+
+```rust,ignore
+#[tracing::instrument(
+    level = "info",
+    skip_all,
+    fields(
+        track_stats = true,
+        operation = "my_critical_path"
+    )
+)]
+async fn my_function() {
+    // ...
+}
+```
+
+When `track_stats = true` is present on a span:
+1. **Span Open (`on_new_span`)**: The `RerunTelemetryLayer` stamps the opening instant using `Instant::now()`.
+2. **Span Close (`on_close`)**: Upon completion, the layer computes elapsed duration and automatically emits three timeseries metrics under `metrics/<path>`:
+   - `duration`: Call latency for this specific execution (in milliseconds).
+   - `avg`: Cumulative rolling average execution time across all recorded calls.
+   - `max`: Peak execution time recorded so far.
+
+This pattern is applied centrally to infrastructure gateways:
+- **LLM Subsystem**: `synapto-llm::LLMClient::call_inner` tracks model invocation and token generation latency.
+- **Decision Subsystem**: `synapto_interface::decision::DecisionHandle::evaluate` tracks decision provider evaluation latency across all discrete judgment backends.
+- **Speaker Recognition**: Vector embedding processing in `speaker-recognizer`.
