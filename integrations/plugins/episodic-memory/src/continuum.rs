@@ -95,9 +95,13 @@ pub struct ContinuumLLMContent {
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, PartialEq, Eq, LLMSafe)]
 pub struct ContinuumLLMOutput {
-    #[schemars(description = "None if active_continuum is None or does not need updates")]
+    #[schemars(
+        description = "None if active_continuum is None or does not need updates. Must be None when active_continuum is None."
+    )]
     active_continuum_update: Option<CognitiveLLMContinuum>,
-    #[schemars(description = "New continuum when a global context shift occurs")]
+    #[schemars(
+        description = "New continuum when a global context shift occurs, or to create the initial continuum when active_continuum is None"
+    )]
     new_continuum: Option<CognitiveLLMContinuum>,
 }
 
@@ -151,6 +155,10 @@ pub async fn continuum_memory_task<S: RecordStore>(
                 Instruction::Text(
                     "Synthesize changes cleanly. Do not repeat micro actions.".to_string(),
                 ),
+                Instruction::Text(
+                    "When active_continuum is null, you must set active_continuum_update to null and create the initial record in new_continuum."
+                        .to_string(),
+                ),
             ],
         )],
     );
@@ -189,8 +197,8 @@ pub async fn continuum_memory_task<S: RecordStore>(
             } else if new_continuum_creation.is_none() {
                 continuum_memory.push(Continuum::new(update.0, new_progression.timestamp));
             } else {
-                tracing::error!(
-                    "Received both continuum update and creation while memory is empty"
+                tracing::warn!(
+                    "Received both continuum update and creation while memory is empty; prioritizing creation"
                 );
             }
         }

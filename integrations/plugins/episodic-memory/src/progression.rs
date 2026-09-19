@@ -96,9 +96,13 @@ pub struct ProgressionLLMContent {
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, PartialEq, Eq, LLMSafe)]
 pub struct ProgressionLLMOutput {
-    #[schemars(description = "None if active_progression is None or does not need updates")]
+    #[schemars(
+        description = "None if active_progression is None or does not need updates. Must be None when active_progression is None."
+    )]
     active_progression_update: Option<CognitiveLLMProgression>,
-    #[schemars(description = "New progression milestone when a phase or chapter concludes")]
+    #[schemars(
+        description = "New progression milestone when a phase or chapter concludes, or to create the initial progression when active_progression is None"
+    )]
     new_progression: Option<CognitiveLLMProgression>,
 }
 
@@ -154,6 +158,10 @@ pub async fn progression_memory_task<S: RecordStore>(
                     "Do not repeat details step by step. Summarize ONLY the causality, decisions, and outcomes."
                         .to_string(),
                 ),
+                Instruction::Text(
+                    "When active_progression is null, you must set active_progression_update to null and create the initial milestone in new_progression."
+                        .to_string(),
+                ),
             ],
         )],
     );
@@ -190,10 +198,16 @@ pub async fn progression_memory_task<S: RecordStore>(
             if let Some(active_progression) = progression_memory.last_mut() {
                 active_progression.text = update.0;
             } else if new_progression_creation.is_none() {
-                progression_memory.push(Progression::new(update.0, new_session.timestamp));
+                let new_progression = Progression::new(update.0, new_session.timestamp);
+                progression_memory.push(new_progression.clone());
+                new_progression_tx
+                    .send(new_progression)
+                    .await
+                    .inspect_err(|e| tracing::error!("{}", e))
+                    .ok();
             } else {
-                tracing::error!(
-                    "Received both progression update and creation while memory is empty"
+                tracing::warn!(
+                    "Received both progression update and creation while memory is empty; prioritizing creation"
                 );
             }
         }

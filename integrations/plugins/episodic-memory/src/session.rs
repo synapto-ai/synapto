@@ -157,10 +157,12 @@ pub struct SessionLLMContent {
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, PartialEq, Eq, LLMSafe)]
 pub struct SessionLLMOutput {
-    #[schemars(description = "None if active_session is None or does not need updates")]
+    #[schemars(
+        description = "None if active_session is None or does not need updates. Must be None when active_session is None."
+    )]
     active_session_update: Option<CognitiveLLMSession>,
     #[schemars(
-        description = "New sessions created from interactions. When active_session is None, create new session(s) here."
+        description = "New sessions created from interactions. When active_session is None, create the initial session(s) here."
     )]
     new_sessions: Vec<CognitiveLLMSession>,
 
@@ -221,6 +223,10 @@ pub async fn session_memory_task<S: RecordStore>(
                     "If you detect that the current block or scene has reached its logical conclusion, produce a new one."
                         .to_string(),
                 ),
+                Instruction::Text(
+                    "When active_session is null, you must set active_session_update to null and create the initial session in new_sessions."
+                        .to_string(),
+                ),
             ],
         )],
     );
@@ -275,9 +281,17 @@ pub async fn session_memory_task<S: RecordStore>(
             if let Some(active_session) = session_memory.0.last_mut() {
                 active_session.text = update.0;
             } else if new_sessions_creation.is_empty() {
-                session_memory.push(Session::new(update.0));
+                let new_session = Session::new(update.0);
+                session_memory.push(new_session.clone());
+                new_session_tx
+                    .send(new_session)
+                    .await
+                    .inspect_err(|e| tracing::error!("{}", e))
+                    .ok();
             } else {
-                tracing::error!("Received both session update and creation while memory is empty");
+                tracing::warn!(
+                    "Received both session update and creation while memory is empty; prioritizing creation"
+                );
             }
         }
 
