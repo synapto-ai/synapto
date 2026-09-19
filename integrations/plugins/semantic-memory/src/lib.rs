@@ -9,6 +9,7 @@ use tracing::instrument;
 
 use synapto_interface::cognitive::CognitiveReasoning;
 use synapto_interface::context::{ContextProvider, ContextRequest, TemporalScope};
+use synapto_interface::decision::NoulQuestion;
 use synapto_interface::interaction::{
     CognitiveSpoken, NotClearInteraction, NotClearInteractionMemory, ObservedInteraction, Timestamp,
 };
@@ -16,6 +17,16 @@ use synapto_interface::peer_input::{PeerInput, Speaker};
 use synapto_interface::storage::{RecordStore, StorageConnection};
 use synapto_interface::sync::{mpsc, watch};
 use synapto_llm::LLM;
+
+pub fn generate_semantic_preflight_question() -> NoulQuestion {
+    NoulQuestion {
+        instructions: "Does this interaction reveal any user activity, ongoing project, domain fact, or status change?".to_string(),
+        criteria: Some(synapto_interface::decision::NoulCriteria {
+            r#true: "Contains factual domain information, project status updates, or new entity data.".to_string(),
+            r#false: "No factual knowledge, activity progression, or domain updates present.".to_string(),
+        }),
+    }
+}
 
 pub mod plugin;
 pub use plugin::{SemanticMemoryConfig, SemanticMemoryPlugin};
@@ -273,6 +284,8 @@ pub async fn insight_memory_task<S: RecordStore + StorageConnection>(
     llm_client: Arc<
         synapto_llm::LLMClient<InsightLLMContent, InsightLLMOutput, synapto_llm::WithoutTools>,
     >,
+    decision_handle: synapto_interface::decision::DecisionHandle,
+    decision_preflight_threshold: f64,
     store: Arc<S>,
     mut interaction_rx: mpsc::Receiver<ObservedInteraction>,
     insight_memory_tx: watch::Sender<InsightMemory>,
@@ -358,6 +371,46 @@ pub async fn insight_memory_task<S: RecordStore + StorageConnection>(
                         .unwrap_or_else(|e| panic!("Error: {:?}", e));
                 }
                 continue;
+            }
+
+            if decision_handle.is_available() {
+                let question = generate_semantic_preflight_question();
+                let mut questions = std::collections::BTreeMap::new();
+                questions.insert(
+                    "preflight".to_string(),
+                    synapto_interface::decision::DecisionQuestion::Noul(question),
+                );
+                let state = serde_json::json!({
+                    "interactions": new_interactions,
+                });
+
+                let prob = match decision_handle.evaluate(None, state, questions).await {
+                    Ok(mut answers) => match answers.remove("preflight") {
+                        Some(synapto_interface::decision::DecisionAnswer::Noul { noul }) => noul,
+                        _ => 1.0,
+                    },
+                    Err(e) => {
+                        tracing::warn!(
+                            "Decision preflight evaluation failed, falling back to generative LLM: {}",
+                            e
+                        );
+                        1.0
+                    }
+                };
+
+                if prob < decision_preflight_threshold {
+                    tracing::debug!(
+                        "Semantic preflight prob ({}) < threshold ({}), skipping generative LLM",
+                        prob,
+                        decision_preflight_threshold
+                    );
+                    if let Some(last_drained) = drained.last() {
+                        insight_interaction_rollout_tx
+                            .send(last_drained.timestamp)
+                            .unwrap_or_else(|e| panic!("Error: {:?}", e));
+                    }
+                    continue;
+                }
             }
 
             let active_activities = activity_memory_rx.borrow().clone();
@@ -461,6 +514,66 @@ pub async fn insight_memory_task<S: RecordStore + StorageConnection>(
                     tracing::error!("Failed to save insight to store: {:?}", e);
                 }
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeMap;
+    use synapto_interface::decision::{DecisionAnswer, DecisionQuestion, RawDecisionExecutor};
+
+    struct MockDecisionBackend {
+        prob: f64,
+    }
+
+    #[async_trait::async_trait]
+    impl RawDecisionExecutor for MockDecisionBackend {
+        async fn evaluate_raw(
+            &self,
+            _model: Option<&str>,
+            _state: serde_json::Value,
+            _questions: BTreeMap<String, DecisionQuestion>,
+        ) -> Result<BTreeMap<String, DecisionAnswer>, String> {
+            let mut map = BTreeMap::new();
+            map.insert(
+                "preflight".to_string(),
+                DecisionAnswer::Noul { noul: self.prob },
+            );
+            Ok(map)
+        }
+    }
+
+    #[test]
+    fn test_generate_semantic_preflight_question() {
+        let question = generate_semantic_preflight_question();
+        assert!(question.instructions.contains("activity"));
+        let criteria = question.criteria.expect("Missing criteria");
+        assert!(criteria.r#true.contains("factual"));
+        assert!(criteria.r#false.contains("No factual"));
+    }
+
+    #[tokio::test]
+    async fn test_semantic_decision_handle_evaluation() {
+        let handle = synapto_interface::decision::DecisionHandle::empty();
+        assert!(!handle.is_available());
+
+        handle.set_backend(MockDecisionBackend { prob: 0.1 });
+        assert!(handle.is_available());
+
+        let mut questions = BTreeMap::new();
+        questions.insert(
+            "preflight".to_string(),
+            DecisionQuestion::Noul(generate_semantic_preflight_question()),
+        );
+        let res = handle
+            .evaluate(None, serde_json::json!({}), questions)
+            .await
+            .unwrap();
+        match res.get("preflight") {
+            Some(DecisionAnswer::Noul { noul }) => assert_eq!(*noul, 0.1),
+            _ => panic!("Expected Noul answer"),
         }
     }
 }

@@ -10,10 +10,21 @@ use tracing::instrument;
 
 use synapto_interface::cognitive::CognitiveReasoning;
 use synapto_interface::context::{ContextProvider, ContextRequest, TemporalScope};
+use synapto_interface::decision::NoulQuestion;
 use synapto_interface::interaction::{CognitiveSpoken, ObservedInteraction, Timestamp};
 use synapto_interface::peer_input::{PeerInput, Speaker};
 use synapto_interface::sync::{mpsc, watch};
 use synapto_llm::LLM;
+
+pub fn generate_behavioral_preflight_question() -> NoulQuestion {
+    NoulQuestion {
+        instructions: "Does this interaction reveal any user habit, behavioral pattern, personal preference, or constraint?".to_string(),
+        criteria: Some(synapto_interface::decision::NoulCriteria {
+            r#true: "The user expressed a personal habit, routine, explicit preference, or operational rule.".to_string(),
+            r#false: "Routine conversational exchange, question, task command, or general chatter.".to_string(),
+        }),
+    }
+}
 
 /// A small insight about behavior that the background LLM extracts from the conversation (interactions)
 #[derive(Serialize, Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq)]
@@ -175,6 +186,8 @@ pub async fn behavioral_insight_memory_task<S: synapto_interface::storage::Recor
             synapto_llm::WithoutTools,
         >,
     >,
+    decision_handle: synapto_interface::decision::DecisionHandle,
+    decision_preflight_threshold: f64,
     store: Arc<S>,
     mut interaction_rx: mpsc::Receiver<ObservedInteraction>,
     behavioral_insight_memory_tx: watch::Sender<BehavioralInsightMemory>,
@@ -206,9 +219,48 @@ pub async fn behavioral_insight_memory_task<S: synapto_interface::storage::Recor
             batch.push(next_interaction);
         }
 
-        let new_interactions = batch.iter().map(SummaryLLMInteraction::from).collect();
+        let new_interactions: Vec<SummaryLLMInteraction> =
+            batch.iter().map(SummaryLLMInteraction::from).collect();
 
         let last_interaction_in_batch = batch.last().expect("Missing last value");
+
+        if decision_handle.is_available() {
+            let question = generate_behavioral_preflight_question();
+            let mut questions = std::collections::BTreeMap::new();
+            questions.insert(
+                "preflight".to_string(),
+                synapto_interface::decision::DecisionQuestion::Noul(question),
+            );
+            let state = serde_json::json!({
+                "interactions": new_interactions,
+            });
+
+            let prob = match decision_handle.evaluate(None, state, questions).await {
+                Ok(mut answers) => match answers.remove("preflight") {
+                    Some(synapto_interface::decision::DecisionAnswer::Noul { noul }) => noul,
+                    _ => 1.0,
+                },
+                Err(e) => {
+                    tracing::warn!(
+                        "Decision preflight evaluation failed, falling back to generative LLM: {}",
+                        e
+                    );
+                    1.0
+                }
+            };
+
+            if prob < decision_preflight_threshold {
+                tracing::debug!(
+                    "Behavioral preflight prob ({}) < threshold ({}), skipping generative LLM",
+                    prob,
+                    decision_preflight_threshold
+                );
+                rollout_tx
+                    .send(last_interaction_in_batch.timestamp)
+                    .unwrap_or_else(|e| tracing::error!("{}", e));
+                continue;
+            }
+        }
 
         let BehavioralInsightLLMOutput {
             new_insights: new_insights_creation,
@@ -260,5 +312,64 @@ pub async fn behavioral_insight_memory_task<S: synapto_interface::storage::Recor
                 .unwrap_or_else(|e| tracing::error!("{}", e));
         }
     }
-    tracing::error!("Channel closed");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeMap;
+    use synapto_interface::decision::{DecisionAnswer, DecisionQuestion, RawDecisionExecutor};
+
+    struct MockDecisionBackend {
+        prob: f64,
+    }
+
+    #[async_trait::async_trait]
+    impl RawDecisionExecutor for MockDecisionBackend {
+        async fn evaluate_raw(
+            &self,
+            _model: Option<&str>,
+            _state: serde_json::Value,
+            _questions: BTreeMap<String, DecisionQuestion>,
+        ) -> Result<BTreeMap<String, DecisionAnswer>, String> {
+            let mut map = BTreeMap::new();
+            map.insert(
+                "preflight".to_string(),
+                DecisionAnswer::Noul { noul: self.prob },
+            );
+            Ok(map)
+        }
+    }
+
+    #[test]
+    fn test_generate_behavioral_preflight_question() {
+        let question = generate_behavioral_preflight_question();
+        assert!(question.instructions.contains("habit"));
+        let criteria = question.criteria.expect("Missing criteria");
+        assert!(criteria.r#true.contains("habit"));
+        assert!(criteria.r#false.contains("Routine"));
+    }
+
+    #[tokio::test]
+    async fn test_behavioral_decision_handle_evaluation() {
+        let handle = synapto_interface::decision::DecisionHandle::empty();
+        assert!(!handle.is_available());
+
+        handle.set_backend(MockDecisionBackend { prob: 0.2 });
+        assert!(handle.is_available());
+
+        let mut questions = BTreeMap::new();
+        questions.insert(
+            "preflight".to_string(),
+            DecisionQuestion::Noul(generate_behavioral_preflight_question()),
+        );
+        let res = handle
+            .evaluate(None, serde_json::json!({}), questions)
+            .await
+            .unwrap();
+        match res.get("preflight") {
+            Some(DecisionAnswer::Noul { noul }) => assert_eq!(*noul, 0.2),
+            _ => panic!("Expected Noul answer"),
+        }
+    }
 }

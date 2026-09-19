@@ -187,6 +187,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
     registries: synapto_interface::context::EngineRegistries,
     cognitive_output_text_tx: Option<mpsc::Sender<CognitiveOutputText>>,
     llm_executor: synapto_interface::llm::LlmExecutor,
+    decision_handle: synapto_interface::decision::DecisionHandle,
     resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::tool::ToolCallId>,
 ) {
     let (tool_resolved_tx, mut tool_resolved_rx) = tokio::sync::mpsc::channel(10);
@@ -343,6 +344,15 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                 .map(PeerInput::Speech),
         );
 
+        let has_resolved_tools = resolved_tools.is_some();
+
+        if current_messages.is_empty() && !initial_cognitive_trigger && !has_resolved_tools {
+            tracing::debug!(
+                "Cognitive direct task woken up with empty input and no active trigger. Exiting cycle."
+            );
+            continue;
+        }
+
         let _video_frame = video_rx
             .as_ref()
             .map(|rx| rx.borrow().clone().data)
@@ -376,6 +386,100 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                 cognitive_reasoning: i.cognitive_reasoning.as_ref().map(|r| r.0.clone()),
                 cognitive_output,
             });
+        }
+
+        if !initial_cognitive_trigger && !has_resolved_tools && decision_handle.is_available() {
+            let mut questions = std::collections::BTreeMap::new();
+            questions.insert(
+                "turn_evaluation".to_string(),
+                synapto_interface::decision::DecisionQuestion::Choice(
+                    super::types::generate_turn_evaluation_question(),
+                ),
+            );
+            let state = serde_json::json!({
+                "active_messages": current_messages,
+                "recent_interactions": recent_interactions,
+            });
+
+            let eval_result = match decision_handle.evaluate(None, state, questions).await {
+                Ok(mut answers) => match answers.remove("turn_evaluation") {
+                    Some(synapto_interface::decision::DecisionAnswer::Choice {
+                        choice, ..
+                    }) => Some(choice),
+                    _ => None,
+                },
+                Err(e) => {
+                    tracing::warn!(
+                        "Decision turn evaluation failed, falling back to generative LLM: {}",
+                        e
+                    );
+                    None
+                }
+            };
+
+            if let Some(choice) = eval_result {
+                match choice.as_str() {
+                    "waiting_for_more_input" => {
+                        tracing::info!(
+                            "Turn gating: Waiting for more input or incomplete sentence (~100ms exit)..."
+                        );
+                        pending_user_messages
+                            .extend(new_speech_messages.into_iter().map(PeerInput::Speech));
+                        let mut processor = DirectOutputProcessor {
+                            cognitive_speech_tx: &cognitive_speech_tx,
+                            cognitive_output_text_tx: cognitive_output_text_tx.as_ref(),
+                            initial_cognitive_trigger: &mut initial_cognitive_trigger,
+                            commands_registry: &registries.commands,
+                        };
+                        processor.on_cycle_finished();
+                        continue;
+                    }
+                    "unintelligible" => {
+                        tracing::info!("Turn gating: Unintelligible noise input discarded.");
+                        let mut processor = DirectOutputProcessor {
+                            cognitive_speech_tx: &cognitive_speech_tx,
+                            cognitive_output_text_tx: cognitive_output_text_tx.as_ref(),
+                            initial_cognitive_trigger: &mut initial_cognitive_trigger,
+                            commands_registry: &registries.commands,
+                        };
+                        processor.on_unintelligible_input();
+                        processor.on_cycle_finished();
+                        continue;
+                    }
+                    "non_actionable" => {
+                        tracing::info!(
+                            "Turn gating: NonActionable input, recording interaction and clearing pending messages."
+                        );
+                        pending_user_messages
+                            .extend(new_speech_messages.into_iter().map(PeerInput::Speech));
+                        let interaction = Interaction::new(
+                            pending_user_messages.clone(),
+                            None,
+                            None,
+                            Some(synapto_interface::cognitive::CognitiveReasoning(
+                                "Turn evaluation: non-actionable".to_string(),
+                            )),
+                            false,
+                            vec![],
+                        );
+                        if let Err(e) = new_interaction_tx.send(interaction).await {
+                            tracing::error!("Failed to send interaction to memory: {:?}", e);
+                        }
+                        pending_user_messages.clear();
+                        let mut processor = DirectOutputProcessor {
+                            cognitive_speech_tx: &cognitive_speech_tx,
+                            cognitive_output_text_tx: cognitive_output_text_tx.as_ref(),
+                            initial_cognitive_trigger: &mut initial_cognitive_trigger,
+                            commands_registry: &registries.commands,
+                        };
+                        processor.on_cycle_finished();
+                        continue;
+                    }
+                    _ => {
+                        // "actionable" or other: proceed to context gathering and LLM
+                    }
+                }
+            }
         }
         let request = synapto_interface::context::ContextRequest {
             recent_interactions,
@@ -466,8 +570,6 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                 .collect(),
             _ => vec![],
         };
-
-        let has_resolved_tools = resolved_tools.is_some();
 
         process_llm_output(
             new_speech_messages

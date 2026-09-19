@@ -62,6 +62,7 @@ pub(crate) async fn start<P: CognitivePromptProvider>(
     cognitive_output_text_tx: Option<mpsc::Sender<CognitiveOutputText>>,
 
     cognitive_state_tx: broadcast::Sender<CognitiveStateUpdate>,
+    decision_handle: synapto_interface::decision::DecisionHandle,
     resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::tool::ToolCallId>,
 ) {
     let system_prompt = get_cognitive_system_prompt::<P>(&config);
@@ -77,6 +78,7 @@ pub(crate) async fn start<P: CognitivePromptProvider>(
             cognitive_output_text_tx.clone(),
             cognitive_state_tx.clone(),
             llm_executor.clone(),
+            decision_handle.clone(),
             resolve_in_flight_tool_tx.clone(),
         ));
     }
@@ -95,6 +97,7 @@ pub(crate) async fn start<P: CognitivePromptProvider>(
             registries,
             cognitive_output_text_tx,
             llm_executor,
+            decision_handle,
             resolve_in_flight_tool_tx,
         ));
     }

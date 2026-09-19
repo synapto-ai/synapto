@@ -20,9 +20,15 @@ use crate::{
 
 use synapto_interface::llm::ModelConfig;
 
+fn default_decision_preflight_threshold() -> f64 {
+    0.5
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SemanticMemoryConfig {
     pub insight: ModelConfig,
+    #[serde(default = "default_decision_preflight_threshold")]
+    pub decision_preflight_threshold: f64,
 }
 
 pub struct SemanticMemoryPlugin<S: RecordStore + StorageConnection> {
@@ -33,6 +39,8 @@ pub struct SemanticMemoryPlugin<S: RecordStore + StorageConnection> {
     activity_llm_client: Arc<LLMClient<ActivityLLMContent, ActivityLLMOutput, WithoutTools>>,
     consolidation_llm_client:
         Arc<LLMClient<ConsolidationLLMContent, ConsolidationLLMOutput, WithoutTools>>,
+    decision_handle: synapto_interface::decision::DecisionHandle,
+    decision_preflight_threshold: f64,
 
     insight_memory_tx: Mutex<Option<watch::Sender<InsightMemory>>>,
     activity_memory_tx: Mutex<Option<watch::Sender<ActivityMemory>>>,
@@ -50,6 +58,7 @@ impl<S: RecordStore + StorageConnection> SemanticMemoryPlugin<S> {
         config: SemanticMemoryConfig,
         store: Arc<S>,
         llm_executor: synapto_interface::llm::LlmExecutor,
+        decision_handle: synapto_interface::decision::DecisionHandle,
         not_clear_memory_rx: Option<watch::Receiver<NotClearInteractionMemory>>,
         resolve_not_clear_tx: Option<mpsc::Sender<Timestamp>>,
     ) -> Result<Self, String> {
@@ -164,6 +173,7 @@ impl<S: RecordStore + StorageConnection> SemanticMemoryPlugin<S> {
         ));
 
         let (rollout_tx_tx, rollout_tx_rx) = tokio::sync::oneshot::channel();
+        let decision_preflight_threshold = config.decision_preflight_threshold;
 
         Ok(Self {
             _config: config,
@@ -172,6 +182,8 @@ impl<S: RecordStore + StorageConnection> SemanticMemoryPlugin<S> {
             insight_llm_client,
             activity_llm_client,
             consolidation_llm_client,
+            decision_handle,
+            decision_preflight_threshold,
             insight_memory_tx: Mutex::new(Some(insight_memory_tx)),
             activity_memory_tx: Mutex::new(Some(activity_memory_tx)),
             activity_memory_rx: Mutex::new(Some(activity_memory_rx)),
@@ -191,7 +203,14 @@ impl<S: RecordStore + StorageConnection> Plugin for SemanticMemoryPlugin<S> {
         let config: SemanticMemoryConfig = context.config()?;
         let store = context.store::<S>().await?;
 
-        Self::new_with_channels(config, store, context.llm_executor(), None, None)
+        Self::new_with_channels(
+            config,
+            store,
+            context.llm_executor(),
+            context.decision_handle(),
+            None,
+            None,
+        )
     }
 
     fn register<R: PluginRegistry + ?Sized>(self: Arc<Self>, registry: &mut R)
@@ -288,6 +307,8 @@ impl<S: RecordStore + StorageConnection> InteractionObserver for SemanticMemoryP
         let insight_memory_rx = self.provider.insight_memory_rx.clone();
 
         let store_1 = store.clone();
+        let decision_handle = self.decision_handle.clone();
+        let decision_preflight_threshold = self.decision_preflight_threshold;
 
         // Spawn insight memory task
         tokio::spawn(async move {
@@ -301,6 +322,8 @@ impl<S: RecordStore + StorageConnection> InteractionObserver for SemanticMemoryP
 
             crate::insight_memory_task(
                 insight_llm_client,
+                decision_handle,
+                decision_preflight_threshold,
                 store_1,
                 interaction_rx,
                 insight_memory_tx,

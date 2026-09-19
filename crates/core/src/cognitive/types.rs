@@ -343,6 +343,33 @@ pub(super) enum UsersMessagesEvaluation {
     Unintelligible,
 }
 
+pub(super) fn generate_turn_evaluation_question() -> synapto_interface::decision::ChoiceQuestion {
+    let mut criteria = std::collections::BTreeMap::new();
+    criteria.insert(
+        "actionable".to_string(),
+        "Clear, complete, and actionable command or question requiring an answer.".to_string(),
+    );
+    criteria.insert(
+        "waiting_for_more_input".to_string(),
+        "Incomplete thought, mid-sentence pause, trailing sentence, or user is hesitating."
+            .to_string(),
+    );
+    criteria.insert(
+        "non_actionable".to_string(),
+        "Ambient speech, background chatter, self-talk, or conversation not addressed to assistant.".to_string(),
+    );
+    criteria.insert(
+        "unintelligible".to_string(),
+        "Audio noise, cough, mumbles, audio cut-offs, or unrecognizable language.".to_string(),
+    );
+
+    synapto_interface::decision::ChoiceQuestion {
+        instructions: "Evaluate the user input in relation to the current conversational turn:"
+            .to_string(),
+        criteria,
+    }
+}
+
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, PartialEq, Eq, LLMSafe)]
 pub(super) struct CognitiveLLMOutput<CognitiveCommands> {
     pub commands: CognitiveCommands,
@@ -463,5 +490,16 @@ mod tests {
                 "required": ["params"]
             })
         );
+    }
+
+    #[test]
+    fn test_generate_turn_evaluation_question() {
+        let question = generate_turn_evaluation_question();
+        assert!(question.instructions.contains("conversational turn"));
+        assert_eq!(question.criteria.len(), 4);
+        assert!(question.criteria.contains_key("actionable"));
+        assert!(question.criteria.contains_key("waiting_for_more_input"));
+        assert!(question.criteria.contains_key("non_actionable"));
+        assert!(question.criteria.contains_key("unintelligible"));
     }
 }

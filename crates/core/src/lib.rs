@@ -890,6 +890,7 @@ impl<
                 None
             },
             cognitive_state_tx,
+            self.decision_handle.clone(),
             resolve_in_flight_tool_tx,
         )
         .await;

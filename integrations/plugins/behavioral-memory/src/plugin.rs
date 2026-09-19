@@ -14,9 +14,15 @@ use synapto_llm::{LLM, LLMClient, WithoutTools};
 
 use synapto_interface::llm::ModelConfig;
 
+fn default_decision_preflight_threshold() -> f64 {
+    0.5
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct BehavioralMemoryConfig {
     pub insight: ModelConfig,
+    #[serde(default = "default_decision_preflight_threshold")]
+    pub decision_preflight_threshold: f64,
 }
 
 pub struct BehavioralMemoryPlugin<S: RecordStore + StorageConnection> {
@@ -28,6 +34,8 @@ pub struct BehavioralMemoryPlugin<S: RecordStore + StorageConnection> {
             WithoutTools,
         >,
     >,
+    decision_handle: synapto_interface::decision::DecisionHandle,
+    decision_preflight_threshold: f64,
     behavioral_insight_memory_tx: std::sync::Mutex<Option<watch::Sender<BehavioralInsightMemory>>>,
     rollout_tx_rx:
         std::sync::Mutex<Option<tokio::sync::oneshot::Receiver<watch::Sender<Timestamp>>>>,
@@ -90,10 +98,14 @@ impl<S: RecordStore + StorageConnection + Send + Sync> Plugin for BehavioralMemo
         ));
 
         let (rollout_tx_tx, rollout_tx_rx) = tokio::sync::oneshot::channel();
+        let decision_handle = context.decision_handle();
+        let decision_preflight_threshold = config.decision_preflight_threshold;
 
         Ok(Self {
             provider,
             llm_client,
+            decision_handle,
+            decision_preflight_threshold,
             behavioral_insight_memory_tx: std::sync::Mutex::new(Some(behavioral_insight_memory_tx)),
             rollout_tx_rx: std::sync::Mutex::new(Some(rollout_tx_rx)),
             rollout_tx_tx: std::sync::Mutex::new(Some(rollout_tx_tx)),
@@ -151,6 +163,8 @@ impl<S: RecordStore + StorageConnection> InteractionObserver for BehavioralMemor
 
         let store = self.store.clone();
         let llm_client = self.llm_client.clone();
+        let decision_handle = self.decision_handle.clone();
+        let decision_preflight_threshold = self.decision_preflight_threshold;
 
         tokio::spawn(async move {
             let rollout_tx = match rx.await {
@@ -163,6 +177,8 @@ impl<S: RecordStore + StorageConnection> InteractionObserver for BehavioralMemor
 
             crate::behavioral_insight_memory_task(
                 llm_client,
+                decision_handle,
+                decision_preflight_threshold,
                 store,
                 interaction_rx,
                 memory_tx,
