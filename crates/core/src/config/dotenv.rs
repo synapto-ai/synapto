@@ -25,6 +25,7 @@ impl crate::config::ConfigProvider for DotEnv {
             obj.remove("PLUGINS");
             obj.remove("STORAGE");
             obj.remove("CREDENTIALS");
+            obj.remove("DECISION");
         };
         core_config
     }
@@ -54,6 +55,19 @@ impl crate::config::ConfigProvider for DotEnv {
     ) -> serde_json::Value {
         let prefix = format!(
             "SYNAPTO__CREDENTIALS__{}__{}__",
+            crate_name.replace(['-', '.'], "_"),
+            provider_type_name.replace(['-', '.'], "_")
+        );
+        crate::config::env::build_json_from_vars(self.vars.clone(), &prefix)
+    }
+
+    fn load_decision_config(
+        &self,
+        crate_name: &str,
+        provider_type_name: &str,
+    ) -> serde_json::Value {
+        let prefix = format!(
+            "SYNAPTO__DECISION__{}__{}__",
             crate_name.replace(['-', '.'], "_"),
             provider_type_name.replace(['-', '.'], "_")
         );

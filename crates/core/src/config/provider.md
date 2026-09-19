@@ -35,12 +35,14 @@ By including the built-in `Env` provider at the end of your tuple (or `DotEnv` f
     *   Example: `SYNAPTO__PLUGINS__synapto_plugin_google_chat__GoogleChatPlugin__api_key="secret"` overrides `GoogleChatConfig::api_key`.
 *   **Credentials Config:** Prefix `SYNAPTO__CREDENTIALS__<crate_name>__<ProviderTypeName>__<field_name>`:
     *   Example: `SYNAPTO__CREDENTIALS__synapto_credentials_typesafe__TypeSafeCredentials__api_key="secret"` overrides `TypeSafeCredentialsConfig::api_key`.
+*   **Decision Config:** Prefix `SYNAPTO__DECISION__<crate_name>__<ProviderTypeName>__<field_name>`:
+    *   Example: `SYNAPTO__DECISION__synapto_decision_typesafe__TypeSafeDecision__model="jev-latest"` overrides `TypeSafeDecisionConfig::model`.
 *   **Storage Config:** Prefix `SYNAPTO__STORAGE__<crate_name>__<StorageTypeName>__<field_name>`:
     *   Example: `SYNAPTO__STORAGE__synapto_storage_firestore__FirestoreStorage__project_id="my-project"`.
 
 ## Existing Providers
 
-- **`ConfigJson`:** Reads `config.json` from the `data_dir` initialized path. Plugin configs are nested inside the `plugins` field by crate name and plugin type name. Storage configs are nested in `storage`.
+- **`ConfigJson`:** Reads `config.json` from the `data_dir` initialized path. Plugin configs are nested inside the `plugins` field by crate name and plugin type name. Storage configs are nested in `storage`, credentials in `credentials`, and decision providers in `decision`.
 - **`DotEnv`:** Reads variables from a `.env` file and translates `SYNAPTO__` prefixed variables into nested JSON configuration overrides exactly like `Env`, but without polluting or reading the global process environment variables.
 - **`Env`:** Translates `SYNAPTO__` prefixed environment variables directly into deeply-nested JSON configuration overrides.
 - **`EphemeralConfigProvider`:** An ephemeral provider used primarily for tests. Returns an empty base JSON but automatically provisions and assigns a temporary directory to `data_dir` to ensure storage providers have a safe, ephemeral location to write files during tests. Relies entirely on environment variable overrides for other settings.

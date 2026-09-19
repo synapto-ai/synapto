@@ -32,6 +32,7 @@ impl<P: DataDirProvider> crate::config::ConfigProvider for ConfigJson<P> {
             obj.remove("plugins");
             obj.remove("storage");
             obj.remove("credentials");
+            obj.remove("decision");
         };
         core_config
     }
@@ -58,6 +59,15 @@ impl<P: DataDirProvider> crate::config::ConfigProvider for ConfigJson<P> {
         self.config
             .get("credentials")
             .and_then(|c| c.get(crate_name))
+            .and_then(|p| p.get(provider_type_name))
+            .cloned()
+            .unwrap_or_else(|| Value::Object(serde_json::Map::new()))
+    }
+
+    fn load_decision_config(&self, crate_name: &str, provider_type_name: &str) -> Value {
+        self.config
+            .get("decision")
+            .and_then(|d| d.get(crate_name))
             .and_then(|p| p.get(provider_type_name))
             .cloned()
             .unwrap_or_else(|| Value::Object(serde_json::Map::new()))

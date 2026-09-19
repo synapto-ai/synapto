@@ -23,6 +23,10 @@ pub trait ConfigProvider: Send + Sync + Sized + 'static {
         provider_type_name: &str,
     ) -> serde_json::Value;
 
+    /// Returns the decision provider configuration.
+    fn load_decision_config(&self, crate_name: &str, provider_type_name: &str)
+    -> serde_json::Value;
+
     /// Returns the core configuration struct.
     fn get_core_config(&self) -> crate::config::Config {
         let val = self.load_core_config();
@@ -73,6 +77,30 @@ pub trait ConfigProvider: Send + Sync + Sized + 'static {
             )
         })
     }
+
+    /// Retrieves the raw configuration value for a specific decision provider before deserialization.
+    fn get_decision_config_value(
+        &self,
+        crate_name: &str,
+        provider_type_name: &str,
+    ) -> serde_json::Value {
+        self.load_decision_config(crate_name, provider_type_name)
+    }
+
+    /// Retrieves and deserializes the configuration for a specific decision provider.
+    fn get_decision_config<T: serde::de::DeserializeOwned>(
+        &self,
+        crate_name: &str,
+        provider_type_name: &str,
+    ) -> T {
+        let val = self.get_decision_config_value(crate_name, provider_type_name);
+        serde_json::from_value(val).unwrap_or_else(|e| {
+            panic!(
+                "Failed to parse config for decision provider '{}::{}': {}",
+                crate_name, provider_type_name, e
+            )
+        })
+    }
 }
 
 impl ConfigProvider for () {
@@ -95,6 +123,14 @@ impl ConfigProvider for () {
     }
 
     fn load_credentials_config(
+        &self,
+        _crate_name: &str,
+        _provider_type_name: &str,
+    ) -> serde_json::Value {
+        serde_json::Value::Object(serde_json::Map::new())
+    }
+
+    fn load_decision_config(
         &self,
         _crate_name: &str,
         _provider_type_name: &str,
@@ -160,6 +196,20 @@ macro_rules! impl_config_provider_tuple {
                 let ($($T,)+) = self;
                 $(
                     crate::config::env::merge_json(&mut val, $T.load_credentials_config(crate_name, provider_type_name));
+                )+
+                val
+            }
+
+            fn load_decision_config(
+                &self,
+                crate_name: &str,
+                provider_type_name: &str,
+            ) -> serde_json::Value {
+                let mut val = serde_json::Value::Object(serde_json::Map::new());
+                #[allow(non_snake_case)]
+                let ($($T,)+) = self;
+                $(
+                    crate::config::env::merge_json(&mut val, $T.load_decision_config(crate_name, provider_type_name));
                 )+
                 val
             }

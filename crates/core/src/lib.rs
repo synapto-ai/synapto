@@ -248,7 +248,7 @@ where
 
         let raw_config = synapto
             .config_provider
-            .get_plugin_config_value(&crate_name, &provider_type_name);
+            .get_decision_config_value(&crate_name, &provider_type_name);
 
         let config: D::Config = serde_json::from_value(raw_config).map_err(|e| {
             format!(
