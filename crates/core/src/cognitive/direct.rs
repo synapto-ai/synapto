@@ -421,7 +421,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                 match choice.as_str() {
                     "waiting_for_more_input" => {
                         tracing::info!(
-                            "Turn gating: Waiting for more input or incomplete sentence (~100ms exit)..."
+                            "Turn gating: Waiting for more input or incomplete sentence."
                         );
                         pending_user_messages
                             .extend(new_speech_messages.into_iter().map(PeerInput::Speech));

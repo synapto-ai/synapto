@@ -306,7 +306,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
             if let Some(choice) = eval_result {
                 match choice.as_str() {
                     "waiting_for_more_input" => {
-                        tracing::info!("Turn gating: Waiting for more input (~100ms exit)...");
+                        tracing::info!("Turn gating: Waiting for more input.");
                         pending_user_messages.extend(new_messages);
                         continue;
                     }
