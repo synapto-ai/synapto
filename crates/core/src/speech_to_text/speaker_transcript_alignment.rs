@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
-use synapto_interface::sync::mpsc;
+use synapto_interface::peer_input_audio::PEER_INPUT_AUDIO_CHUNK_DURATION;
+use synapto_interface::sync::{mpsc, watch};
 
 use crate::cognitive::CognitiveDirectTrigger;
 use crate::speech_to_text::SpeechTranscript;
@@ -15,6 +16,7 @@ pub(super) async fn start(
     heuristic_callback: Option<synapto_interface::speech_to_text::SpeakerHeuristicCallback>,
     peer_input_speech_tx: mpsc::Sender<PeerInputSpeech>,
     trigger_cognitive_direct: CognitiveDirectTrigger,
+    last_voice_time_rx: watch::Receiver<std::time::Instant>,
 ) {
     let mut speaker_segments: VecDeque<SpeakerSegment> = VecDeque::new();
     let use_stt_diarization = speaker_rx.is_none();
@@ -29,6 +31,25 @@ pub(super) async fn start(
                     Some(t) => t,
                     None => break, // Channel closed
                 };
+
+                let last_voice = *last_voice_time_rx.borrow();
+                let lag_ms = last_voice.elapsed().as_secs_f64() * 1000.0;
+                let chunk_count = transcript.end_index.saturating_sub(transcript.start_index) + 1;
+                let chunk_duration_ms = PEER_INPUT_AUDIO_CHUNK_DURATION.as_secs_f64() * 1000.0;
+                let audio_duration_ms = chunk_count as f64 * chunk_duration_ms;
+
+                tracing::trace!(target: "telemetry", metric = "stt/perceived_lag_ms", value = lag_ms);
+                tracing::trace!(target: "telemetry", metric = "stt/audio_duration_ms", value = audio_duration_ms);
+
+                tracing::info!(
+                    "STT perceived lag: {:.1}ms (audio: {:.1}ms) [chunks {}..={}]: \"{}\"",
+                    lag_ms,
+                    audio_duration_ms,
+                    transcript.start_index,
+                    transcript.end_index,
+                    transcript.transcript.trim()
+                );
+
                 let span = tracing::trace_span!("heuristic", track_stats = true);
                 let _enter = span.enter();
 

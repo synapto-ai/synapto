@@ -48,6 +48,7 @@ pub(super) async fn start(
         heuristic,
         peer_input_speech_tx,
         trigger_cognitive_direct.clone(),
+        last_voice_time_tx.subscribe(),
     ));
 
     (
