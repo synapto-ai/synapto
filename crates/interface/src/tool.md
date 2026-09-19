@@ -34,6 +34,14 @@ If your tool relies on context produced by a `ContextProvider` within the _same_
     }
 ```
 
+#### Cooperative Pattern: State-Locked Progressive Disclosure
+
+For plugins managing catalog items (e.g. `available_documents`, `available_skills`), pair an on-demand `ContextProvider` with a state-locked `Tool`:
+
+1. **Context Provider:** Emits only lightweight candidate descriptors (e.g. `id`/`name` and summary) into `TemporalScope::Current`, optionally filtered by a vector store or `DecisionHandle` (System 1).
+2. **Tool Gating (`is_available`):** Inspects the compiled context key. If the candidate list is empty, the loading tool is completely hidden from the LLM function-calling list for that turn.
+3. **On-Demand Loading (`execute`):** Fetches the full content/instructions on demand when the LLM invokes the tool with a specific identifier.
+
 **2. Cross-Plugin State (Fulltext Scan Anti-Coupling)**
 Never tightly couple a tool's `is_available` check to the internal JSON schema of _another_ plugin. If your tool (e.g., `ReadUrlTool`) needs to activate when a URL is present—regardless of whether it was injected by the Chat plugin or the Memory plugin—serialize the global context to a string and perform a fast pattern scan.
 

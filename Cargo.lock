@@ -8619,6 +8619,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "synapto-plugin-skills"
+version = "0.1.0-dev.1"
+dependencies = [
+ "async-trait",
+ "dirs",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "synapto",
+ "synapto-interface",
+ "synapto-test",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "synapto-plugin-stt-elevenlabs"
 version = "0.1.0-dev.6"
 dependencies = [
