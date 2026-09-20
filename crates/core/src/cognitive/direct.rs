@@ -189,6 +189,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
     llm_executor: synapto_interface::llm::LlmExecutor,
     decision_handle: synapto_interface::decision::DecisionHandle,
     resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::tool::ToolCallId>,
+    working_memory_store: crate::working_memory::WorkingMemoryStore,
 ) {
     let (tool_resolved_tx, mut tool_resolved_rx) = tokio::sync::mpsc::channel(10);
 
@@ -305,6 +306,19 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                                 "Cognitive Direct Task triggered by tool resolution: {}",
                                 tool_call.fn_name
                             );
+
+                            let output_val = serde_json::from_str(&doc_text.to_json_string())
+                                .unwrap_or_else(|_| {
+                                    serde_json::Value::String(doc_text.to_json_string())
+                                });
+                            working_memory_store
+                                .append(synapto_interface::working_memory::WorkingMemoryEntry {
+                                    tool_name: tool_call.fn_name.clone(),
+                                    arguments: tool_call.fn_arguments.clone(),
+                                    output: output_val,
+                                })
+                                .await;
+
                             resolved_tools = Some(vec![(tool_call.clone(), doc_text)]);
                             // Document results also need the lock to start a cycle
                             run_after_unpaused = true;
@@ -484,6 +498,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
         let request = synapto_interface::context::ContextRequest {
             recent_interactions,
             initial_run: initial_cognitive_trigger,
+            resolved_tools_count: resolved_tools.as_ref().map(|v| v.len()).unwrap_or(0),
         };
 
         let historical_contexts = registries

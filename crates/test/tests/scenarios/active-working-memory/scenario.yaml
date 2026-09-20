@@ -1,0 +1,21 @@
+steps:
+  # Turn 1: Initial tool call request
+  - action: user_writes
+    text: "Please call the `mock_slow_read` tool right now to check the document for who the architect of the platform is."
+
+  - action: await_response
+    assert_contains: "Alice"
+    timeout_secs: 60
+
+  - action: wait
+    millis: 1000
+
+  # Turn 2: Consequent turn reasoning over tool output in working memory
+  # Note: The tool resolved in Turn 1 and is no longer on the wire as resolved_tools.
+  # The fact that mentoring is on Tuesdays must come from ActiveWorkingMemory.
+  - action: user_writes
+    text: "From that same document you read, what day is mentoring available?"
+
+  - action: await_response
+    assert_contains: "Tuesday"
+    timeout_secs: 30

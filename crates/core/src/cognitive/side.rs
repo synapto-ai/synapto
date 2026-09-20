@@ -128,6 +128,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
     llm_executor: synapto_interface::llm::LlmExecutor,
     decision_handle: synapto_interface::decision::DecisionHandle,
     resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::tool::ToolCallId>,
+    working_memory_store: crate::working_memory::WorkingMemoryStore,
 ) {
     let (tool_resolved_tx, mut tool_resolved_rx) = tokio::sync::mpsc::channel(10);
 
@@ -182,6 +183,16 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
                     "Cognitive Side Task triggered by tool resolution: {}",
                     tool_call.fn_name
                 );
+
+                let output_val = serde_json::from_str(&doc_text.to_json_string())
+                    .unwrap_or_else(|_| serde_json::Value::String(doc_text.to_json_string()));
+                working_memory_store
+                    .append(synapto_interface::working_memory::WorkingMemoryEntry {
+                        tool_name: tool_call.fn_name.clone(),
+                        arguments: tool_call.fn_arguments.clone(),
+                        output: output_val,
+                    })
+                    .await;
 
                 // Remove the in-flight tool from memory since it has resolved
                 if let Err(e) = resolve_in_flight_tool_tx
@@ -343,6 +354,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
         }
         let request = synapto_interface::context::ContextRequest {
             recent_interactions,
+            resolved_tools_count: resolved_tools.as_ref().map(|v| v.len()).unwrap_or(0),
             ..Default::default()
         };
 

@@ -23,7 +23,11 @@ pub struct ContextRequest {
     #[doc = " An empty list implies a request for the unfiltered, baseline state."]
     pub recent_interactions: Vec<ContextInteraction>,
     pub initial_run: bool,
+    #[doc = " Number of newly resolved tools being processed in the current turn via native wire protocol."]
+    pub resolved_tools_count: usize,
 }
+
+pub use crate::working_memory::*;
 
 #[async_trait::async_trait]
 pub trait ContextProvider: Send + Sync + 'static {

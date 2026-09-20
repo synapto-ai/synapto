@@ -43,6 +43,7 @@ mod speaking_coordinator;
 mod speech_to_text;
 
 mod users;
+mod working_memory;
 
 use synapto_interface::speech_to_text::{InputVoiceAudio, SpeechDetected, SpeechTranscript};
 
@@ -771,6 +772,13 @@ impl<
             }
         };
 
+        let working_memory_store = working_memory::start(
+            &mut observers_tx,
+            self.registries.clone(),
+            self.llm_executor.clone(),
+            self.config.cognitive.clone(),
+        );
+
         interactions::start(
             new_interaction_rx,
             interaction_rollout_receivers,
@@ -892,6 +900,7 @@ impl<
             cognitive_state_tx,
             self.decision_handle.clone(),
             resolve_in_flight_tool_tx,
+            working_memory_store,
         )
         .await;
 

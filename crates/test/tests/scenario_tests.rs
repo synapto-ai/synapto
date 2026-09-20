@@ -57,6 +57,16 @@ async fn async_tool_reaction() {
 
 #[ignore]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn active_working_memory_consequent_turn() {
+    run_scenario(
+        "tests/scenarios/active-working-memory/scenario.yaml",
+        test_bundle,
+    )
+    .await;
+}
+
+#[ignore]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn behavioral_memory_test() {
     run_scenario(
         "tests/scenarios/behavioral-memory-test/scenario.yaml",
