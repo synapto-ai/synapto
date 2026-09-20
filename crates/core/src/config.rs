@@ -71,8 +71,15 @@ pub struct Config {
     #[serde(default)]
     pub disable_ctrl_c: bool,
 
+    #[serde(default = "default_plugin_init_timeout_secs")]
+    pub plugin_init_timeout_secs: u64,
+
     #[serde(default = "default_prompt_config")]
     pub prompt: serde_json::Value,
+}
+
+fn default_plugin_init_timeout_secs() -> u64 {
+    15
 }
 
 fn default_prompt_config() -> serde_json::Value {

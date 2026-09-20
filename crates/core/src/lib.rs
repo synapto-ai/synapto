@@ -47,6 +47,65 @@ mod working_memory;
 
 use synapto_interface::speech_to_text::{InputVoiceAudio, SpeechDetected, SpeechTranscript};
 
+#[derive(Clone)]
+struct PluginInitFactory<C> {
+    config_provider: Arc<C>,
+    llm_executor: synapto_interface::llm::LlmExecutor,
+    decision_handle: synapto_interface::decision::DecisionHandle,
+    storage: synapto_interface::storage::StorageHandle,
+    credentials: synapto_interface::credentials::CredentialsHandle,
+    timeout: std::time::Duration,
+}
+
+impl<C: config::ConfigProvider> PluginInitFactory<C> {
+    async fn init_plugin<P: synapto_interface::plugin::Plugin>(&self) -> Arc<P> {
+        let full_path = core::any::type_name::<P>();
+        let base_path = full_path.split('<').next().unwrap_or(full_path);
+        let plugin_identity = base_path.to_string();
+        Tracing::add_plugin_to_log(&plugin_identity);
+
+        let crate_name = full_path
+            .split("::")
+            .next()
+            .unwrap_or("")
+            .to_string()
+            .replace('-', "_");
+        let plugin_type_name = base_path.split("::").last().unwrap_or("").to_string();
+
+        let plugin_config = self
+            .config_provider
+            .get_plugin_config_value(&crate_name, &plugin_type_name);
+
+        let safe_namespace = base_path.replace("::", "_").replace(" ", "");
+
+        let init_context = synapto_interface::plugin::PluginInitContext::new(
+            self.llm_executor.clone(),
+            self.decision_handle.clone(),
+            &plugin_config,
+            self.storage.clone(),
+            &safe_namespace,
+            self.credentials.clone(),
+        );
+
+        let timeout_duration = self.timeout;
+        let plugin_result =
+            match tokio::time::timeout(timeout_duration, P::create(&init_context)).await {
+                Ok(res) => res,
+                Err(_) => Err(format!(
+                    "Plugin initialization timed out after {:?}",
+                    timeout_duration
+                )),
+            };
+
+        Arc::new(
+            plugin_result.unwrap_or_else(|e| {
+                panic!("Failed to initialize plugin '{}': {}", plugin_identity, e)
+            }),
+        )
+    }
+}
+
+#[async_trait::async_trait]
 pub trait PluginTuple<
     C: config::ConfigProvider,
     S: synapto_interface::storage::StorageConnection
@@ -56,9 +115,10 @@ pub trait PluginTuple<
     CR: credentials::CredentialsTuple = (),
 >
 {
-    fn register_plugins(synapto: Synapto<C, S, PR, CR>) -> Synapto<C, S, PR, CR>;
+    async fn register_plugins(synapto: Synapto<C, S, PR, CR>) -> Synapto<C, S, PR, CR>;
 }
 
+#[async_trait::async_trait]
 impl<
     C: config::ConfigProvider,
     S: synapto_interface::storage::StorageConnection
@@ -68,13 +128,14 @@ impl<
     CR: credentials::CredentialsTuple,
 > PluginTuple<C, S, PR, CR> for ()
 {
-    fn register_plugins(synapto: Synapto<C, S, PR, CR>) -> Synapto<C, S, PR, CR> {
+    async fn register_plugins(synapto: Synapto<C, S, PR, CR>) -> Synapto<C, S, PR, CR> {
         synapto
     }
 }
 
 macro_rules! impl_plugin_tuple {
     ($($T:ident),+) => {
+        #[async_trait::async_trait]
         impl<
             C: config::ConfigProvider,
             S: synapto_interface::storage::StorageConnection + synapto_interface::storage::KeyValueStore + synapto_interface::storage::RecordStore,
@@ -82,9 +143,14 @@ macro_rules! impl_plugin_tuple {
             CR: credentials::CredentialsTuple,
             $($T: synapto_interface::plugin::Plugin),+
         > PluginTuple<C, S, PR, CR> for ($($T,)+) {
-            fn register_plugins(synapto: Synapto<C, S, PR, CR>) -> Synapto<C, S, PR, CR> {
+            #[allow(non_snake_case)]
+            async fn register_plugins(mut synapto: Synapto<C, S, PR, CR>) -> Synapto<C, S, PR, CR> {
+                let factory = synapto.plugin_init_factory();
+                let ($($T,)+) = tokio::join!(
+                    $(factory.init_plugin::<$T>(),)+
+                );
+                $(synapto.attach_plugin($T);)+
                 synapto
-                $(.register_plugin::<$T>())+
             }
         }
     };
@@ -361,7 +427,7 @@ where
         if let Err(e) = D::setup(&mut synapto) {
             panic!("Failed to initialize decision provider: {}", e);
         }
-        let synapto = P::register_plugins(synapto);
+        let synapto = P::register_plugins(synapto).await;
         synapto.run_internal().await
     }
 }
@@ -526,76 +592,28 @@ impl<
     //         .get_plugin_config_value(&crate_name, &plugin_type_name)
     // }
 
-    fn get_or_init_plugin<P: Plugin>(&mut self) -> Arc<P> {
-        let type_id = std::any::TypeId::of::<P>();
-        if let Some(plugin) = self.plugins.get(&type_id) {
-            plugin.clone().downcast::<P>().unwrap_or_else(|e| {
-                panic!(
-                    "Downcast failed to target type: {}. Actual dynamic type of value was: {:?}",
-                    std::any::type_name::<P>(),
-                    e
-                )
-            })
-        } else {
-            let full_path = core::any::type_name::<P>();
-            let base_path = full_path.split('<').next().unwrap_or(full_path);
-            let plugin_identity = base_path.to_string();
-            let plugin_config = self.load_plugin_config_internal::<P>();
-
-            // Generate the safe, unique database namespace based on the Rust type
-            let safe_namespace = base_path.replace("::", "_").replace(" ", "");
-
-            let init_context = synapto_interface::plugin::PluginInitContext::new(
-                self.llm_executor.clone(),
-                self.decision_handle.clone(),
-                &plugin_config,
-                self.storage.clone(),
-                &safe_namespace,
-                self.credentials.clone(),
-            );
-
-            // Safely bridge the async initialization back into the synchronous builder
-            // This is entirely safe during the application boot phase.
-            let future = P::create(&init_context);
-            let plugin_result =
-                tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(future));
-
-            let plugin = Arc::new(plugin_result.unwrap_or_else(|e| {
-                panic!("Failed to initialize plugin '{}': {}", plugin_identity, e)
-            }));
-
-            self.plugins.insert(type_id, plugin.clone());
-            plugin
+    fn plugin_init_factory(&self) -> PluginInitFactory<C> {
+        PluginInitFactory {
+            config_provider: self.config_provider.clone(),
+            llm_executor: self.llm_executor.clone(),
+            decision_handle: self.decision_handle.clone(),
+            storage: self.storage.clone(),
+            credentials: self.credentials.clone(),
+            timeout: std::time::Duration::from_secs(self.config.plugin_init_timeout_secs),
         }
     }
 
-    fn load_plugin_config_internal<P: Plugin>(&self) -> serde_json::Value {
-        let full_path = core::any::type_name::<P>();
-        let crate_name = full_path
-            .split("::")
-            .next()
-            .unwrap_or("")
-            .to_string()
-            .replace('-', "_");
-        let base_path = full_path.split('<').next().unwrap_or(full_path);
-        let plugin_type_name = base_path.split("::").last().unwrap_or("").to_string();
-
-        self.config_provider
-            .get_plugin_config_value(&crate_name, &plugin_type_name)
-    }
-
-    fn register_plugin<P: Plugin>(mut self) -> Self {
+    fn attach_plugin<P: Plugin>(&mut self, plugin: Arc<P>) {
         let full_path = core::any::type_name::<P>();
         let base_path = full_path.split('<').next().unwrap_or(full_path);
         let plugin_identity = base_path.to_string();
-        Tracing::add_plugin_to_log(&plugin_identity);
         self.plugins_names.push(plugin_identity.clone());
 
-        let plugin = self.get_or_init_plugin::<P>();
+        let type_id = std::any::TypeId::of::<P>();
+        self.plugins.insert(type_id, plugin.clone());
         tracing::info!("Plugin {} registered.", plugin_identity);
 
-        plugin.register(&mut self);
-        self
+        plugin.register(self);
     }
 
     async fn run_internal(self) -> ExitCode {
