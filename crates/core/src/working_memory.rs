@@ -1,7 +1,9 @@
 mod distillation;
 mod store;
 
-pub(crate) use store::{WorkingMemoryProvider, WorkingMemoryStore};
+pub(crate) use store::{
+    ActiveWorkingMemory, WorkingMemoryEntry, WorkingMemoryProvider, WorkingMemoryStore,
+};
 
 use synapto_interface::{
     context::EngineRegistries,

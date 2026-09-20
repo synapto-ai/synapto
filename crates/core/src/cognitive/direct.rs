@@ -312,7 +312,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                                     serde_json::Value::String(doc_text.to_json_string())
                                 });
                             working_memory_store
-                                .append(synapto_interface::working_memory::WorkingMemoryEntry {
+                                .append(crate::working_memory::WorkingMemoryEntry {
                                     tool_name: tool_call.fn_name.clone(),
                                     arguments: tool_call.fn_arguments.clone(),
                                     output: output_val,

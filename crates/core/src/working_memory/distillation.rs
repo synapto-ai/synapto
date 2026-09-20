@@ -1,14 +1,12 @@
+use super::store::{WorkingMemoryEntry, WorkingMemoryStore};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use synapto_interface::interaction::ObservedInteraction;
 use synapto_interface::llm::{LLMSafe, LlmExecutor, ModelConfig};
 use synapto_interface::peer_input::{PeerInput, Speaker};
 use synapto_interface::sync::mpsc;
-use synapto_interface::working_memory::WorkingMemoryEntry;
 use synapto_llm::{Instruction, LLM};
 use tracing::instrument;
-
-use super::store::WorkingMemoryStore;
 
 #[derive(JsonSchema, Serialize, Clone, Debug)]
 pub(super) struct LLMUserMessage {

@@ -1,8 +1,48 @@
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use synapto_interface::context::{ContextProvider, ContextRequest, TemporalScope};
+use synapto_interface::llm::LLMSafe;
 use synapto_interface::sync::watch;
-use synapto_interface::working_memory::{ActiveWorkingMemory, WorkingMemoryEntry};
 use tokio::sync::RwLock;
+
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, PartialEq, Eq, LLMSafe)]
+#[schemars(
+    description = "A resolved tool execution output from the active session. If the required information is present here, answer directly without re-invoking the tool."
+)]
+pub(crate) struct WorkingMemoryEntry {
+    #[schemars(description = "Name of the tool that generated this output.")]
+    pub tool_name: String,
+    #[schemars(description = "Arguments that were passed to the tool invocation.")]
+    pub arguments: serde_json::Value,
+    #[schemars(description = "Execution result returned by the tool.")]
+    pub output: serde_json::Value,
+}
+
+#[derive(
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    LLMSafe,
+    derive_more::Deref,
+    derive_more::DerefMut,
+    derive_more::IntoIterator,
+)]
+#[schemars(
+    description = "Active working memory containing outputs of previously resolved tools. Consult this memory before calling any tool; if the required information is already available here, answer immediately using these facts instead of re-executing tools."
+)]
+pub(crate) struct ActiveWorkingMemory(pub Vec<WorkingMemoryEntry>);
+
+impl ActiveWorkingMemory {
+    pub(crate) fn new(entries: Vec<WorkingMemoryEntry>) -> Self {
+        Self(entries)
+    }
+}
 
 #[derive(Clone)]
 pub(crate) struct WorkingMemoryStore {
