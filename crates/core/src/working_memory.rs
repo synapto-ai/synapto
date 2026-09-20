@@ -2,11 +2,12 @@ mod distillation;
 mod store;
 
 pub(crate) use store::{
-    ActiveWorkingMemory, WorkingMemoryEntry, WorkingMemoryProvider, WorkingMemoryStore,
+    WorkingMemoryEntry, WorkingMemoryProvider, WorkingMemoryState, WorkingMemoryStore,
 };
 
 use synapto_interface::{
     context::EngineRegistries,
+    decision::DecisionHandle,
     interaction::ObservedInteraction,
     llm::{LlmExecutor, ModelConfig},
     sync::mpsc,
@@ -16,6 +17,7 @@ pub(crate) fn start(
     observers_tx: &mut Vec<mpsc::Sender<ObservedInteraction>>,
     registries: EngineRegistries,
     llm_executor: LlmExecutor,
+    decision_handle: DecisionHandle,
     model_config: ModelConfig,
 ) -> WorkingMemoryStore {
     let store = WorkingMemoryStore::new();
@@ -29,6 +31,7 @@ pub(crate) fn start(
         observer_rx,
         store.clone(),
         llm_executor,
+        decision_handle,
         model_config,
     ));
 

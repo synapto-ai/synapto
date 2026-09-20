@@ -29,4 +29,3 @@ pub mod rollout;
 pub mod secrets;
 pub mod sync;
 pub mod tool;
-pub mod working_memory;

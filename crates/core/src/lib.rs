@@ -776,6 +776,7 @@ impl<
             &mut observers_tx,
             self.registries.clone(),
             self.llm_executor.clone(),
+            self.decision_handle.clone(),
             self.config.cognitive.clone(),
         );
 

@@ -6,6 +6,14 @@ use synapto_interface::llm::LLMSafe;
 use synapto_interface::sync::watch;
 use tokio::sync::RwLock;
 
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Copy, Debug, PartialEq, Eq, LLMSafe)]
+pub(crate) enum WorkingMemoryState {
+    /// The raw, uncompressed output directly from the tool execution.
+    Original,
+    /// A distilled summary of the tool output produced by background consolidation.
+    Condensed,
+}
+
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, PartialEq, Eq, LLMSafe)]
 #[schemars(
     description = "A resolved tool execution output from the active session. If the required information is present here, answer directly without re-invoking the tool."
@@ -17,6 +25,10 @@ pub(crate) struct WorkingMemoryEntry {
     pub arguments: serde_json::Value,
     #[schemars(description = "Execution result returned by the tool.")]
     pub output: serde_json::Value,
+    #[schemars(
+        description = "Whether this is the verbatim raw tool output (Original) or a condensed summary (Condensed)."
+    )]
+    pub state: WorkingMemoryState,
 }
 
 #[derive(
@@ -138,6 +150,7 @@ mod tests {
                 tool_name: "tool_a".to_string(),
                 arguments: json!({"arg": 1}),
                 output: json!({"res": "A"}),
+                state: WorkingMemoryState::Original,
             })
             .await;
 
@@ -157,6 +170,7 @@ mod tests {
         let ctx_turn2 = provider.context(&req_turn2).await.unwrap();
         assert_eq!(ctx_turn2.len(), 1);
         assert_eq!(ctx_turn2[0].tool_name, "tool_a");
+        assert_eq!(ctx_turn2[0].state, WorkingMemoryState::Original);
 
         // 3. Append tool B (simulating staggered resolution in Turn 2)
         store
@@ -164,6 +178,7 @@ mod tests {
                 tool_name: "tool_b".to_string(),
                 arguments: json!({"arg": 2}),
                 output: json!({"res": "B"}),
+                state: WorkingMemoryState::Original,
             })
             .await;
 
@@ -192,11 +207,13 @@ mod tests {
                 tool_name: "tool_distilled".to_string(),
                 arguments: json!({}),
                 output: json!({"summary": "A+B done"}),
+                state: WorkingMemoryState::Condensed,
             }])
             .await;
 
         let ctx_distilled = provider.context(&req_turn3).await.unwrap();
         assert_eq!(ctx_distilled.len(), 1);
         assert_eq!(ctx_distilled[0].tool_name, "tool_distilled");
+        assert_eq!(ctx_distilled[0].state, WorkingMemoryState::Condensed);
     }
 }

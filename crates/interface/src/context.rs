@@ -27,8 +27,6 @@ pub struct ContextRequest {
     pub resolved_tools_count: usize,
 }
 
-pub use crate::working_memory::*;
-
 #[async_trait::async_trait]
 pub trait ContextProvider: Send + Sync + 'static {
     type Context: schemars::JsonSchema + serde::Serialize + LLMSafe + Send + Sync + 'static;

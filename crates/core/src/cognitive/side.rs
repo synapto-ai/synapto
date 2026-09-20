@@ -191,6 +191,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
                         tool_name: tool_call.fn_name.clone(),
                         arguments: tool_call.fn_arguments.clone(),
                         output: output_val,
+                        state: crate::working_memory::WorkingMemoryState::Original,
                     })
                     .await;
 
