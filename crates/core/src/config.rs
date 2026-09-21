@@ -79,7 +79,7 @@ pub struct Config {
 }
 
 fn default_plugin_init_timeout_secs() -> u64 {
-    15
+    30
 }
 
 fn default_prompt_config() -> serde_json::Value {
