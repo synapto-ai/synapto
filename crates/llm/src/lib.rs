@@ -426,13 +426,13 @@ pub trait LLM {
 
         tracing::trace!(
             "Output schema: {}",
-            serde_yaml::to_string(&output_schema).unwrap_or_else(|e| panic!(
+            serde_saphyr::to_string(&output_schema).unwrap_or_else(|e| panic!(
                 "Failed to serialize output schema: {e} | Output schema: {output_schema:?}"
             ))
         );
 
         let input_schema = schemars::schema_for!(Self::Content);
-        let input_schema = serde_yaml::to_string(&input_schema).unwrap_or_else(|e| {
+        let input_schema = serde_saphyr::to_string(&input_schema).unwrap_or_else(|e| {
             unreachable!("Failed to serialize input schema: {e} | Input schema: {input_schema:?}")
         });
 

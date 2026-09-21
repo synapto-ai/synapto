@@ -143,7 +143,7 @@ pub async fn run_scenario<F, Fut>(
         }
     };
 
-    let manifest: ScenarioManifest = match serde_yaml::from_str(&yaml_str) {
+    let manifest: ScenarioManifest = match serde_saphyr::from_str(&yaml_str) {
         Ok(m) => m,
         Err(e) => {
             panic!("Failed to parse scenario manifest: {}", e);

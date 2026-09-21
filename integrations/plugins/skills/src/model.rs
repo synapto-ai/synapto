@@ -113,7 +113,7 @@ pub fn parse_skill_md(
     let frontmatter: SkillFrontmatter = if yaml_slice.trim().is_empty() {
         SkillFrontmatter::default()
     } else {
-        serde_yaml::from_str(&yaml_slice)
+        serde_saphyr::from_str(&yaml_slice)
             .map_err(|e| format!("Failed to parse YAML frontmatter: {}", e))?
     };
 
