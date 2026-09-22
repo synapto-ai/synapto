@@ -6,26 +6,26 @@ pub(crate) fn flatten_enum(schema: &mut Schema) {
         let mut descriptions = Vec::new();
         let mut enum_values = Vec::new();
 
-        for variant in one_of {
-            let Value::Object(mut variant) = variant else {
+        for variant in &one_of {
+            let Value::Object(variant_obj) = variant else {
                 panic!("Variant schema not an object: {variant:?}")
             };
 
-            let Some(Value::String(name)) = variant.remove("const") else {
+            let Some(Value::String(name)) = variant_obj.get("const") else {
                 panic!("Missing `const` schema property in variant: {variant:?}")
             };
 
             descriptions.push(format!(
                 "{} = {}",
                 name,
-                variant
+                variant_obj
                     .get("description")
                     .expect("Variant must have a description")
                     .as_str()
                     .expect("Description must be a string")
             ));
 
-            enum_values.push(Value::String(name));
+            enum_values.push(Value::String(name.clone()));
         }
 
         schema.insert("enum".to_owned(), Value::Array(enum_values));
@@ -47,5 +47,8 @@ pub(crate) fn flatten_enum(schema: &mut Schema) {
                 );
             }
         };
+
+        // Retain oneOf for programmatic introspection (e.g. choice questions)
+        schema.insert("oneOf".to_owned(), Value::Array(one_of));
     }
 }

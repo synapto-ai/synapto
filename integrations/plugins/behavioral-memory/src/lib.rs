@@ -233,6 +233,9 @@ pub async fn behavioral_insight_memory_task<S: synapto_interface::storage::Recor
             );
             let state = serde_json::json!({
                 "interactions": new_interactions,
+                "current_insights": LLMBehavioralInsightMemory::from(
+                    behavioral_insight_memory.clone(),
+                ),
             });
 
             let prob = match decision_handle.evaluate(None, state, questions).await {

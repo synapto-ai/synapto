@@ -373,6 +373,24 @@ pub async fn insight_memory_task<S: RecordStore + StorageConnection>(
                 continue;
             }
 
+            let active_activities = activity_memory_rx.borrow().clone();
+            let current_active_insights: Vec<LLMVisibleInsight> = insight_memory
+                .iter()
+                .filter(|i| i.is_active)
+                .map(|i| LLMVisibleInsight {
+                    id: i.id,
+                    text: i.text.clone(),
+                })
+                .collect();
+
+            let active_activities_info: Vec<ActivityShortInfo> = active_activities
+                .values()
+                .map(|a| ActivityShortInfo {
+                    id: a.id,
+                    title: a.title.clone(),
+                })
+                .collect();
+
             if decision_handle.is_available() {
                 let question = generate_semantic_preflight_question();
                 let mut questions = std::collections::BTreeMap::new();
@@ -382,6 +400,8 @@ pub async fn insight_memory_task<S: RecordStore + StorageConnection>(
                 );
                 let state = serde_json::json!({
                     "interactions": new_interactions,
+                    "current_active_insights": current_active_insights,
+                    "active_activities": active_activities_info,
                 });
 
                 let prob = match decision_handle.evaluate(None, state, questions).await {
@@ -412,24 +432,6 @@ pub async fn insight_memory_task<S: RecordStore + StorageConnection>(
                     continue;
                 }
             }
-
-            let active_activities = activity_memory_rx.borrow().clone();
-            let current_active_insights = insight_memory
-                .iter()
-                .filter(|i| i.is_active)
-                .map(|i| LLMVisibleInsight {
-                    id: i.id,
-                    text: i.text.clone(),
-                })
-                .collect();
-
-            let active_activities_info = active_activities
-                .values()
-                .map(|a| ActivityShortInfo {
-                    id: a.id,
-                    title: a.title.clone(),
-                })
-                .collect();
 
             let llm_output = match llm_client
                 .call(

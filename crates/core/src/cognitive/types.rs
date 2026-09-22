@@ -343,31 +343,59 @@ pub(super) enum UsersMessagesEvaluation {
     Unintelligible,
 }
 
-pub(super) fn generate_turn_evaluation_question() -> synapto_interface::decision::ChoiceQuestion {
-    let mut criteria = std::collections::BTreeMap::new();
-    criteria.insert(
-        "actionable".to_string(),
-        "Clear, complete, and actionable command or question requiring an answer.".to_string(),
-    );
-    criteria.insert(
-        "waiting_for_more_input".to_string(),
-        "Incomplete thought, mid-sentence pause, trailing sentence, or user is hesitating."
-            .to_string(),
-    );
-    criteria.insert(
-        "non_actionable".to_string(),
-        "Ambient speech, background chatter, self-talk, or conversation not addressed to assistant.".to_string(),
-    );
-    criteria.insert(
-        "unintelligible".to_string(),
-        "Audio noise, cough, mumbles, audio cut-offs, or unrecognizable language.".to_string(),
-    );
-
-    synapto_interface::decision::ChoiceQuestion {
-        instructions: "Evaluate the user input in relation to the current conversational turn:"
-            .to_string(),
-        criteria,
+impl UsersMessagesEvaluation {
+    pub(super) fn from_choice(choice: &str) -> Option<Self> {
+        match choice {
+            "Actionable" => Some(Self::Actionable),
+            "NonActionable" => Some(Self::NonActionable),
+            "WaitingForMoreInput" => Some(Self::WaitingForMoreInput),
+            "Unintelligible" => Some(Self::Unintelligible),
+            _ => None,
+        }
     }
+
+    pub(super) fn to_choice_question() -> synapto_interface::decision::ChoiceQuestion {
+        let schema = schemars::schema_for!(Self);
+        let mut criteria = std::collections::BTreeMap::new();
+
+        let one_of = schema
+            .get("oneOf")
+            .and_then(|v| v.as_array())
+            .expect("UsersMessagesEvaluation schema must have oneOf variants");
+
+        for variant in one_of {
+            let variant_obj = variant
+                .as_object()
+                .expect("Variant in oneOf must be an object");
+            let name = variant_obj
+                .get("const")
+                .and_then(|v| v.as_str())
+                .expect("Variant in oneOf must have const string name");
+            let desc = variant_obj
+                .get("description")
+                .and_then(|v| v.as_str())
+                .expect("Variant in oneOf must have description");
+
+            criteria.insert(name.to_string(), desc.to_string());
+        }
+
+        let instructions = schema
+            .get("description")
+            .and_then(|v| v.as_str())
+            .and_then(|d| d.split("\n\nOutput exactly ONE").next())
+            .unwrap_or("Evaluation of active user_messages. Determines if the newly arrived messages require a response.")
+            .trim()
+            .to_string();
+
+        synapto_interface::decision::ChoiceQuestion {
+            instructions,
+            criteria,
+        }
+    }
+}
+
+pub(super) fn generate_turn_evaluation_question() -> synapto_interface::decision::ChoiceQuestion {
+    UsersMessagesEvaluation::to_choice_question()
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, PartialEq, Eq, LLMSafe)]
@@ -495,11 +523,15 @@ mod tests {
     #[test]
     fn test_generate_turn_evaluation_question() {
         let question = generate_turn_evaluation_question();
-        assert!(question.instructions.contains("conversational turn"));
+        assert!(
+            question
+                .instructions
+                .contains("Evaluation of active user_messages")
+        );
         assert_eq!(question.criteria.len(), 4);
-        assert!(question.criteria.contains_key("actionable"));
-        assert!(question.criteria.contains_key("waiting_for_more_input"));
-        assert!(question.criteria.contains_key("non_actionable"));
-        assert!(question.criteria.contains_key("unintelligible"));
+        assert!(question.criteria.contains_key("Actionable"));
+        assert!(question.criteria.contains_key("WaitingForMoreInput"));
+        assert!(question.criteria.contains_key("NonActionable"));
+        assert!(question.criteria.contains_key("Unintelligible"));
     }
 }

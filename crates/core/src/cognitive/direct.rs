@@ -198,6 +198,8 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
         tools: registries.tools.clone(),
     };
 
+    let rendered_system_prompt = synapto_llm::Instruction::render(&system_prompt, 0);
+
     let llm_client: LLMClient<
         CognitiveLLMContent,
         CognitiveLLMOutput<CognitiveDirectCommands>,
@@ -403,6 +405,24 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
             });
         }
 
+        let request = synapto_interface::context::ContextRequest {
+            recent_interactions: recent_interactions.clone(),
+            initial_run: initial_cognitive_trigger,
+            resolved_tools_count: resolved_tools.as_ref().map(|v| v.len()).unwrap_or(0),
+        };
+
+        let historical_contexts = registries
+            .context
+            .historical
+            .gather_contexts(&request)
+            .await;
+        let current_contexts = registries.context.current.gather_contexts(&request).await;
+        let prospective_contexts = registries
+            .context
+            .prospective
+            .gather_contexts(&request)
+            .await;
+
         if !initial_cognitive_trigger && !has_resolved_tools && decision_handle.is_available() {
             let mut questions = std::collections::BTreeMap::new();
             questions.insert(
@@ -412,6 +432,12 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                 ),
             );
             let state = serde_json::json!({
+                "system_prompt": rendered_system_prompt,
+                "contexts": {
+                    "historical": historical_contexts,
+                    "current": current_contexts,
+                    "prospective": prospective_contexts,
+                },
                 "active_messages": current_messages,
                 "recent_interactions": recent_interactions,
             });
@@ -432,9 +458,11 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                 }
             };
 
-            if let Some(choice) = eval_result {
-                match choice.as_str() {
-                    "waiting_for_more_input" => {
+            if let Some(eval) =
+                eval_result.and_then(|c| super::types::UsersMessagesEvaluation::from_choice(&c))
+            {
+                match eval {
+                    super::types::UsersMessagesEvaluation::WaitingForMoreInput => {
                         tracing::info!(
                             "Turn gating: Waiting for more input or incomplete sentence."
                         );
@@ -449,7 +477,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                         processor.on_cycle_finished();
                         continue;
                     }
-                    "unintelligible" => {
+                    super::types::UsersMessagesEvaluation::Unintelligible => {
                         tracing::info!("Turn gating: Unintelligible noise input discarded.");
                         let mut processor = DirectOutputProcessor {
                             cognitive_speech_tx: &cognitive_speech_tx,
@@ -461,7 +489,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                         processor.on_cycle_finished();
                         continue;
                     }
-                    "non_actionable" => {
+                    super::types::UsersMessagesEvaluation::NonActionable => {
                         tracing::info!(
                             "Turn gating: NonActionable input, recording interaction and clearing pending messages."
                         );
@@ -490,29 +518,12 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                         processor.on_cycle_finished();
                         continue;
                     }
-                    _ => {
-                        // "actionable" or other: proceed to context gathering and LLM
+                    super::types::UsersMessagesEvaluation::Actionable => {
+                        // proceed to LLM
                     }
                 }
             }
         }
-        let request = synapto_interface::context::ContextRequest {
-            recent_interactions,
-            initial_run: initial_cognitive_trigger,
-            resolved_tools_count: resolved_tools.as_ref().map(|v| v.len()).unwrap_or(0),
-        };
-
-        let historical_contexts = registries
-            .context
-            .historical
-            .gather_contexts(&request)
-            .await;
-        let current_contexts = registries.context.current.gather_contexts(&request).await;
-        let prospective_contexts = registries
-            .context
-            .prospective
-            .gather_contexts(&request)
-            .await;
 
         let content = CognitiveLLMContent {
             historical_contexts,

@@ -87,6 +87,7 @@ impl<C: config::ConfigProvider> PluginInitFactory<C> {
             self.credentials.clone(),
         );
 
+        let start = std::time::Instant::now();
         let timeout_duration = self.timeout;
         let plugin_result =
             match tokio::time::timeout(timeout_duration, P::create(&init_context)).await {
@@ -96,12 +97,20 @@ impl<C: config::ConfigProvider> PluginInitFactory<C> {
                     timeout_duration
                 )),
             };
+        let elapsed = start.elapsed();
 
-        Arc::new(
-            plugin_result.unwrap_or_else(|e| {
-                panic!("Failed to initialize plugin '{}': {}", plugin_identity, e)
-            }),
-        )
+        let plugin = Arc::new(plugin_result.unwrap_or_else(|e| {
+            panic!("Failed to initialize plugin '{}': {}", plugin_identity, e)
+        }));
+
+        tracing::debug!(
+            target: "synapto",
+            "Plugin {} instantiated in {:?}",
+            plugin_identity,
+            elapsed
+        );
+
+        plugin
     }
 }
 
@@ -145,9 +154,17 @@ macro_rules! impl_plugin_tuple {
         > PluginTuple<C, S, PR, CR> for ($($T,)+) {
             #[allow(non_snake_case)]
             async fn register_plugins(mut synapto: Synapto<C, S, PR, CR>) -> Synapto<C, S, PR, CR> {
+                let start = std::time::Instant::now();
                 let factory = synapto.plugin_init_factory();
                 let ($($T,)+) = tokio::join!(
                     $(factory.init_plugin::<$T>(),)+
+                );
+                let count = [$(stringify!($T)),+].len();
+                tracing::debug!(
+                    target: "synapto",
+                    "All {} plugins instantiated concurrently in {:?}",
+                    count,
+                    start.elapsed()
                 );
                 $(synapto.attach_plugin($T);)+
                 synapto
@@ -613,7 +630,15 @@ impl<
         self.plugins.insert(type_id, plugin.clone());
         tracing::info!("Plugin {} registered.", plugin_identity);
 
+        let start = std::time::Instant::now();
         plugin.register(self);
+        let elapsed = start.elapsed();
+        tracing::debug!(
+            target: "synapto",
+            "Plugin {} registration took {:?}",
+            plugin_identity,
+            elapsed
+        );
     }
 
     async fn run_internal(self) -> ExitCode {
