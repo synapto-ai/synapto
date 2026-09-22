@@ -45,7 +45,7 @@ Instead, the core defines strongly-typed channels and specialized plugin traits.
 Rather than a single monolithic plugin trait with optional/nullable fields, the system uses a **Specialized Plugin Architecture**.
 
 1. **`Plugin` (The Base Lifecycle Trait)**:
-   All plugins implement the core `Plugin` trait. It handles initialization (`create` with `PluginContext`), metadata, and registration via the `register` hook.
+   All plugins implement the core `Plugin` trait. It handles initialization (`create` with `PluginInitContext`), metadata, and registration via the `register` hook.
 2. **Specialized Role Traits**:
    Depending on what capabilities your plugin provides, it implements one or more specialized execution traits defined in `synapto-interface`:
    - `ChatPlugin`: For text-based dialogue interfaces (e.g., Slack, Google Chat).
@@ -58,6 +58,113 @@ Rather than a single monolithic plugin trait with optional/nullable fields, the 
    - `CallPlugin`: Handling VOIP call loops, active voice indicators, and speaking detection.
    - `AudioRecorderPlugin`: Managing audio record flows on active calls.
    - `InteractionObserver`: Observing finalized conversation history asynchronously in the background (lossless queue).
+
+## Plugin Lifecycle Flow
+
+The execution lifecycle of a plugin consists of three distinct, sequential phases:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Core as Core Engine
+    participant InitCtx as PluginInitContext
+    participant Registry as PluginRegistry
+    participant Plugin as Plugin Implementation
+
+    Note over Core,Plugin: Phase 1: Instantiation
+    Core->>Plugin: Plugin::create(&init_context)
+    Plugin->>InitCtx: Read configuration & initialize storage/models
+    Plugin-->>Core: Ok(Self)
+
+    Note over Core,Plugin: Phase 2: Registration
+    Core->>Plugin: Plugin::register(Arc::new(self), &mut registry)
+    Plugin->>Registry: registry.register_<capability>(self)
+    Registry-->>Core: Capabilities stored
+
+    Note over Core,Plugin: Phase 3: Runtime Execution
+    Core->>Core: Allocate communication channels
+    Core->>Plugin: tokio::spawn(RoleTrait::start(channels...))
+    Note over Plugin: Process live stream events
+```
+
+### 1. Phase 1: Instantiation (`Plugin::create`)
+- **Signature:** `async fn create(context: &PluginInitContext<'_>) -> Result<Self, String>`
+- **Execution:** Invoked concurrently across all plugins during core startup.
+- **Responsibilities:**
+  - Deserialize typed configuration via `context.config()?` or `context.optional_config()?`.
+  - Resolve ambient credentials via `context.credentials()`.
+  - Initialize namespaces and persistent storage connections via `context.store::<S>().await`.
+  - Load heavy assets, neural network models, and static resources into memory.
+- **Operational Invariant:** Data streams, audio capture devices, and communication channels do not exist at this phase. All heavy and blocking initialization must complete here to prevent runtime channel overflow.
+- **Blocking Code Mandate:** Because all plugins initialize concurrently via `tokio::join!`, synchronous CPU-bound operations or blocking I/O (such as compiling neural network models or reading large files from disk) must be wrapped in `tokio::task::spawn_blocking`. Direct blocking calls on the async thread will starve the Tokio runtime executor and block concurrent startup of all other plugins.
+
+```rust,ignore
+#[async_trait]
+impl Plugin for ExamplePlugin {
+    async fn create(context: &PluginInitContext<'_>) -> Result<Self, String> {
+        // 1. Load typed configuration
+        let config: ExampleConfig = context.config()?;
+
+        // 2. Resolve credentials or initialize shared storage
+        let storage = context.store::<ExampleStore>().await?;
+
+        // 3. Offload CPU-heavy or blocking initialization to prevent stalling other plugins
+        let processor = tokio::task::spawn_blocking(|| {
+            HeavyProcessor::load().map_err(|e| format!("Failed to load processor: {e}"))
+        })
+        .await
+        .map_err(|e| format!("Join error during processor initialization: {e}"))??;
+
+        Ok(Self { config, storage, processor })
+    }
+}
+```
+
+### 2. Phase 2: Registration (`Plugin::register`)
+- **Signature:** `fn register<R: PluginRegistry + ?Sized>(self: Arc<Self>, registry: &mut R)`
+- **Execution:** Invoked sequentially for each successfully instantiated plugin instance.
+- **Responsibilities:**
+  - Declare capabilities to the core engine by calling matching methods on `PluginRegistry` (for example: `register_chat`, `register_diarization`, `register_audio_input`, `register_tool`).
+- **Operational Invariant:** No channel transmission occurs during registration. Implementations must only attach references to the registry.
+
+```rust,ignore
+impl Plugin for ExamplePlugin {
+    fn register<R: PluginRegistry + ?Sized>(self: Arc<Self>, registry: &mut R) {
+        // Attach capability handlers to the core registry
+        registry.register_chat(self);
+    }
+}
+```
+
+### 3. Phase 3: Runtime Execution (`<Role>Plugin::start`)
+- **Signature:** Role-specific asynchronous methods (for example: `ChatPlugin::start`, `DiarizationPlugin::start`, `AudioInputPlugin::start`) that receive direct channels (`mpsc`, `broadcast`, `watch`).
+- **Execution:** The core allocates channel endpoints and spawns each `start` method inside a dedicated Tokio task during system runtime.
+- **Responsibilities:**
+  - Maintain event loops to forward incoming external inputs into `mpsc::Sender` or `broadcast::Sender`.
+  - Consume outgoing core events from `mpsc::Receiver` or `broadcast::Receiver`.
+- **Operational Invariant:** Streams are live immediately when `start` executes. Implementations must not perform heavy synchronous setup or delay channel consumption inside `start`, as unread broadcast channels will drop messages and report lag.
+
+```rust,ignore
+#[async_trait]
+impl ChatPlugin for ExamplePlugin {
+    async fn start(
+        &self,
+        peer_input_text_tx: mpsc::Sender<PeerInputText>,
+        mut cognitive_output_text_rx: mpsc::Receiver<CognitiveOutputText>,
+        _cognitive_state_rx: broadcast::Receiver<CognitiveStateUpdate>,
+        _add_document_tx: Option<mpsc::Sender<AddDocumentRequest>>,
+    ) -> Result<(), String> {
+        // Channels are live. Spawn background workers immediately without blocking.
+        tokio::spawn(async move {
+            while let Some(msg) = cognitive_output_text_rx.recv().await {
+                // Process outgoing messages
+            }
+        });
+
+        Ok(())
+    }
+}
+```
 
 ## Step-by-Step Guide: Creating a Chat Plugin
 
