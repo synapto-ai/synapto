@@ -171,6 +171,7 @@ enum TaskEvaluationBackend {
 }
 
 #[instrument(skip_all, fields(subsystem))]
+#[allow(clippy::too_many_arguments)]
 pub async fn task_memory_task<S: synapto_interface::storage::RecordStore>(
     llm_executor: synapto_interface::llm::LlmExecutor,
     decision_handle: synapto_interface::decision::DecisionHandle,
