@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use synapto_interface::context::{ContextProvider, ContextRequest, TemporalScope};
-use synapto_interface::decision::{ChoiceQuestion, DecisionAnswer, DecisionHandle, DecisionQuestion};
+use synapto_interface::decision::{
+    ChoiceQuestion, DecisionAnswer, DecisionHandle, DecisionQuestion,
+};
 use synapto_interface::llm::LLMSafe;
 
 use crate::model::Skill;

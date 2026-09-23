@@ -151,10 +151,7 @@ async fn test_auto_activation_high_confidence() {
     assert!(ctx.active_skill.is_some());
     let active = ctx.active_skill.unwrap();
     assert_eq!(active.name, "format-pr");
-    assert_eq!(
-        active.instructions,
-        "## Instructions\nFormat PR cleanly."
-    );
+    assert_eq!(active.instructions, "## Instructions\nFormat PR cleanly.");
 
     // available_skills does not redundantly repeat the auto-activated skill
     assert!(ctx.available_skills.is_empty());

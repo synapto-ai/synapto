@@ -40,7 +40,8 @@ impl LoadSkillTool {
 impl Tool for LoadSkillTool {
     type Arguments = LoadSkillArgs;
     const NAME: &'static str = "load_skill";
-    const DESCRIPTION: &'static str = "Loads the detailed instructions and lists bundled helper files for a specialized skill.";
+    const DESCRIPTION: &'static str =
+        "Loads the detailed instructions and lists bundled helper files for a specialized skill.";
 
     async fn is_available(
         &self,

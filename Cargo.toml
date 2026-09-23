@@ -13,21 +13,21 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0-dev.12"
+version = "0.1.0-dev.13"
 license = "MPL-2.0"
 repository = "https://github.com/synapto-ai/synapto"
 
 [workspace.dependencies]
-synapto = { path = "crates/core", version = "0.1.0-dev.12" }
-synapto-derive = { path = "crates/derive", version = "0.1.0-dev.12" }
-synapto-interface = { path = "crates/interface", version = "0.1.0-dev.12" }
-synapto-telemetry = { path = "crates/telemetry", version = "0.1.0-dev.12" }
-synapto-llm = { path = "crates/llm", version = "0.1.0-dev.12" }
-synapto-shutdown = { path = "crates/shutdown", version = "0.1.0-dev.12" }
-synapto-test = { path = "crates/test", version = "0.1.0-dev.12" }
-synapto-credentials-elevenlabs = { path = "integrations/credentials-providers/elevenlabs", version = "0.1.0-dev.11" }
-synapto-credentials-google = { path = "integrations/credentials-providers/google", version = "0.1.0-dev.11" }
-synapto-credentials-speechmatics = { path = "integrations/credentials-providers/speechmatics", version = "0.1.0-dev.11" }
+synapto = { path = "crates/core", version = "0.1.0-dev.13" }
+synapto-derive = { path = "crates/derive", version = "0.1.0-dev.13" }
+synapto-interface = { path = "crates/interface", version = "0.1.0-dev.13" }
+synapto-telemetry = { path = "crates/telemetry", version = "0.1.0-dev.13" }
+synapto-llm = { path = "crates/llm", version = "0.1.0-dev.13" }
+synapto-shutdown = { path = "crates/shutdown", version = "0.1.0-dev.13" }
+synapto-test = { path = "crates/test", version = "0.1.0-dev.13" }
+synapto-credentials-elevenlabs = { path = "integrations/credentials-providers/elevenlabs", version = "0.1.0-dev.12" }
+synapto-credentials-google = { path = "integrations/credentials-providers/google", version = "0.1.0-dev.12" }
+synapto-credentials-speechmatics = { path = "integrations/credentials-providers/speechmatics", version = "0.1.0-dev.12" }
 synapto-credentials-typesafe = { path = "integrations/credentials-providers/typesafe", version = "0.1.0-dev.1" }
 
 schemars = "1.2"

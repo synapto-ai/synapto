@@ -25,9 +25,9 @@ impl SkillsPlugin {
 impl Plugin for SkillsPlugin {
     async fn create(context: &PluginInitContext<'_>) -> Result<Self, String> {
         let config: SkillsPluginConfig = context.optional_config()?.unwrap_or_default();
-        let project_root = config
-            .project_root
-            .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")));
+        let project_root = config.project_root.unwrap_or_else(|| {
+            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+        });
 
         let discovered = discover_skills(&project_root);
         tracing::info!("Discovered {} skill(s)", discovered.len());
