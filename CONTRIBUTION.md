@@ -91,7 +91,7 @@ Silently dropping `Result` values using `let _ = result;` is an anti-pattern as 
 
 Do not ignore errors. Instead, ensure visibility into failures by explicitly logging them.
 
-These rules don't apply in tests.
+These rules do not apply in tests. In test code, you can use `.expect("<message>")` and `.unwrap()` to assert state and provide failure context. Because `clippy::disallowed_methods` denies `Result::expect` globally across the workspace, annotate test modules with `#[allow(clippy::disallowed_methods)]` or test files with `#![allow(clippy::disallowed_methods)]`.
 
 **Preferred Patterns:**
 

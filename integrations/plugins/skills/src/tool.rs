@@ -149,6 +149,7 @@ fn collect_files_inner(dir: &Path, acc: &mut Vec<String>) {
 }
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)]
 mod tests {
     use super::*;
     use std::fs::{create_dir_all, write};

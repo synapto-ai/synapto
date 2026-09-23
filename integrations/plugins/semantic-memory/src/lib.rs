@@ -520,67 +520,6 @@ pub async fn insight_memory_task<S: RecordStore + StorageConnection>(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::collections::BTreeMap;
-    use synapto_interface::decision::{DecisionAnswer, DecisionQuestion, RawDecisionExecutor};
-
-    struct MockDecisionBackend {
-        prob: f64,
-    }
-
-    #[async_trait::async_trait]
-    impl RawDecisionExecutor for MockDecisionBackend {
-        async fn evaluate_raw(
-            &self,
-            _model: Option<&str>,
-            _state: serde_json::Value,
-            _questions: BTreeMap<String, DecisionQuestion>,
-        ) -> Result<BTreeMap<String, DecisionAnswer>, String> {
-            let mut map = BTreeMap::new();
-            map.insert(
-                "preflight".to_string(),
-                DecisionAnswer::Noul { noul: self.prob },
-            );
-            Ok(map)
-        }
-    }
-
-    #[test]
-    fn test_generate_semantic_preflight_question() {
-        let question = generate_semantic_preflight_question();
-        assert!(question.instructions.contains("activity"));
-        let criteria = question.criteria.expect("Missing criteria");
-        assert!(criteria.r#true.contains("factual"));
-        assert!(criteria.r#false.contains("No factual"));
-    }
-
-    #[tokio::test]
-    async fn test_semantic_decision_handle_evaluation() {
-        let handle = synapto_interface::decision::DecisionHandle::empty();
-        assert!(!handle.is_available());
-
-        handle.set_backend(MockDecisionBackend { prob: 0.1 });
-        assert!(handle.is_available());
-
-        let mut questions = BTreeMap::new();
-        questions.insert(
-            "preflight".to_string(),
-            DecisionQuestion::Noul(generate_semantic_preflight_question()),
-        );
-        let res = handle
-            .evaluate(None, serde_json::json!({}), questions)
-            .await
-            .unwrap();
-        match res.get("preflight") {
-            Some(DecisionAnswer::Noul { noul }) => assert_eq!(*noul, 0.1),
-            _ => panic!("Expected Noul answer"),
-        }
-    }
-}
-
-#[instrument(skip_all, fields(subsystem))]
 #[instrument(skip_all, fields(subsystem))]
 pub async fn activity_memory_task<S: RecordStore + StorageConnection>(
     llm_client: Arc<
@@ -769,6 +708,67 @@ pub async fn semantic_consolidation_task<S: RecordStore + StorageConnection>(
             Err(e) => {
                 tracing::error!("Semantic consolidation error: {:?}", e);
             }
+        }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::disallowed_methods)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeMap;
+    use synapto_interface::decision::{DecisionAnswer, DecisionQuestion, RawDecisionExecutor};
+
+    struct MockDecisionBackend {
+        prob: f64,
+    }
+
+    #[async_trait::async_trait]
+    impl RawDecisionExecutor for MockDecisionBackend {
+        async fn evaluate_raw(
+            &self,
+            _model: Option<&str>,
+            _state: serde_json::Value,
+            _questions: BTreeMap<String, DecisionQuestion>,
+        ) -> Result<BTreeMap<String, DecisionAnswer>, String> {
+            let mut map = BTreeMap::new();
+            map.insert(
+                "preflight".to_string(),
+                DecisionAnswer::Noul { noul: self.prob },
+            );
+            Ok(map)
+        }
+    }
+
+    #[test]
+    fn test_generate_semantic_preflight_question() {
+        let question = generate_semantic_preflight_question();
+        assert!(question.instructions.contains("activity"));
+        let criteria = question.criteria.expect("Missing criteria");
+        assert!(criteria.r#true.contains("factual"));
+        assert!(criteria.r#false.contains("No factual"));
+    }
+
+    #[tokio::test]
+    async fn test_semantic_decision_handle_evaluation() {
+        let handle = synapto_interface::decision::DecisionHandle::empty();
+        assert!(!handle.is_available());
+
+        handle.set_backend(MockDecisionBackend { prob: 0.1 });
+        assert!(handle.is_available());
+
+        let mut questions = BTreeMap::new();
+        questions.insert(
+            "preflight".to_string(),
+            DecisionQuestion::Noul(generate_semantic_preflight_question()),
+        );
+        let res = handle
+            .evaluate(None, serde_json::json!({}), questions)
+            .await
+            .unwrap();
+        match res.get("preflight") {
+            Some(DecisionAnswer::Noul { noul }) => assert_eq!(*noul, 0.1),
+            _ => panic!("Expected Noul answer"),
         }
     }
 }

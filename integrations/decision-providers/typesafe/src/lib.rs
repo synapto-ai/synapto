@@ -122,6 +122,7 @@ impl DecisionProvider for TypeSafeDecision {
 }
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)]
 mod tests {
     use super::*;
     use synapto_interface::decision::{NoulCriteria, NoulQuestion};

@@ -555,6 +555,7 @@ fn synthesize_words_from_transcript(
 }
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)]
 mod tests {
     use super::*;
     use synapto_interface::speech_to_text::SpeakerSegment;

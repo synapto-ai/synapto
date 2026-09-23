@@ -1,3 +1,5 @@
+#![allow(clippy::disallowed_methods)]
+
 use async_trait::async_trait;
 use std::collections::{BTreeMap, HashMap};
 use std::fs::{create_dir_all, write};
@@ -143,6 +145,7 @@ async fn test_auto_activation_high_confidence() {
             cognitive_output: None,
         }],
         initial_run: false,
+        resolved_tools_count: 0,
     };
 
     let ctx = provider.context(&req).await.unwrap();
@@ -200,6 +203,7 @@ async fn test_candidate_filtering_medium_confidence() {
             cognitive_output: None,
         }],
         initial_run: false,
+        resolved_tools_count: 0,
     };
 
     let ctx = provider.context(&req).await.unwrap();

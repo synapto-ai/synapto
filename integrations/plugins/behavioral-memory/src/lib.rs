@@ -318,6 +318,7 @@ pub async fn behavioral_insight_memory_task<S: synapto_interface::storage::Recor
 }
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)]
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
