@@ -253,7 +253,11 @@ async fn run_elevenlabs(
                                                     .and_then(|w| w.end_index)
                                                     .unwrap_or(base_index),
                                                 transcript,
-                                                words: mapped_words,
+                                                words: if mapped_words.is_empty() {
+                                                    None
+                                                } else {
+                                                    Some(mapped_words)
+                                                },
                                             })
                                             .await
                                         {

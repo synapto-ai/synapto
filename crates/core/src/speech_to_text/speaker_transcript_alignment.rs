@@ -68,12 +68,21 @@ pub(super) async fn start(
                     words: Vec<Word>,
                 }
 
+                let words: Vec<Word> = match transcript.words {
+                    Some(ref w) if !w.is_empty() => w.clone(),
+                    _ => synthesize_words_from_transcript(
+                        transcript.start_index,
+                        transcript.end_index,
+                        &transcript.transcript,
+                    ),
+                };
+
                 let mut sentences: Vec<Sentence> = Vec::new();
                 let mut grouped_messages: Vec<(InternalSpeaker, String)> = Vec::new();
 
                 if use_stt_diarization {
                     // STT Diarization Fallback Path
-                    if transcript.words.is_empty() {
+                    if words.is_empty() {
                         if !transcript.transcript.trim().is_empty() {
                             sentences.push(Sentence {
                                 start_index: transcript.start_index,
@@ -85,7 +94,7 @@ pub(super) async fn start(
                         let mut current_words: Vec<Word> = Vec::new();
                         let mut last_speaker_hint: Option<Option<String>> = None;
 
-                        for word in &transcript.words {
+                        for word in &words {
                             let hint_changed = match &last_speaker_hint {
                                 Some(last_hint) => *last_hint != word.speaker_hint,
                                 None => false,
@@ -194,7 +203,7 @@ pub(super) async fn start(
                     // Standard Local Diarization Path
                     // If the provider returned text but failed to provide word-level timestamps,
                     // we synthesize a single sentence spanning the entire transcript duration.
-                    if transcript.words.is_empty() {
+                    if words.is_empty() {
                         if !transcript.transcript.trim().is_empty() {
                             sentences.push(Sentence {
                                 start_index: transcript.start_index,
@@ -205,7 +214,7 @@ pub(super) async fn start(
                     } else {
                         // Group raw words into logical sentences based on terminal punctuation.
                         let mut current_words = Vec::new();
-                        for word in &transcript.words {
+                        for word in &words {
                             current_words.push(word.clone());
                             let w = word.word.trim();
 
@@ -250,6 +259,52 @@ pub(super) async fn start(
                     }
 
                     for sentence in sentences {
+                        if sentence.words.is_empty() {
+                            if !transcript.transcript.trim().is_empty() {
+                                let mut s_overlaps: std::collections::HashMap<
+                                    InternalSpeaker,
+                                    u64,
+                                > = std::collections::HashMap::new();
+
+                                for segment in &speaker_segments {
+                                    let overlap_start =
+                                        std::cmp::max(sentence.start_index, segment.start_index);
+                                    let overlap_end =
+                                        std::cmp::min(sentence.end_index, segment.end_index);
+                                    if overlap_end >= overlap_start {
+                                        let overlap = overlap_end - overlap_start + 1;
+                                        *s_overlaps.entry(segment.speaker.clone()).or_insert(0) +=
+                                            overlap;
+                                    }
+                                }
+
+                                let precomputed_overlaps =
+                                    vec![synapto_interface::speech_to_text::WordOverlap {
+                                        start_index: sentence.start_index,
+                                        end_index: sentence.end_index,
+                                        overlaps: s_overlaps,
+                                        word: transcript.transcript.trim().to_string(),
+                                    }];
+
+                                let resolved_speakers = heuristic.evaluate(
+                                    &precomputed_overlaps,
+                                    speaker_segments.make_contiguous(),
+                                );
+
+                                let final_speaker = resolved_speakers
+                                    .first()
+                                    .and_then(|s| s.clone())
+                                    .map(InternalSpeaker::Recognized)
+                                    .unwrap_or(InternalSpeaker::Unknown(None));
+
+                                grouped_messages.push((
+                                    final_speaker,
+                                    transcript.transcript.trim().to_string(),
+                                ));
+                            }
+                            continue;
+                        }
+
                         let mut precomputed_overlaps = Vec::new();
                         for word in &sentence.words {
                             let w_start = word.start_index.unwrap_or(sentence.start_index);
@@ -453,4 +508,130 @@ fn fallback_word_heuristic(
     }
 
     None
+}
+
+fn synthesize_words_from_transcript(
+    start_index: u64,
+    end_index: u64,
+    transcript: &str,
+) -> Vec<Word> {
+    let tokens: Vec<&str> = transcript.split_whitespace().collect();
+    if tokens.is_empty() {
+        return Vec::new();
+    }
+
+    let chunk_count = end_index.saturating_sub(start_index) + 1;
+    let total_chars: usize = tokens.iter().map(|w| w.chars().count()).sum();
+
+    let mut words = Vec::with_capacity(tokens.len());
+    let mut cumulative_chars = 0usize;
+
+    for (i, &token) in tokens.iter().enumerate() {
+        let token_chars = token.chars().count();
+        let word_start = if total_chars == 0 {
+            start_index + (i as u64 * chunk_count / tokens.len() as u64)
+        } else {
+            start_index + (cumulative_chars as u64 * chunk_count / total_chars as u64)
+        };
+        cumulative_chars += token_chars;
+        let word_end = if total_chars == 0 {
+            start_index + ((i + 1) as u64 * chunk_count / tokens.len() as u64)
+        } else {
+            start_index + (cumulative_chars as u64 * chunk_count / total_chars as u64)
+        };
+
+        let clamped_start = word_start.min(end_index);
+        let clamped_end = word_end.max(clamped_start).min(end_index);
+
+        words.push(Word {
+            start_index: Some(clamped_start),
+            end_index: Some(clamped_end),
+            word: token.to_string(),
+            speaker_hint: None,
+        });
+    }
+
+    words
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use synapto_interface::speech_to_text::SpeakerSegment;
+
+    #[test]
+    fn test_synthesize_words_empty_or_whitespace() {
+        assert!(synthesize_words_from_transcript(100, 200, "").is_empty());
+        assert!(synthesize_words_from_transcript(100, 200, "   \n\t  ").is_empty());
+    }
+
+    #[test]
+    fn test_synthesize_words_interpolation_bounds() {
+        let words = synthesize_words_from_transcript(100, 200, "What is the time?");
+        assert_eq!(words.len(), 4);
+        assert_eq!(words[0].word, "What");
+        assert_eq!(words[3].word, "time?");
+
+        assert_eq!(words[0].start_index, Some(100));
+        assert_eq!(words[3].end_index, Some(200));
+
+        for w in &words {
+            let s = w.start_index.unwrap();
+            let e = w.end_index.unwrap();
+            assert!(s >= 100);
+            assert!(e <= 200);
+            assert!(e >= s);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_alignment_with_none_words_and_local_diarization() {
+        let (transcript_tx, transcript_rx) = mpsc::channel(10);
+        let (speaker_tx, speaker_rx) = mpsc::channel(10);
+        let (peer_input_tx, mut peer_input_rx) = mpsc::channel(10);
+        let trigger = CognitiveDirectTrigger::default();
+        let (_last_voice_tx, last_voice_rx) = watch::channel(std::time::Instant::now());
+
+        tokio::spawn(start(
+            transcript_rx,
+            Some(speaker_rx),
+            None,
+            peer_input_tx,
+            trigger.clone(),
+            last_voice_rx,
+        ));
+
+        // Provide a speaker segment covering chunks 10..=30
+        speaker_tx
+            .send(SpeakerSegment {
+                speaker: InternalSpeaker::Recognized(SpeakerId("alice".to_string())),
+                start_index: 10,
+                end_index: 30,
+            })
+            .await
+            .unwrap();
+
+        // Send a transcript with words: None
+        transcript_tx
+            .send(SpeechTranscript {
+                start_index: 10,
+                end_index: 30,
+                transcript: "Hello world.".to_string(),
+                words: None,
+            })
+            .await
+            .unwrap();
+
+        let received =
+            tokio::time::timeout(std::time::Duration::from_secs(2), peer_input_rx.recv())
+                .await
+                .expect("Timed out waiting for PeerInputSpeech")
+                .expect("PeerInputSpeech channel closed");
+
+        assert_eq!(received.transcript.0, "Hello world.");
+        assert_eq!(
+            received.speaker,
+            synapto_interface::peer_input::Speaker::Recognized(SpeakerId("alice".to_string()))
+        );
+    }
 }

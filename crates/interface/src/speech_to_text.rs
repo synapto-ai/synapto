@@ -77,8 +77,8 @@ pub struct SpeechTranscript {
     pub end_index: u64,
     /// The complete transcribed text for this segment.
     pub transcript: String,
-    /// Individual words with their respective timing and metadata.
-    pub words: Vec<Word>,
+    /// Individual words with their respective timing and metadata, if provided by the STT engine.
+    pub words: Option<Vec<Word>>,
 }
 
 /// Represents an audio chunk with its associated voice activity status.

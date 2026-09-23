@@ -437,7 +437,7 @@ impl ScenarioCoordinator {
                             start_index: 0,
                             end_index: 100, // mock indexes
                             transcript: transcript.clone(),
-                            words,
+                            words: Some(words),
                         })
                         .await
                         .map_err(|e| format!("Failed to send final SpeechTranscript: {}", e))?;

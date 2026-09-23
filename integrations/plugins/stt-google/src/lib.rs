@@ -266,7 +266,7 @@ async fn run_v1(
                                             .and_then(|w| w.end_index)
                                             .unwrap_or(base_index),
                                         transcript: alt.transcript.clone(),
-                                        words,
+                                        words: if words.is_empty() { None } else { Some(words) },
                                     })
                                     .await
                                 {
@@ -542,7 +542,7 @@ async fn run_v2(
                                             .and_then(|w| w.end_index)
                                             .unwrap_or(base_index),
                                         transcript: alt.transcript.clone(),
-                                        words,
+                                        words: if words.is_empty() { None } else { Some(words) },
                                     })
                                     .await
                                 {

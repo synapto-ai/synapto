@@ -282,7 +282,7 @@ async fn emit_transcript(
                 .unwrap_or(base_index),
             end_index: words.last().and_then(|w| w.end_index).unwrap_or(base_index),
             transcript: transcript_text.trim().to_string(),
-            words,
+            words: if words.is_empty() { None } else { Some(words) },
         })
         .await
     {
