@@ -28,10 +28,39 @@ pub struct InitialRunConfig {
     pub reasoning_effort: ReasoningEffort,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CognitiveConfig {
+    pub model: String,
+
+    #[serde(default)]
+    pub reasoning_effort: ReasoningEffort,
+
+    #[serde(default)]
+    pub disable_preflight_decision: bool,
+}
+
+impl From<CognitiveConfig> for ModelConfig {
+    fn from(c: CognitiveConfig) -> Self {
+        Self {
+            model: c.model,
+            reasoning_effort: c.reasoning_effort,
+        }
+    }
+}
+
+impl From<&CognitiveConfig> for ModelConfig {
+    fn from(c: &CognitiveConfig) -> Self {
+        Self {
+            model: c.model.clone(),
+            reasoning_effort: c.reasoning_effort,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
-    pub cognitive: ModelConfig,
+    pub cognitive: CognitiveConfig,
 
     #[serde(default = "default_audience")]
     pub audience: String,
@@ -88,4 +117,38 @@ fn default_prompt_config() -> serde_json::Value {
 
 fn default_audience() -> String {
     "reasonably intelligent human".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cognitive_config_default_disable_preflight_decision() {
+        let json = serde_json::json!({
+            "model": "gemini-3.7-flash",
+            "reasoning_effort": "Minimal"
+        });
+        let config: CognitiveConfig = serde_json::from_value(json).unwrap();
+        assert_eq!(config.model, "gemini-3.7-flash");
+        assert_eq!(config.reasoning_effort, ReasoningEffort::Minimal);
+        assert!(!config.disable_preflight_decision);
+
+        let model_config: ModelConfig = config.into();
+        assert_eq!(model_config.model, "gemini-3.7-flash");
+        assert_eq!(model_config.reasoning_effort, ReasoningEffort::Minimal);
+    }
+
+    #[test]
+    fn test_cognitive_config_disable_preflight_decision_true() {
+        let json = serde_json::json!({
+            "model": "gemini-3.7-flash",
+            "reasoning_effort": "Low",
+            "disable_preflight_decision": true
+        });
+        let config: CognitiveConfig = serde_json::from_value(json).unwrap();
+        assert_eq!(config.model, "gemini-3.7-flash");
+        assert_eq!(config.reasoning_effort, ReasoningEffort::Low);
+        assert!(config.disable_preflight_decision);
+    }
 }

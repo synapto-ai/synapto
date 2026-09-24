@@ -145,7 +145,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
         synapto_llm::WithTools<crate::cognitive::types::RegistryToolExecutor>,
     > = CognitiveLLM::create_client_with_tools(
         llm_executor,
-        config.cognitive.clone(),
+        config.cognitive.clone().into(),
         system_prompt,
         executor,
         vec![], // Tools are dynamically passed in each turn
@@ -306,7 +306,10 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
             .gather_contexts(&request)
             .await;
 
-        if !has_resolved_tools && decision_handle.is_available() {
+        if !config.cognitive.disable_preflight_decision
+            && !has_resolved_tools
+            && decision_handle.is_available()
+        {
             let mut questions = std::collections::BTreeMap::new();
             questions.insert(
                 "turn_evaluation".to_string(),
