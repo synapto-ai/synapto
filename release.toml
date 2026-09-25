@@ -1,2 +1,5 @@
 consolidate-commits = true
 shared-version = false
+
+[rate-limit]
+existing-packages = 50
