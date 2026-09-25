@@ -14,5 +14,4 @@ synapto-interface.workspace = true
 async-trait.workspace = true
 serde.workspace = true
 
-[dev-dependencies]
-synapto-test.workspace = true
+

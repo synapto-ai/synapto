@@ -57,3 +57,9 @@ unwrap_used = "deny"
 disallowed_methods = "deny"
 disallowed_macros = "deny"
 todo = "warn"
+
+[profile.dev.package."*"]
+debug = "line-tables-only"
+
+[profile.release]
+debug = "line-tables-only"
