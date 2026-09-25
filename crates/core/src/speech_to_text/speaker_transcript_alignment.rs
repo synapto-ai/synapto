@@ -25,201 +25,156 @@ pub(super) async fn start(
     });
 
     loop {
-        better_tokio_select::tokio_select!(match .. {
-            .. if let transcript_result = transcript_rx.recv() => {
-                let transcript = match transcript_result {
-                    Some(t) => t,
-                    None => break, // Channel closed
-                };
-
-                let last_voice = *last_voice_time_rx.borrow();
-                let lag_ms = last_voice.elapsed().as_secs_f64() * 1000.0;
-                let chunk_count = transcript.end_index.saturating_sub(transcript.start_index) + 1;
-                let chunk_duration_ms = PEER_INPUT_AUDIO_CHUNK_DURATION.as_secs_f64() * 1000.0;
-                let audio_duration_ms = chunk_count as f64 * chunk_duration_ms;
-
-                tracing::trace!(target: "telemetry", metric = "stt/perceived_lag_ms", value = lag_ms);
-                tracing::trace!(target: "telemetry", metric = "stt/audio_duration_ms", value = audio_duration_ms);
-
-                tracing::info!(
-                    "STT perceived lag: {:.1}ms (audio: {:.1}ms) [chunks {}..={}]: \"{}\"",
-                    lag_ms,
-                    audio_duration_ms,
-                    transcript.start_index,
-                    transcript.end_index,
-                    transcript.transcript.trim()
-                );
-
-                let span = tracing::trace_span!("heuristic", track_stats = true);
-                let _enter = span.enter();
-
-                // Clean up old segments. Keep segments that ended at most 50 chunks before the transcript started.
-                while let Some(segment) = speaker_segments.front() {
-                    if segment.end_index.saturating_add(50) < transcript.start_index {
-                        speaker_segments.pop_front();
-                    } else {
-                        break;
+        better_tokio_select::tokio_select!(
+            biased,
+            match .. {
+                .. if let result = async {
+                    match &mut speaker_rx {
+                        Some(rx) => rx.recv().await,
+                        None => std::future::pending().await,
+                    }
+                } =>
+                {
+                    match result {
+                        Some(segment) => {
+                            speaker_segments.push_back(segment);
+                            if let Some(ref mut rx) = speaker_rx {
+                                while let Ok(segment) = rx.try_recv() {
+                                    speaker_segments.push_back(segment);
+                                }
+                            }
+                        }
+                        None => {
+                            break; // Channel closed
+                        }
                     }
                 }
+                .. if let transcript_result = transcript_rx.recv() => {
+                    if let Some(ref mut rx) = speaker_rx {
+                        while let Ok(segment) = rx.try_recv() {
+                            speaker_segments.push_back(segment);
+                        }
+                    }
 
-                struct Sentence {
-                    start_index: u64,
-                    end_index: u64,
-                    words: Vec<Word>,
-                }
+                    let transcript = match transcript_result {
+                        Some(t) => t,
+                        None => break, // Channel closed
+                    };
 
-                let words: Vec<Word> = match transcript.words {
-                    Some(ref w) if !w.is_empty() => w.clone(),
-                    _ => synthesize_words_from_transcript(
+                    let last_voice = *last_voice_time_rx.borrow();
+                    let lag_ms = last_voice.elapsed().as_secs_f64() * 1000.0;
+                    let chunk_count =
+                        transcript.end_index.saturating_sub(transcript.start_index) + 1;
+                    let chunk_duration_ms = PEER_INPUT_AUDIO_CHUNK_DURATION.as_secs_f64() * 1000.0;
+                    let audio_duration_ms = chunk_count as f64 * chunk_duration_ms;
+
+                    tracing::trace!(target: "telemetry", metric = "stt/perceived_lag_ms", value = lag_ms);
+                    tracing::trace!(target: "telemetry", metric = "stt/audio_duration_ms", value = audio_duration_ms);
+
+                    tracing::info!(
+                        "STT perceived lag: {:.1}ms (audio: {:.1}ms) [chunks {}..={}]: \"{}\"",
+                        lag_ms,
+                        audio_duration_ms,
                         transcript.start_index,
                         transcript.end_index,
-                        &transcript.transcript,
-                    ),
-                };
+                        transcript.transcript.trim()
+                    );
 
-                let mut sentences: Vec<Sentence> = Vec::new();
-                let mut grouped_messages: Vec<(InternalSpeaker, String)> = Vec::new();
+                    let span = tracing::trace_span!("heuristic", track_stats = true);
+                    let _enter = span.enter();
 
-                if use_stt_diarization {
-                    // STT Diarization Fallback Path
-                    if words.is_empty() {
-                        if !transcript.transcript.trim().is_empty() {
-                            sentences.push(Sentence {
-                                start_index: transcript.start_index,
-                                end_index: transcript.end_index,
-                                words: Vec::new(),
-                            });
-                        }
-                    } else {
-                        let mut current_words: Vec<Word> = Vec::new();
-                        let mut last_speaker_hint: Option<Option<String>> = None;
-
-                        for word in &words {
-                            let hint_changed = match &last_speaker_hint {
-                                Some(last_hint) => *last_hint != word.speaker_hint,
-                                None => false,
-                            };
-
-                            if hint_changed && !current_words.is_empty() {
-                                let start_idx = current_words
-                                    .iter()
-                                    .find_map(|w| w.start_index)
-                                    .unwrap_or(transcript.start_index);
-                                let end_idx = current_words
-                                    .iter()
-                                    .rev()
-                                    .find_map(|w| w.end_index)
-                                    .unwrap_or(transcript.end_index);
-
-                                sentences.push(Sentence {
-                                    start_index: start_idx,
-                                    end_index: end_idx,
-                                    words: current_words.clone(),
-                                });
-                                current_words.clear();
-                            }
-
-                            current_words.push(word.clone());
-                            last_speaker_hint = Some(word.speaker_hint.clone());
-                            let w = word.word.trim();
-
-                            if w.ends_with('.') || w.ends_with('?') || w.ends_with('!') {
-                                let start_idx = current_words
-                                    .iter()
-                                    .find_map(|w| w.start_index)
-                                    .unwrap_or(transcript.start_index);
-                                let end_idx = current_words
-                                    .iter()
-                                    .rev()
-                                    .find_map(|w| w.end_index)
-                                    .unwrap_or(transcript.end_index);
-
-                                sentences.push(Sentence {
-                                    start_index: start_idx,
-                                    end_index: end_idx,
-                                    words: current_words.clone(),
-                                });
-                                current_words.clear();
-                                last_speaker_hint = None;
-                            }
-                        }
-
-                        if !current_words.is_empty() {
-                            let start_idx = current_words
-                                .iter()
-                                .find_map(|w| w.start_index)
-                                .unwrap_or(transcript.start_index);
-                            let end_idx = current_words
-                                .iter()
-                                .rev()
-                                .find_map(|w| w.end_index)
-                                .unwrap_or(transcript.end_index);
-
-                            sentences.push(Sentence {
-                                start_index: start_idx,
-                                end_index: end_idx,
-                                words: current_words,
-                            });
-                        }
-                    }
-
-                    for sentence in sentences {
-                        if sentence.words.is_empty() {
-                            grouped_messages.push((
-                                InternalSpeaker::Unknown(None),
-                                transcript.transcript.trim().to_string(),
-                            ));
-                            continue;
-                        }
-
-                        let final_speaker = sentence.words[0]
-                            .speaker_hint
-                            .as_ref()
-                            .map(|hint| {
-                                InternalSpeaker::Recognized(SpeakerId(format!(
-                                    "STT_Speaker_{}",
-                                    hint
-                                )))
-                            })
-                            .unwrap_or(InternalSpeaker::Unknown(None));
-
-                        let sentence_text = sentence
-                            .words
-                            .iter()
-                            .map(|w| w.word.trim())
-                            .collect::<Vec<&str>>()
-                            .join(" ");
-
-                        if let Some((last_speaker, last_text)) = grouped_messages.last_mut()
-                            && *last_speaker == final_speaker
-                        {
-                            last_text.push(' ');
-                            last_text.push_str(&sentence_text);
+                    // Clean up old segments. Keep segments that ended at most 50 chunks before the transcript started.
+                    while let Some(segment) = speaker_segments.front() {
+                        if segment.end_index.saturating_add(50) < transcript.start_index {
+                            speaker_segments.pop_front();
                         } else {
-                            grouped_messages.push((final_speaker, sentence_text));
+                            break;
                         }
                     }
-                } else {
-                    // Standard Local Diarization Path
-                    // If the provider returned text but failed to provide word-level timestamps,
-                    // we synthesize a single sentence spanning the entire transcript duration.
-                    if words.is_empty() {
-                        if !transcript.transcript.trim().is_empty() {
-                            sentences.push(Sentence {
-                                start_index: transcript.start_index,
-                                end_index: transcript.end_index,
-                                words: Vec::new(),
-                            });
-                        }
-                    } else {
-                        // Group raw words into logical sentences based on terminal punctuation.
-                        let mut current_words = Vec::new();
-                        for word in &words {
-                            current_words.push(word.clone());
-                            let w = word.word.trim();
 
-                            // When we hit end-of-sentence punctuation, flush the buffer
-                            if w.ends_with('.') || w.ends_with('?') || w.ends_with('!') {
+                    struct Sentence {
+                        start_index: u64,
+                        end_index: u64,
+                        words: Vec<Word>,
+                    }
+
+                    let words: Vec<Word> = match transcript.words {
+                        Some(ref w) if !w.is_empty() => w.clone(),
+                        _ => synthesize_words_from_transcript(
+                            transcript.start_index,
+                            transcript.end_index,
+                            &transcript.transcript,
+                        ),
+                    };
+
+                    let mut sentences: Vec<Sentence> = Vec::new();
+                    let mut grouped_messages: Vec<(InternalSpeaker, String)> = Vec::new();
+
+                    if use_stt_diarization {
+                        // STT Diarization Fallback Path
+                        if words.is_empty() {
+                            if !transcript.transcript.trim().is_empty() {
+                                sentences.push(Sentence {
+                                    start_index: transcript.start_index,
+                                    end_index: transcript.end_index,
+                                    words: Vec::new(),
+                                });
+                            }
+                        } else {
+                            let mut current_words: Vec<Word> = Vec::new();
+                            let mut last_speaker_hint: Option<Option<String>> = None;
+
+                            for word in &words {
+                                let hint_changed = match &last_speaker_hint {
+                                    Some(last_hint) => *last_hint != word.speaker_hint,
+                                    None => false,
+                                };
+
+                                if hint_changed && !current_words.is_empty() {
+                                    let start_idx = current_words
+                                        .iter()
+                                        .find_map(|w| w.start_index)
+                                        .unwrap_or(transcript.start_index);
+                                    let end_idx = current_words
+                                        .iter()
+                                        .rev()
+                                        .find_map(|w| w.end_index)
+                                        .unwrap_or(transcript.end_index);
+
+                                    sentences.push(Sentence {
+                                        start_index: start_idx,
+                                        end_index: end_idx,
+                                        words: current_words.clone(),
+                                    });
+                                    current_words.clear();
+                                }
+
+                                current_words.push(word.clone());
+                                last_speaker_hint = Some(word.speaker_hint.clone());
+                                let w = word.word.trim();
+
+                                if w.ends_with('.') || w.ends_with('?') || w.ends_with('!') {
+                                    let start_idx = current_words
+                                        .iter()
+                                        .find_map(|w| w.start_index)
+                                        .unwrap_or(transcript.start_index);
+                                    let end_idx = current_words
+                                        .iter()
+                                        .rev()
+                                        .find_map(|w| w.end_index)
+                                        .unwrap_or(transcript.end_index);
+
+                                    sentences.push(Sentence {
+                                        start_index: start_idx,
+                                        end_index: end_idx,
+                                        words: current_words.clone(),
+                                    });
+                                    current_words.clear();
+                                    last_speaker_hint = None;
+                                }
+                            }
+
+                            if !current_words.is_empty() {
                                 let start_idx = current_words
                                     .iter()
                                     .find_map(|w| w.start_index)
@@ -233,177 +188,246 @@ pub(super) async fn start(
                                 sentences.push(Sentence {
                                     start_index: start_idx,
                                     end_index: end_idx,
-                                    words: current_words.clone(),
+                                    words: current_words,
                                 });
-                                current_words.clear();
                             }
                         }
-                        // Flush any remaining words that didn't end with punctuation
-                        if !current_words.is_empty() {
-                            let start_idx = current_words
-                                .iter()
-                                .find_map(|w| w.start_index)
-                                .unwrap_or(transcript.start_index);
-                            let end_idx = current_words
-                                .iter()
-                                .rev()
-                                .find_map(|w| w.end_index)
-                                .unwrap_or(transcript.end_index);
 
-                            sentences.push(Sentence {
-                                start_index: start_idx,
-                                end_index: end_idx,
-                                words: current_words,
-                            });
+                        for sentence in sentences {
+                            if sentence.words.is_empty() {
+                                grouped_messages.push((
+                                    InternalSpeaker::Unknown(None),
+                                    transcript.transcript.trim().to_string(),
+                                ));
+                                continue;
+                            }
+
+                            let final_speaker = sentence.words[0]
+                                .speaker_hint
+                                .as_ref()
+                                .map(|hint| {
+                                    InternalSpeaker::Recognized(SpeakerId(format!(
+                                        "STT_Speaker_{}",
+                                        hint
+                                    )))
+                                })
+                                .unwrap_or(InternalSpeaker::Unknown(None));
+
+                            let sentence_text = sentence
+                                .words
+                                .iter()
+                                .map(|w| w.word.trim())
+                                .collect::<Vec<&str>>()
+                                .join(" ");
+
+                            if let Some((last_speaker, last_text)) = grouped_messages.last_mut()
+                                && *last_speaker == final_speaker
+                            {
+                                last_text.push(' ');
+                                last_text.push_str(&sentence_text);
+                            } else {
+                                grouped_messages.push((final_speaker, sentence_text));
+                            }
                         }
-                    }
-
-                    for sentence in sentences {
-                        if sentence.words.is_empty() {
+                    } else {
+                        // Standard Local Diarization Path
+                        // If the provider returned text but failed to provide word-level timestamps,
+                        // we synthesize a single sentence spanning the entire transcript duration.
+                        if words.is_empty() {
                             if !transcript.transcript.trim().is_empty() {
-                                let mut s_overlaps: std::collections::HashMap<
+                                sentences.push(Sentence {
+                                    start_index: transcript.start_index,
+                                    end_index: transcript.end_index,
+                                    words: Vec::new(),
+                                });
+                            }
+                        } else {
+                            // Group raw words into logical sentences based on terminal punctuation.
+                            let mut current_words = Vec::new();
+                            for word in &words {
+                                current_words.push(word.clone());
+                                let w = word.word.trim();
+
+                                // When we hit end-of-sentence punctuation, flush the buffer
+                                if w.ends_with('.') || w.ends_with('?') || w.ends_with('!') {
+                                    let start_idx = current_words
+                                        .iter()
+                                        .find_map(|w| w.start_index)
+                                        .unwrap_or(transcript.start_index);
+                                    let end_idx = current_words
+                                        .iter()
+                                        .rev()
+                                        .find_map(|w| w.end_index)
+                                        .unwrap_or(transcript.end_index);
+
+                                    sentences.push(Sentence {
+                                        start_index: start_idx,
+                                        end_index: end_idx,
+                                        words: current_words.clone(),
+                                    });
+                                    current_words.clear();
+                                }
+                            }
+                            // Flush any remaining words that didn't end with punctuation
+                            if !current_words.is_empty() {
+                                let start_idx = current_words
+                                    .iter()
+                                    .find_map(|w| w.start_index)
+                                    .unwrap_or(transcript.start_index);
+                                let end_idx = current_words
+                                    .iter()
+                                    .rev()
+                                    .find_map(|w| w.end_index)
+                                    .unwrap_or(transcript.end_index);
+
+                                sentences.push(Sentence {
+                                    start_index: start_idx,
+                                    end_index: end_idx,
+                                    words: current_words,
+                                });
+                            }
+                        }
+
+                        for sentence in sentences {
+                            if sentence.words.is_empty() {
+                                if !transcript.transcript.trim().is_empty() {
+                                    let mut s_overlaps: std::collections::HashMap<
+                                        InternalSpeaker,
+                                        u64,
+                                    > = std::collections::HashMap::new();
+
+                                    for segment in &speaker_segments {
+                                        let overlap_start = std::cmp::max(
+                                            sentence.start_index,
+                                            segment.start_index,
+                                        );
+                                        let overlap_end =
+                                            std::cmp::min(sentence.end_index, segment.end_index);
+                                        if overlap_end >= overlap_start {
+                                            let overlap = overlap_end - overlap_start + 1;
+                                            *s_overlaps
+                                                .entry(segment.speaker.clone())
+                                                .or_insert(0) += overlap;
+                                        }
+                                    }
+
+                                    let precomputed_overlaps =
+                                        vec![synapto_interface::speech_to_text::WordOverlap {
+                                            start_index: sentence.start_index,
+                                            end_index: sentence.end_index,
+                                            overlaps: s_overlaps,
+                                            word: transcript.transcript.trim().to_string(),
+                                        }];
+
+                                    let resolved_speakers = heuristic.evaluate(
+                                        &precomputed_overlaps,
+                                        speaker_segments.make_contiguous(),
+                                    );
+
+                                    let final_speaker = resolved_speakers
+                                        .first()
+                                        .and_then(|s| s.clone())
+                                        .map(InternalSpeaker::Recognized)
+                                        .unwrap_or(InternalSpeaker::Unknown(None));
+
+                                    grouped_messages.push((
+                                        final_speaker,
+                                        transcript.transcript.trim().to_string(),
+                                    ));
+                                }
+                                continue;
+                            }
+
+                            let mut precomputed_overlaps = Vec::new();
+                            for word in &sentence.words {
+                                let w_start = word.start_index.unwrap_or(sentence.start_index);
+                                let w_end = word.end_index.unwrap_or(sentence.end_index);
+
+                                let mut w_overlaps: std::collections::HashMap<
                                     InternalSpeaker,
                                     u64,
                                 > = std::collections::HashMap::new();
 
+                                // Calculate overlap using mathematically inclusive closed bounds `[start, end]`.
+                                // `overlap_end - overlap_start + 1` yields the precise number of discrete 80ms chunks.
                                 for segment in &speaker_segments {
-                                    let overlap_start =
-                                        std::cmp::max(sentence.start_index, segment.start_index);
-                                    let overlap_end =
-                                        std::cmp::min(sentence.end_index, segment.end_index);
+                                    let overlap_start = std::cmp::max(w_start, segment.start_index);
+                                    let overlap_end = std::cmp::min(w_end, segment.end_index);
                                     if overlap_end >= overlap_start {
                                         let overlap = overlap_end - overlap_start + 1;
-                                        *s_overlaps.entry(segment.speaker.clone()).or_insert(0) +=
+                                        *w_overlaps.entry(segment.speaker.clone()).or_insert(0) +=
                                             overlap;
                                     }
                                 }
 
-                                let precomputed_overlaps =
-                                    vec![synapto_interface::speech_to_text::WordOverlap {
-                                        start_index: sentence.start_index,
-                                        end_index: sentence.end_index,
-                                        overlaps: s_overlaps,
-                                        word: transcript.transcript.trim().to_string(),
-                                    }];
-
-                                let resolved_speakers = heuristic.evaluate(
-                                    &precomputed_overlaps,
-                                    speaker_segments.make_contiguous(),
+                                precomputed_overlaps.push(
+                                    synapto_interface::speech_to_text::WordOverlap {
+                                        start_index: w_start,
+                                        end_index: w_end,
+                                        overlaps: w_overlaps,
+                                        word: word.word.clone(),
+                                    },
                                 );
+                            }
 
-                                let final_speaker = resolved_speakers
-                                    .first()
-                                    .and_then(|s| s.clone())
+                            let resolved_speakers = heuristic.evaluate(
+                                &precomputed_overlaps,
+                                speaker_segments.make_contiguous(),
+                            );
+
+                            let mut processed_words = Vec::new();
+                            for (i, word_overlap) in precomputed_overlaps.into_iter().enumerate() {
+                                let final_speaker = resolved_speakers[i]
+                                    .clone()
                                     .map(InternalSpeaker::Recognized)
                                     .unwrap_or(InternalSpeaker::Unknown(None));
-
-                                grouped_messages.push((
+                                processed_words.push((
+                                    word_overlap.start_index,
+                                    word_overlap.end_index,
+                                    word_overlap.overlaps,
+                                    word_overlap.word,
                                     final_speaker,
-                                    transcript.transcript.trim().to_string(),
                                 ));
                             }
-                            continue;
-                        }
 
-                        let mut precomputed_overlaps = Vec::new();
-                        for word in &sentence.words {
-                            let w_start = word.start_index.unwrap_or(sentence.start_index);
-                            let w_end = word.end_index.unwrap_or(sentence.end_index);
-
-                            let mut w_overlaps: std::collections::HashMap<InternalSpeaker, u64> =
-                                std::collections::HashMap::new();
-
-                            // Calculate overlap using mathematically inclusive closed bounds `[start, end]`.
-                            // `overlap_end - overlap_start + 1` yields the precise number of discrete 80ms chunks.
-                            for segment in &speaker_segments {
-                                let overlap_start = std::cmp::max(w_start, segment.start_index);
-                                let overlap_end = std::cmp::min(w_end, segment.end_index);
-                                if overlap_end >= overlap_start {
-                                    let overlap = overlap_end - overlap_start + 1;
-                                    *w_overlaps.entry(segment.speaker.clone()).or_insert(0) +=
-                                        overlap;
+                            for (_, _, _, word_text, speaker) in processed_words {
+                                // If the current word has the same speaker as the previous one,
+                                // append its text to the last message instead of creating a new entry.
+                                if let Some((last_speaker, last_text)) = grouped_messages.last_mut()
+                                    && *last_speaker == speaker
+                                {
+                                    last_text.push(' ');
+                                    last_text.push_str(word_text.trim());
+                                    continue;
                                 }
+
+                                grouped_messages.push((speaker, word_text.trim().to_string()));
                             }
-
-                            precomputed_overlaps.push(
-                                synapto_interface::speech_to_text::WordOverlap {
-                                    start_index: w_start,
-                                    end_index: w_end,
-                                    overlaps: w_overlaps,
-                                    word: word.word.clone(),
-                                },
-                            );
-                        }
-
-                        let resolved_speakers = heuristic
-                            .evaluate(&precomputed_overlaps, speaker_segments.make_contiguous());
-
-                        let mut processed_words = Vec::new();
-                        for (i, word_overlap) in precomputed_overlaps.into_iter().enumerate() {
-                            let final_speaker = resolved_speakers[i]
-                                .clone()
-                                .map(InternalSpeaker::Recognized)
-                                .unwrap_or(InternalSpeaker::Unknown(None));
-                            processed_words.push((
-                                word_overlap.start_index,
-                                word_overlap.end_index,
-                                word_overlap.overlaps,
-                                word_overlap.word,
-                                final_speaker,
-                            ));
-                        }
-
-                        for (_, _, _, word_text, speaker) in processed_words {
-                            // If the current word has the same speaker as the previous one,
-                            // append its text to the last message instead of creating a new entry.
-                            if let Some((last_speaker, last_text)) = grouped_messages.last_mut()
-                                && *last_speaker == speaker
-                            {
-                                last_text.push(' ');
-                                last_text.push_str(word_text.trim());
-                                continue;
-                            }
-
-                            grouped_messages.push((speaker, word_text.trim().to_string()));
                         }
                     }
-                }
 
-                for (speaker, text) in grouped_messages {
-                    let user_message = PeerInputSpeech {
-                        channel: MessageChannel {
-                            context: serde_json::Value::Null,
-                        },
-                        speaker: speaker.into(),
-                        transcript: MessageText(text),
-                    };
+                    for (speaker, text) in grouped_messages {
+                        let user_message = PeerInputSpeech {
+                            channel: MessageChannel {
+                                context: serde_json::Value::Null,
+                            },
+                            speaker: speaker.into(),
+                            transcript: MessageText(text),
+                        };
 
-                    tracing::info!("\n{:?}", user_message);
+                        tracing::info!("\n{:?}", user_message);
 
-                    peer_input_speech_tx
-                        .send(user_message)
-                        .await
-                        .unwrap_or_else(|e| panic!("Failed to send peer input speech: {:?}", e));
-                    trigger_cognitive_direct.trigger();
-                }
-            }
-            .. if let result = async {
-                match &mut speaker_rx {
-                    Some(rx) => rx.recv().await,
-                    None => std::future::pending().await,
-                }
-            } =>
-            {
-                match result {
-                    Some(segment) => {
-                        speaker_segments.push_back(segment);
-                    }
-                    None => {
-                        break; // Channel closed
+                        peer_input_speech_tx
+                            .send(user_message)
+                            .await
+                            .unwrap_or_else(|e| {
+                                panic!("Failed to send peer input speech: {:?}", e)
+                            });
+                        trigger_cognitive_direct.trigger();
                     }
                 }
             }
-        })
+        )
     }
 }
 
