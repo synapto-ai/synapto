@@ -8386,7 +8386,7 @@ dependencies = [
 
 [[package]]
 name = "synapto"
-version = "0.1.0-dev.13"
+version = "0.1.0-dev.14"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8419,7 +8419,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-credentials-elevenlabs"
-version = "0.1.0-dev.12"
+version = "0.1.0-dev.13"
 dependencies = [
  "async-trait",
  "schemars 1.2.1",
@@ -8432,7 +8432,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-credentials-google"
-version = "0.1.0-dev.12"
+version = "0.1.0-dev.13"
 dependencies = [
  "async-trait",
  "chrono",
@@ -8449,7 +8449,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-credentials-speechmatics"
-version = "0.1.0-dev.12"
+version = "0.1.0-dev.13"
 dependencies = [
  "async-trait",
  "schemars 1.2.1",
@@ -8462,7 +8462,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-credentials-typesafe"
-version = "0.1.0-dev.1"
+version = "0.1.0-dev.2"
 dependencies = [
  "async-trait",
  "serde",
@@ -8472,7 +8472,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-datadir-local"
-version = "0.1.0-dev.7"
+version = "0.1.0-dev.8"
 dependencies = [
  "dirs",
  "synapto",
@@ -8483,7 +8483,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-decision-typesafe"
-version = "0.1.0-dev.1"
+version = "0.1.0-dev.2"
 dependencies = [
  "async-trait",
  "reqwest 0.13.4",
@@ -8500,7 +8500,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-derive"
-version = "0.1.0-dev.13"
+version = "0.1.0-dev.14"
 dependencies = [
  "quote",
  "syn 2.0.118",
@@ -8508,7 +8508,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-interface"
-version = "0.1.0-dev.13"
+version = "0.1.0-dev.14"
 dependencies = [
  "async-trait",
  "derive_more",
@@ -8524,7 +8524,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-llm"
-version = "0.1.0-dev.13"
+version = "0.1.0-dev.14"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8542,7 +8542,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-llm-google"
-version = "0.1.0-dev.13"
+version = "0.1.0-dev.14"
 dependencies = [
  "async-trait",
  "genai",
@@ -8557,7 +8557,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-plugin-behavioral-memory"
-version = "0.1.0-dev.7"
+version = "0.1.0-dev.8"
 dependencies = [
  "async-trait",
  "derive_more",
@@ -8574,7 +8574,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-plugin-clock"
-version = "0.1.0-dev.7"
+version = "0.1.0-dev.8"
 dependencies = [
  "async-trait",
  "chrono",
@@ -8588,7 +8588,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-plugin-episodic-memory"
-version = "0.1.0-dev.6"
+version = "0.1.0-dev.7"
 dependencies = [
  "async-trait",
  "derive_more",
@@ -8604,7 +8604,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-plugin-linux-host-audio"
-version = "0.1.0-dev.8"
+version = "0.1.0-dev.9"
 dependencies = [
  "async-trait",
  "libspa",
@@ -8623,7 +8623,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-plugin-mcp"
-version = "0.1.0-dev.7"
+version = "0.1.0-dev.8"
 dependencies = [
  "async-trait",
  "reqwest 0.13.4",
@@ -8639,7 +8639,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-plugin-mumble"
-version = "0.1.0-dev.7"
+version = "0.1.0-dev.8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8664,7 +8664,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-plugin-semantic-memory"
-version = "0.1.0-dev.7"
+version = "0.1.0-dev.8"
 dependencies = [
  "async-trait",
  "better_tokio_select",
@@ -8683,7 +8683,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-plugin-skills"
-version = "0.1.0-dev.1"
+version = "0.1.0-dev.2"
 dependencies = [
  "async-trait",
  "dirs",
@@ -8701,7 +8701,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-plugin-stt-elevenlabs"
-version = "0.1.0-dev.7"
+version = "0.1.0-dev.8"
 dependencies = [
  "async-trait",
  "better_tokio_select",
@@ -8722,7 +8722,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-plugin-stt-google"
-version = "0.1.0-dev.6"
+version = "0.1.0-dev.7"
 dependencies = [
  "async-trait",
  "better_tokio_select",
@@ -8742,7 +8742,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-plugin-stt-speechmatics"
-version = "0.1.0-dev.7"
+version = "0.1.0-dev.8"
 dependencies = [
  "async-trait",
  "better_tokio_select",
@@ -8761,7 +8761,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-plugin-task-memory"
-version = "0.1.0-dev.6"
+version = "0.1.0-dev.7"
 dependencies = [
  "async-trait",
  "better_tokio_select",
@@ -8780,7 +8780,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-plugin-tts-elevenlabs"
-version = "0.1.0-dev.7"
+version = "0.1.0-dev.8"
 dependencies = [
  "async-trait",
  "elevenlabs-sdk",
@@ -8795,7 +8795,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-plugin-tts-google"
-version = "0.1.0-dev.7"
+version = "0.1.0-dev.8"
 dependencies = [
  "async-trait",
  "data-encoding",
@@ -8829,7 +8829,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-prompt-file"
-version = "0.1.0-dev.7"
+version = "0.1.0-dev.8"
 dependencies = [
  "serde",
  "serde_json",
@@ -8842,7 +8842,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-shutdown"
-version = "0.1.0-dev.13"
+version = "0.1.0-dev.14"
 dependencies = [
  "synapto-interface",
  "tracing",
@@ -8850,7 +8850,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-storage-firestore"
-version = "0.1.0-dev.7"
+version = "0.1.0-dev.8"
 dependencies = [
  "async-trait",
  "firestore",
@@ -8867,7 +8867,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-storage-surrealdb"
-version = "0.1.0-dev.7"
+version = "0.1.0-dev.8"
 dependencies = [
  "async-trait",
  "serde",
@@ -8882,7 +8882,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-telemetry"
-version = "0.1.0-dev.13"
+version = "0.1.0-dev.14"
 dependencies = [
  "chrono",
  "dashmap 6.2.1",
@@ -8900,7 +8900,7 @@ dependencies = [
 
 [[package]]
 name = "synapto-test"
-version = "0.1.0-dev.13"
+version = "0.1.0-dev.14"
 dependencies = [
  "async-trait",
  "better_tokio_select",
