@@ -8,8 +8,8 @@ use synapto_test::ephemeral_datadir::EphemeralDir;
 use synapto_test::local_storage::LocalStorage;
 use synapto_test::test_datadir::{ScenarioTestDir, WorkspaceTestDir};
 use synapto_test::{
-    MockDiarizationPlugin, MockDocumentsPlugin, MockSlowReadPlugin, MockSttPlugin, MockTtsPlugin,
-    run_scenario,
+    MockDiarizationPlugin, MockDocumentsPlugin, MockLlm, MockSlowReadPlugin, MockSttPlugin,
+    MockTtsPlugin, run_scenario,
 };
 use testcontainers::{GenericImage, ImageExt, core::IntoContainerPort, runners::AsyncRunner};
 
@@ -22,6 +22,7 @@ async fn test_bundle() {
             Env,
         )>()
         .storage::<LocalStorage<EphemeralDir>>()
+        .llm::<MockLlm>()
         .plugins::<(
             MockDocumentsPlugin,
             MockSlowReadPlugin,

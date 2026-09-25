@@ -64,6 +64,21 @@ pub trait RawLlmExecutor: Send + Sync + 'static {
     ) -> Result<genai::chat::ChatResponse, String>;
 }
 
+/// Capability trait for singleton LLM providers.
+/// LLM providers do NOT implement Plugin and have no actor or channel capabilities.
+pub trait LlmProvider: Send + Sync + 'static {
+    type Config: serde::de::DeserializeOwned;
+
+    fn init(
+        config: Self::Config,
+        credentials: crate::credentials::CredentialsHandle,
+    ) -> Result<Self, String>
+    where
+        Self: Sized;
+
+    fn raw_llm_executor(&self) -> std::sync::Arc<dyn RawLlmExecutor>;
+}
+
 #[doc(hidden)]
 #[async_trait::async_trait]
 impl<T: RawLlmExecutor + ?Sized> RawLlmExecutor for std::sync::Arc<T> {

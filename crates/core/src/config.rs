@@ -12,9 +12,6 @@ pub use dotenv::DotEnv;
 pub use env::Env;
 pub use json::ConfigJson;
 pub use provider::ConfigProvider;
-use synapto_interface::secrets::Secret;
-
-use crate::google_credentials::GoogleServiceAccountCredentials;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct InitialRunConfig {
@@ -65,18 +62,6 @@ pub struct Config {
     #[serde(default = "default_audience")]
     pub audience: String,
 
-    // FIXME
-    #[serde(default)]
-    pub google_vertex_ai_location: Option<String>,
-
-    // FIXME
-    #[serde(default)]
-    pub google_project_id: String,
-
-    // FIXME
-    #[serde(default)]
-    pub gemini_api_key: Option<Secret<String>>,
-
     // FIXME pub
     #[serde(default)]
     pub data_dir: std::path::PathBuf,
@@ -86,10 +71,6 @@ pub struct Config {
 
     #[serde(default)]
     pub initial_run: InitialRunConfig,
-
-    // FIXME
-    #[serde(default)]
-    pub google_service_account_credentials: Option<Secret<GoogleServiceAccountCredentials>>,
 
     #[serde(default)]
     pub disable_cognitive_direct: bool,

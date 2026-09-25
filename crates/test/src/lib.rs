@@ -13,6 +13,55 @@ pub use plugins::stt::MockSttPlugin;
 pub use plugins::tools::MockSlowReadPlugin;
 pub use plugins::tts::MockTtsPlugin;
 
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+pub struct MockLlmConfig {}
+
+pub struct MockLlmExecutor;
+
+#[async_trait::async_trait]
+impl synapto_interface::llm::RawLlmExecutor for MockLlmExecutor {
+    async fn execute_raw(
+        &self,
+        _model: &str,
+        _system_prompt: &str,
+        _prompt: &str,
+        _options: synapto_interface::llm::RawLlmOptions,
+    ) -> Result<synapto_interface::llm::genai::chat::ChatResponse, String> {
+        use synapto_interface::llm::genai;
+        Ok(genai::chat::ChatResponse {
+            content: genai::chat::MessageContent::from(""),
+            reasoning_content: None,
+            model_iden: genai::ModelIden::new(genai::adapter::AdapterKind::OpenAI, "mock"),
+            provider_model_iden: genai::ModelIden::new(genai::adapter::AdapterKind::OpenAI, "mock"),
+            stop_reason: Some(genai::chat::StopReason::Completed("stop".to_string())),
+            usage: genai::chat::Usage::default(),
+            captured_raw_body: None,
+            response_id: None,
+        })
+    }
+}
+
+pub struct MockLlm {
+    executor: Arc<MockLlmExecutor>,
+}
+
+impl synapto_interface::llm::LlmProvider for MockLlm {
+    type Config = MockLlmConfig;
+
+    fn init(
+        _config: Self::Config,
+        _credentials: synapto_interface::credentials::CredentialsHandle,
+    ) -> Result<Self, String> {
+        Ok(Self {
+            executor: Arc::new(MockLlmExecutor),
+        })
+    }
+
+    fn raw_llm_executor(&self) -> Arc<dyn synapto_interface::llm::RawLlmExecutor> {
+        self.executor.clone()
+    }
+}
+
 use std::sync::Arc;
 use synapto_interface::document::{
     AddDocumentRequest, DocumentIngestionPolicy, DocumentRegistrationRequest,

@@ -9,14 +9,15 @@ use synapto_test::ephemeral_datadir::EphemeralDir;
 use synapto_test::local_storage::LocalStorage;
 use synapto_test::test_datadir::WorkspaceTestDir;
 use synapto_test::{
-    MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin, MockSlowReadPlugin, MockSttPlugin,
-    MockTtsPlugin, run_scenario,
+    MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin, MockLlm, MockSlowReadPlugin,
+    MockSttPlugin, MockTtsPlugin, run_scenario,
 };
 
 async fn test_bundle() {
     Synapto::builder()
         .configs::<(ConfigJson<WorkspaceTestDir>, DotEnv, Env)>()
         .storage::<LocalStorage<EphemeralDir>>()
+        .llm::<MockLlm>()
         .plugins::<(
             MockDocumentsPlugin,
             MockChatPlugin,

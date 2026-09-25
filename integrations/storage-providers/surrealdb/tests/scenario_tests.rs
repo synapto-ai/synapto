@@ -5,7 +5,7 @@ use synapto::config::ConfigJson;
 use synapto::config::{DotEnv, Env};
 use synapto_test::test_datadir::{ScenarioTestDir, WorkspaceTestDir};
 use synapto_test::{
-    MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin,
+    MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin, MockLlm,
     MockSlowReadPlugin, MockSttPlugin, MockTtsPlugin, run_scenario,
 };
 
@@ -18,6 +18,7 @@ async fn test_bundle() {
             Env,
         )>()
         .storage::<synapto_storage_surrealdb::SurrealStorage<ScenarioTestDir>>()
+        .llm::<MockLlm>()
         .plugins::<(
             MockAudioInputPlugin,
             MockDocumentsPlugin,

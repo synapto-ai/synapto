@@ -1,0 +1,9 @@
+{
+  "storage": {
+    "synapto_storage_firestore": {
+      "FirestoreStorage": {
+        "project_id": "test-project"
+      }
+    }
+  }
+}

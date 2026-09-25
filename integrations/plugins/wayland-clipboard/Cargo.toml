@@ -1,0 +1,24 @@
+[package]
+name = "synapto-plugin-wayland-clipboard"
+description = "Wayland clipboard and primary selection plugin for the Synapto framework"
+version = "0.1.0-dev.1"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+synapto-interface.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+wl-clipboard-rs = "0.9"
+
+[dev-dependencies]
+synapto-test.workspace = true
+synapto.workspace = true

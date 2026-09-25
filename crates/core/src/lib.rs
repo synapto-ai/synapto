@@ -36,7 +36,6 @@ pub mod storage;
 mod utils;
 
 pub mod data_dir;
-mod google_credentials;
 mod interactions;
 mod speaking_coordinator;
 
@@ -280,6 +279,58 @@ pub struct NoDecision;
 /// Marker for configured singleton decision provider.
 pub struct WithDecision<D>(pub(crate) PhantomData<D>);
 
+/// Marker for unconfigured mandatory LLM provider.
+pub struct NoLlm;
+
+/// Marker for configured singular LLM provider.
+pub struct WithLlm<L>(pub(crate) PhantomData<L>);
+
+/// Internal setup helper trait for applying the LLM provider to Synapto.
+pub trait LlmSetup<C> {
+    type Provider: synapto_interface::llm::LlmProvider;
+    fn setup(
+        config_provider: &C,
+        credentials: &synapto_interface::credentials::CredentialsHandle,
+    ) -> Result<Arc<dyn synapto_interface::llm::RawLlmExecutor>, String>;
+}
+
+impl<C, L> LlmSetup<C> for WithLlm<L>
+where
+    C: config::ConfigProvider,
+    L: synapto_interface::llm::LlmProvider,
+{
+    type Provider = L;
+
+    fn setup(
+        config_provider: &C,
+        credentials: &synapto_interface::credentials::CredentialsHandle,
+    ) -> Result<Arc<dyn synapto_interface::llm::RawLlmExecutor>, String> {
+        let full_path = core::any::type_name::<L>();
+        let crate_name = full_path
+            .split("::")
+            .next()
+            .unwrap_or("")
+            .to_string()
+            .replace('-', "_");
+        let base_path = full_path.split('<').next().unwrap_or(full_path);
+        let provider_type_name = base_path.split("::").last().unwrap_or("").to_string();
+
+        let raw_config = config_provider.get_llm_config_value(&crate_name, &provider_type_name);
+
+        let config: L::Config = serde_json::from_value(raw_config).map_err(|e| {
+            format!(
+                "Failed to parse config for LLM provider '{}': {}",
+                provider_type_name, e
+            )
+        })?;
+
+        let provider = L::init(config, credentials.clone())?;
+        Tracing::add_plugin_to_log(&provider_type_name);
+        tracing::info!("  LLM capability registered: {}", provider_type_name);
+        Ok(provider.raw_llm_executor())
+    }
+}
+
 /// Public trait defining decision provider setup into Synapto core.
 pub trait DecisionSetup<
     C: config::ConfigProvider,
@@ -352,31 +403,37 @@ where
 }
 
 /// Zero-cost typestate builder for Synapto bundles.
-pub struct SynaptoBuilder<C, S, PR, CR, D, P> {
-    _marker: PhantomData<(C, S, PR, CR, D, P)>,
+pub struct SynaptoBuilder<C, S, PR, CR, D, L, P> {
+    _marker: PhantomData<(C, S, PR, CR, D, L, P)>,
 }
 
 impl Synapto<NoConfig, NoStorage, prompt_provider::EmptyPromptProvider, ()> {
     /// Entry point for fluent bundle composition.
-    pub fn builder()
-    -> SynaptoBuilder<NoConfig, NoStorage, prompt_provider::EmptyPromptProvider, (), NoDecision, ()>
-    {
+    pub fn builder() -> SynaptoBuilder<
+        NoConfig,
+        NoStorage,
+        prompt_provider::EmptyPromptProvider,
+        (),
+        NoDecision,
+        NoLlm,
+        (),
+    > {
         SynaptoBuilder {
             _marker: PhantomData,
         }
     }
 }
 
-impl<C, S, PR, CR, D, P> SynaptoBuilder<C, S, PR, CR, D, P> {
+impl<C, S, PR, CR, D, L, P> SynaptoBuilder<C, S, PR, CR, D, L, P> {
     /// Sets the configuration provider sources (plural: accepts tuple).
-    pub fn configs<NewC: config::ConfigProvider>(self) -> SynaptoBuilder<NewC, S, PR, CR, D, P> {
+    pub fn configs<NewC: config::ConfigProvider>(self) -> SynaptoBuilder<NewC, S, PR, CR, D, L, P> {
         SynaptoBuilder {
             _marker: PhantomData,
         }
     }
 
     /// Sets the shared storage backend (singular: accepts single storage type).
-    pub fn storage<NewS>(self) -> SynaptoBuilder<C, NewS, PR, CR, D, P>
+    pub fn storage<NewS>(self) -> SynaptoBuilder<C, NewS, PR, CR, D, L, P>
     where
         NewS: synapto_interface::storage::StorageConnection
             + synapto_interface::storage::KeyValueStore
@@ -390,7 +447,7 @@ impl<C, S, PR, CR, D, P> SynaptoBuilder<C, S, PR, CR, D, P> {
     /// Overrides the cognitive prompt provider (singular: accepts single prompt provider, defaults to EmptyPromptProvider).
     pub fn prompt<NewPR: prompt_provider::CognitivePromptProvider>(
         self,
-    ) -> SynaptoBuilder<C, S, NewPR, CR, D, P> {
+    ) -> SynaptoBuilder<C, S, NewPR, CR, D, L, P> {
         SynaptoBuilder {
             _marker: PhantomData,
         }
@@ -399,14 +456,14 @@ impl<C, S, PR, CR, D, P> SynaptoBuilder<C, S, PR, CR, D, P> {
     /// Overrides credentials providers (plural: accepts tuple, defaults to ()).
     pub fn credentials<NewCR: credentials::CredentialsTuple>(
         self,
-    ) -> SynaptoBuilder<C, S, PR, NewCR, D, P> {
+    ) -> SynaptoBuilder<C, S, PR, NewCR, D, L, P> {
         SynaptoBuilder {
             _marker: PhantomData,
         }
     }
 
     /// Registers the plugin tuple (plural: accepts tuple).
-    pub fn plugins<NewP>(self) -> SynaptoBuilder<C, S, PR, CR, D, NewP> {
+    pub fn plugins<NewP>(self) -> SynaptoBuilder<C, S, PR, CR, D, L, NewP> {
         SynaptoBuilder {
             _marker: PhantomData,
         }
@@ -414,13 +471,26 @@ impl<C, S, PR, CR, D, P> SynaptoBuilder<C, S, PR, CR, D, P> {
 }
 
 /// Singleton decision provider registration is available only when NoDecision is present.
-impl<C, S, PR, CR, P> SynaptoBuilder<C, S, PR, CR, NoDecision, P> {
+impl<C, S, PR, CR, L, P> SynaptoBuilder<C, S, PR, CR, NoDecision, L, P> {
     /// Registers the singular decision provider (singular: accepts single decision provider).
     /// Calling this method a second time is prevented at compile time.
     /// Cannot be called with standard plugins (must implement DecisionProvider).
     pub fn decision<D: synapto_interface::decision::DecisionProvider>(
         self,
-    ) -> SynaptoBuilder<C, S, PR, CR, WithDecision<D>, P> {
+    ) -> SynaptoBuilder<C, S, PR, CR, WithDecision<D>, L, P> {
+        SynaptoBuilder {
+            _marker: PhantomData,
+        }
+    }
+}
+
+/// Singleton LLM provider registration is available only when NoLlm is present.
+impl<C, S, PR, CR, D, P> SynaptoBuilder<C, S, PR, CR, D, NoLlm, P> {
+    /// Registers the singular mandatory LLM provider (singular: accepts single LLM provider).
+    /// Calling this method a second time is prevented at compile time.
+    pub fn llm<L: synapto_interface::llm::LlmProvider>(
+        self,
+    ) -> SynaptoBuilder<C, S, PR, CR, D, WithLlm<L>, P> {
         SynaptoBuilder {
             _marker: PhantomData,
         }
@@ -428,7 +498,7 @@ impl<C, S, PR, CR, P> SynaptoBuilder<C, S, PR, CR, NoDecision, P> {
 }
 
 /// Terminal execution method: available only when mandatory infrastructure is provided.
-impl<C, S, PR, CR, D, P> SynaptoBuilder<C, S, PR, CR, D, P>
+impl<C, S, PR, CR, D, L, P> SynaptoBuilder<C, S, PR, CR, D, WithLlm<L>, P>
 where
     C: config::ConfigProvider,
     S: synapto_interface::storage::StorageConnection
@@ -437,10 +507,38 @@ where
     PR: prompt_provider::CognitivePromptProvider,
     CR: credentials::CredentialsTuple,
     D: DecisionSetup<C, S, PR, CR>,
+    L: synapto_interface::llm::LlmProvider,
+    WithLlm<L>: LlmSetup<C>,
     P: PluginTuple<C, S, PR, CR>,
 {
     pub async fn run(self) -> ExitCode {
-        let mut synapto = Synapto::<C, S, PR, CR>::new();
+        rustls::crypto::ring::default_provider()
+            .install_default()
+            .ok();
+        let (gui_layer, error_rx) = synapto_telemetry::tracing::GuiErrorLayer::new();
+        let tracing = Tracing::setup(gui_layer);
+
+        let config_provider = C::init();
+        let credentials = match CR::build_handle(&config_provider) {
+            Ok(creds) => creds,
+            Err(e) => panic!("Failed to build credentials handle: {}", e),
+        };
+
+        let raw_executor = match <WithLlm<L> as LlmSetup<C>>::setup(&config_provider, &credentials)
+        {
+            Ok(exec) => exec,
+            Err(e) => panic!("Failed to initialize LLM provider: {}", e),
+        };
+        let llm_executor = synapto_interface::llm::LlmExecutor::from_arc(raw_executor);
+
+        let mut synapto = Synapto::<C, S, PR, CR>::with_config_and_llm(
+            config_provider,
+            credentials,
+            llm_executor,
+            error_rx,
+            tracing,
+        );
+
         if let Err(e) = D::setup(&mut synapto) {
             panic!("Failed to initialize decision provider: {}", e);
         }
@@ -514,41 +612,15 @@ impl<
     CR: credentials::CredentialsTuple,
 > Synapto<C, S, PR, CR>
 {
-    #[allow(clippy::new_without_default)]
-    fn new() -> Self {
-        Self::with_config_provider(C::init())
-    }
-
-    fn with_config_provider(config_provider: C) -> Self {
-        let credentials = CR::build_handle(&config_provider)
-            .unwrap_or_else(|e| panic!("Failed to build credentials handle: {}", e));
+    pub(crate) fn with_config_and_llm(
+        config_provider: C,
+        credentials: synapto_interface::credentials::CredentialsHandle,
+        llm_executor: synapto_interface::llm::LlmExecutor,
+        error_rx: std::sync::mpsc::Receiver<String>,
+        tracing: Tracing,
+    ) -> Self {
         let config_provider = std::sync::Arc::new(config_provider);
-        rustls::crypto::ring::default_provider()
-            .install_default()
-            .ok();
-
-        let (gui_layer, error_rx) = synapto_telemetry::tracing::GuiErrorLayer::new();
-
-        let tracing = Tracing::setup(gui_layer);
-
-        {
-            let full_path = core::any::type_name::<C>();
-            tracing::info!("{} config provider intialized", full_path);
-        }
-
         let config = config_provider.get_core_config();
-        let executor_config = synapto_llm::LLMClientConfig {
-            google_vertex_ai_location: config.google_vertex_ai_location.clone(),
-            google_project_id: config.google_project_id.clone(),
-            google_service_account_credentials: config
-                .google_service_account_credentials
-                .clone()
-                .map(|secret| secret.into_secret()),
-            gemini_api_key: config.gemini_api_key.clone(),
-        };
-        let llm_executor = synapto_interface::llm::LlmExecutor::new(
-            synapto_llm::ConcreteLlmExecutor::new(executor_config),
-        );
 
         let (current_context_tx, _current_context_rx) = watch::channel(serde_json::Value::Null);
 

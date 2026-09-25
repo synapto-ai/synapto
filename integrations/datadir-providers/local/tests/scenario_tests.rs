@@ -7,7 +7,7 @@ use synapto_datadir_local::DataLocalDir;
 use synapto_test::local_storage::LocalStorage;
 use synapto_test::test_datadir::WorkspaceTestDir;
 use synapto_test::{
-    MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin,
+    MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin, MockLlm,
     MockSlowReadPlugin, MockSttPlugin, MockTtsPlugin, run_scenario,
 };
 
@@ -15,6 +15,7 @@ async fn test_bundle() {
     Synapto::builder()
         .configs::<(ConfigJson<WorkspaceTestDir>, DotEnv, Env)>()
         .storage::<LocalStorage<DataLocalDir<"test">>>()
+        .llm::<MockLlm>()
         .plugins::<(
             MockAudioInputPlugin,
             MockDocumentsPlugin,

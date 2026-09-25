@@ -27,6 +27,9 @@ pub trait ConfigProvider: Send + Sync + Sized + 'static {
     fn load_decision_config(&self, crate_name: &str, provider_type_name: &str)
     -> serde_json::Value;
 
+    /// Returns the LLM provider configuration.
+    fn load_llm_config(&self, crate_name: &str, provider_type_name: &str) -> serde_json::Value;
+
     /// Returns the core configuration struct.
     fn get_core_config(&self) -> crate::config::Config {
         let val = self.load_core_config();
@@ -101,6 +104,30 @@ pub trait ConfigProvider: Send + Sync + Sized + 'static {
             )
         })
     }
+
+    /// Retrieves the raw configuration value for a specific LLM provider before deserialization.
+    fn get_llm_config_value(
+        &self,
+        crate_name: &str,
+        provider_type_name: &str,
+    ) -> serde_json::Value {
+        self.load_llm_config(crate_name, provider_type_name)
+    }
+
+    /// Retrieves and deserializes the configuration for a specific LLM provider.
+    fn get_llm_config<T: serde::de::DeserializeOwned>(
+        &self,
+        crate_name: &str,
+        provider_type_name: &str,
+    ) -> T {
+        let val = self.get_llm_config_value(crate_name, provider_type_name);
+        serde_json::from_value(val).unwrap_or_else(|e| {
+            panic!(
+                "Failed to parse config for LLM provider '{}::{}': {}",
+                crate_name, provider_type_name, e
+            )
+        })
+    }
 }
 
 impl ConfigProvider for () {
@@ -135,6 +162,10 @@ impl ConfigProvider for () {
         _crate_name: &str,
         _provider_type_name: &str,
     ) -> serde_json::Value {
+        serde_json::Value::Object(serde_json::Map::new())
+    }
+
+    fn load_llm_config(&self, _crate_name: &str, _provider_type_name: &str) -> serde_json::Value {
         serde_json::Value::Object(serde_json::Map::new())
     }
 }
@@ -210,6 +241,20 @@ macro_rules! impl_config_provider_tuple {
                 let ($($T,)+) = self;
                 $(
                     crate::config::env::merge_json(&mut val, $T.load_decision_config(crate_name, provider_type_name));
+                )+
+                val
+            }
+
+            fn load_llm_config(
+                &self,
+                crate_name: &str,
+                provider_type_name: &str,
+            ) -> serde_json::Value {
+                let mut val = serde_json::Value::Object(serde_json::Map::new());
+                #[allow(non_snake_case)]
+                let ($($T,)+) = self;
+                $(
+                    crate::config::env::merge_json(&mut val, $T.load_llm_config(crate_name, provider_type_name));
                 )+
                 val
             }

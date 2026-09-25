@@ -10,10 +10,11 @@ use synapto_test::ephemeral_datadir::EphemeralDir;
 use synapto_test::local_storage::LocalStorage;
 use synapto_test::test_datadir::{ScenarioTestDir, WorkspaceTestDir};
 use synapto_test::{
-    MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin,
+    MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin, MockLlm,
     MockSlowReadPlugin, MockSttPlugin, MockTtsPlugin, run_scenario,
 };
 
+// Global Test Bundle Definition
 async fn test_bundle() {
     Synapto::builder()
         .configs::<(
@@ -23,6 +24,7 @@ async fn test_bundle() {
             Env,
         )>()
         .storage::<LocalStorage<EphemeralDir>>()
+        .llm::<MockLlm>()
         .plugins::<(
             MockAudioInputPlugin,
             MockDocumentsPlugin,

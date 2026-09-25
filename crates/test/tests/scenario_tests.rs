@@ -7,7 +7,7 @@ use synapto_test::ephemeral_datadir::EphemeralDir;
 use synapto_test::local_storage::LocalStorage;
 use synapto_test::test_datadir::WorkspaceTestDir;
 use synapto_test::{
-    MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin,
+    MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin, MockLlm,
     MockSlowReadPlugin, MockSttPlugin, MockTtsPlugin, run_scenario,
 };
 
@@ -16,6 +16,8 @@ async fn test_bundle() {
     Synapto::builder()
         .configs::<(ConfigJson<WorkspaceTestDir>, DotEnv, Env)>()
         .storage::<LocalStorage<EphemeralDir>>()
+        .credentials::<(synapto_credentials_google::GoogleCredentials,)>()
+        .llm::<synapto_llm_google::GoogleLlm>()
         .plugins::<(
             MockAudioInputPlugin,
             MockDocumentsPlugin,

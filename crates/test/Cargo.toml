@@ -25,3 +25,7 @@ claxon = "0.4"
 tempfile = "3"
 
 synapto-shutdown.workspace = true
+
+[dev-dependencies]
+synapto-llm-google.workspace = true
+synapto-credentials-google.workspace = true

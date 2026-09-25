@@ -25,7 +25,6 @@ serde = { workspace = true, features = ["std"] }
 serde_json = { workspace = true, features = ["std"] }
 
 serde-saphyr = { workspace = true, features = ["serialize"] }
-gcp_auth = { version = "0.12" }
 genai = { version = "0.6" }
 anyhow = "1.0"
 re_sdk_types = { version = "0.33", optional = true, default-features = false }
