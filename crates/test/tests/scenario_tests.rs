@@ -7,8 +7,8 @@ use synapto_test::ephemeral_datadir::EphemeralDir;
 use synapto_test::local_storage::LocalStorage;
 use synapto_test::test_datadir::WorkspaceTestDir;
 use synapto_test::{
-    MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin,
-    MockSlowReadPlugin, MockSttPlugin, MockTtsPlugin, run_scenario,
+    MockAudioInputPlugin, MockChainedToolsPlugin, MockChatPlugin, MockDiarizationPlugin,
+    MockDocumentsPlugin, MockSlowReadPlugin, MockSttPlugin, MockTtsPlugin, run_scenario,
 };
 
 // Global Test Bundle Definition
@@ -23,6 +23,7 @@ async fn test_bundle() {
             MockDocumentsPlugin,
             MockChatPlugin,
             MockSlowReadPlugin,
+            MockChainedToolsPlugin,
             MockTtsPlugin,
             MockSttPlugin,
             MockDiarizationPlugin,
@@ -98,6 +99,16 @@ async fn multi_assert_test() {
 async fn document_summary_scenario() {
     run_scenario(
         "tests/scenarios/document-summary/scenario.yaml",
+        test_bundle,
+    )
+    .await;
+}
+
+#[ignore]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn multi_turn_tool_calling() {
+    run_scenario(
+        "tests/scenarios/multi-turn-tool-calling/scenario.yaml",
         test_bundle,
     )
     .await;

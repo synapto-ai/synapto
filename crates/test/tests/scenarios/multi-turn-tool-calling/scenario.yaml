@@ -1,0 +1,9 @@
+name: "Multi-Turn Tool Calling Test"
+steps:
+  - action: user_writes
+    text: "Please retrieve the security key using the `mock_lookup_key` tool, then immediately store it using the `mock_store_key` tool, and tell me the confirmation code."
+
+  - action: await_response
+    assert_all:
+      - "KEY-STORED-SUCCESSFULLY"
+    timeout_secs: 60

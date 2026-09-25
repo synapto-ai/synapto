@@ -74,6 +74,11 @@ pub mod rerun_logging;
 pub mod tracing;
 
 #[cfg(feature = "rerun")]
+pub use re_sdk::{self, EntityPath, RecordingStream, StoreKind};
+#[cfg(feature = "rerun")]
+pub use re_sdk_types::{archetypes, components};
+
+#[cfg(feature = "rerun")]
 pub fn log_to_rerun<A: ::re_sdk::AsComponents>(
     path: impl Into<::re_sdk::EntityPath>,
     archetype: &A,

@@ -69,9 +69,23 @@ impl Default for WorkingMemoryStore {
     }
 }
 
+#[cfg(feature = "rerun")]
+fn log_working_memory_to_rerun(mem: &[WorkingMemoryEntry]) {
+    if let Ok(json) = serde_json::to_string_pretty(mem) {
+        synapto_telemetry::log_to_rerun(
+            "memory/working_memory",
+            &synapto_telemetry::archetypes::TextDocument::new(json),
+        );
+    }
+}
+
+#[cfg(not(feature = "rerun"))]
+fn log_working_memory_to_rerun(_mem: &[WorkingMemoryEntry]) {}
+
 impl WorkingMemoryStore {
     pub(crate) fn new() -> Self {
         let (change_tx, change_rx) = watch::channel(());
+        log_working_memory_to_rerun(&[]);
         Self {
             memory: Arc::new(RwLock::new(Vec::new())),
             change_tx,
@@ -82,12 +96,14 @@ impl WorkingMemoryStore {
     pub(crate) async fn append(&self, entry: WorkingMemoryEntry) {
         let mut mem = self.memory.write().await;
         mem.push(entry);
+        log_working_memory_to_rerun(&mem);
         self.change_tx.send_replace(());
     }
 
     pub(crate) async fn replace(&self, new_memory: Vec<WorkingMemoryEntry>) {
         let mut mem = self.memory.write().await;
         *mem = new_memory;
+        log_working_memory_to_rerun(&mem);
         self.change_tx.send_replace(());
     }
 

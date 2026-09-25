@@ -8525,7 +8525,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "genai",
- "re_sdk_types",
  "schemars 1.2.1",
  "serde",
  "serde-saphyr",

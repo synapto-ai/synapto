@@ -10,7 +10,7 @@ pub use plugins::chat::MockChatPlugin;
 pub use plugins::diarization::MockDiarizationPlugin;
 pub use plugins::documents::MockDocumentsPlugin;
 pub use plugins::stt::MockSttPlugin;
-pub use plugins::tools::MockSlowReadPlugin;
+pub use plugins::tools::{MockChainedToolsPlugin, MockSlowReadPlugin};
 pub use plugins::tts::MockTtsPlugin;
 
 #[derive(Debug, Clone, Default, serde::Deserialize)]
