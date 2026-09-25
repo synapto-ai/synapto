@@ -19,10 +19,10 @@ pre-release-check:
     just link-check
 
 # Calculate and apply version bumps across changed crates (core group + independent crates)
-update *args:
+update *args: pre-release-check
     # TODO remove after https://github.com/crate-ci/cargo-release/issues/298
     release-plz update {{ args }}
 
 # Publish all unpublished crates to the registry, create git tags, and push
-release *args: pre-release-check
+release *args:
     cargo release --unpublished {{ args }} --sign-commit
