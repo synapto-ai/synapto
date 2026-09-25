@@ -49,7 +49,7 @@ impl GoogleLlmExecutor {
                         let token = creds_handle
                             .resolve_bearer_token(&target)
                             .await
-                            .map_err(|e| genai::resolver::Error::Custom(e))?;
+                            .map_err(genai::resolver::Error::Custom)?;
 
                         let url = if location == "global" {
                             format!(

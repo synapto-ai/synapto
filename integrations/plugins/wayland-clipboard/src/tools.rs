@@ -186,6 +186,7 @@ fn write_wayland_clipboard(text: String, clipboard_type: CopyClipboardType) -> R
 }
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)]
 mod tests {
     use super::*;
 
