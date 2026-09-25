@@ -1,7 +1,7 @@
 [package]
 name = "synapto-credentials-typesafe"
 description = "TypeSafe API key credentials provider for Synapto"
-version = "0.1.0-dev.2"
+version = "0.1.0-dev.3"
 edition = "2024"
 license.workspace = true
 repository.workspace = true
