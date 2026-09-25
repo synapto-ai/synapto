@@ -25,6 +25,10 @@ pub struct InitialRunConfig {
     pub reasoning_effort: ReasoningEffort,
 }
 
+fn default_max_tool_turns() -> usize {
+    3
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CognitiveConfig {
     pub model: String,
@@ -34,6 +38,9 @@ pub struct CognitiveConfig {
 
     #[serde(default)]
     pub disable_preflight_decision: bool,
+
+    #[serde(default = "default_max_tool_turns")]
+    pub max_tool_turns: usize,
 }
 
 impl From<CognitiveConfig> for ModelConfig {

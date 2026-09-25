@@ -113,3 +113,13 @@ async fn multi_turn_tool_calling() {
     )
     .await;
 }
+
+#[ignore]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn multi_turn_tool_stop() {
+    run_scenario(
+        "tests/scenarios/multi-turn-tool-stop/scenario.yaml",
+        test_bundle,
+    )
+    .await;
+}

@@ -1,0 +1,20 @@
+name: "Multi-Turn Tool Stop Test"
+steps:
+  - action: user_writes
+    text: "Please retrieve the security key using the `mock_slow_lookup_key` tool, then immediately store it using the `mock_store_key` tool, and tell me the confirmation code."
+
+  - action: wait
+    millis: 1000
+
+  - action: user_writes
+    text: "Stop, cancel the operation."
+
+  - action: await_response
+    assert_any:
+      - "stop"
+      - "cancel"
+      - "cancelled"
+      - "canceled"
+      - "stopped"
+      - "operation"
+    timeout_secs: 60

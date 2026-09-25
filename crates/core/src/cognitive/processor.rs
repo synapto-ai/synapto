@@ -124,6 +124,20 @@ pub(super) async fn process_llm_output<Cmd, P>(
                 pending_user_messages.clear();
             } else {
                 tracing::info!("Interrupted turn skipped creating interaction (no side effects).");
+                if !discard_interaction && !in_flight_tools.is_empty() {
+                    let interaction = Interaction::new(
+                        pending_user_messages.clone(),
+                        None,
+                        None,
+                        Some(reasoning),
+                        is_actionable,
+                        in_flight_tools,
+                    );
+
+                    if let Err(e) = new_interaction_tx.send(interaction).await {
+                        tracing::error!("Failed to send interaction to memory: {:?}", e);
+                    }
+                }
                 pending_user_messages.clear(); // We still clear the messages to avoid duplicates next turn
             }
         }

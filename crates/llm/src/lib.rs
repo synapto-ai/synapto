@@ -236,11 +236,7 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
 
         let raw_options = synapto_interface::llm::RawLlmOptions {
             reasoning_effort,
-            tools: if has_tools && resolved_tools.as_ref().is_none_or(|rt| rt.is_empty()) {
-                Some(current_tools)
-            } else {
-                None
-            },
+            tools: if has_tools { Some(current_tools) } else { None },
             resolved_tools: resolved_tools.as_ref().map(|rt| {
                 rt.iter()
                     .map(|(call, output)| (call.clone(), output.to_json_string()))
@@ -260,7 +256,7 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
         let tool_calls = response_obj.tool_calls();
 
         if !tool_calls.is_empty() {
-            if !has_tools || resolved_tools.as_ref().is_some_and(|rt| !rt.is_empty()) {
+            if !has_tools {
                 tracing::error!("LLM returned tool calls unexpectedly");
                 return Tools::interrupted(None, vec![]);
             }

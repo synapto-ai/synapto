@@ -166,6 +166,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
     .unwrap_or_else(|e| panic!("Historical provider background task failed: {:?}", e));
 
     let mut pending_user_messages: Vec<PeerInput> = Vec::new();
+    let mut consecutive_tool_turns: usize = 0;
 
     loop {
         let (do_process, msg, resolved_tools) = better_tokio_select::tokio_select!(match .. {
@@ -213,6 +214,12 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
 
         if !do_process {
             continue;
+        }
+
+        if msg.is_some() {
+            consecutive_tool_turns = 0;
+        } else if resolved_tools.is_some() {
+            consecutive_tool_turns += 1;
         }
 
         let new_messages = if let Some(ref m) = msg {
@@ -411,12 +418,22 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
 
         let content_value = serde_json::to_value(&content)
             .unwrap_or_else(|e| panic!("Failed to serialize content: {}", e));
-        let dynamic_tools = crate::cognitive::types::evaluate_dynamic_tools(
+        let mut dynamic_tools = crate::cognitive::types::evaluate_dynamic_tools(
             &registries.tools,
             &request,
             &content_value,
         )
         .await;
+
+        if config.cognitive.max_tool_turns > 0
+            && consecutive_tool_turns >= config.cognitive.max_tool_turns
+        {
+            tracing::info!(
+                "Max consecutive tool turns ({}) reached; suppressing tools.",
+                config.cognitive.max_tool_turns
+            );
+            dynamic_tools.clear();
+        }
 
         let prompt_config: P::Config =
             serde_json::from_value(config.prompt.clone()).unwrap_or_default();
@@ -455,6 +472,11 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
             _ => vec![],
         };
 
+        let is_interrupted = matches!(
+            &generated_text_result,
+            Ok(synapto_llm::LLMResult::Interrupted(..))
+        );
+
         process_llm_output(
             new_messages.clone(),
             &mut pending_user_messages,
@@ -466,6 +488,10 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
             has_resolved_tools,
         )
         .await;
+
+        if !is_interrupted {
+            consecutive_tool_turns = 0;
+        }
 
         if let Some(msg) = msg {
             cognitive_state_tx

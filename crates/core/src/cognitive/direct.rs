@@ -267,6 +267,8 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
     .inspect_err(|e| tracing::error!("{}", e))
     .unwrap_or_else(|e| panic!("Historical provider background task failed: {:?}", e));
 
+    let mut consecutive_tool_turns: usize = 0;
+
     loop {
         let mut resolved_tools = None;
         let mut _cycle_permit: Option<tokio::sync::OwnedSemaphorePermit> = None;
@@ -352,6 +354,12 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
 
         let new_speech_messages: Vec<PeerInputSpeech> =
             std::iter::from_fn(|| peer_input_speech_rx.try_recv().ok()).collect();
+
+        if !new_speech_messages.is_empty() {
+            consecutive_tool_turns = 0;
+        } else if resolved_tools.is_some() {
+            consecutive_tool_turns += 1;
+        }
 
         let mut current_messages = pending_user_messages.clone();
         current_messages.extend(
@@ -553,8 +561,18 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
 
         let content_value = serde_json::to_value(&content)
             .unwrap_or_else(|e| panic!("Failed to serialize content: {}", e));
-        let dynamic_tools =
+        let mut dynamic_tools =
             super::types::evaluate_dynamic_tools(&registries.tools, &request, &content_value).await;
+
+        if config.cognitive.max_tool_turns > 0
+            && consecutive_tool_turns >= config.cognitive.max_tool_turns
+        {
+            tracing::info!(
+                "Max consecutive tool turns ({}) reached; suppressing tools.",
+                config.cognitive.max_tool_turns
+            );
+            dynamic_tools.clear();
+        }
 
         let prompt_config: P::Config =
             serde_json::from_value(config.prompt.clone()).unwrap_or_default();
@@ -582,6 +600,13 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                 continue;
             }
         });
+
+        if !matches!(
+            &generated_text_result,
+            Ok(synapto_llm::LLMResult::Interrupted(..))
+        ) {
+            consecutive_tool_turns = 0;
+        }
 
         let mut processor = DirectOutputProcessor {
             cognitive_speech_tx: &cognitive_speech_tx,
