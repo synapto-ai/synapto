@@ -49,7 +49,12 @@ impl<'a> CognitiveOutputProcessor<CognitiveSideCommands> for SideOutputProcessor
         evaluation: &super::types::UsersMessagesEvaluation,
         has_resolved_tools: bool,
     ) {
-        if evaluation != &super::types::UsersMessagesEvaluation::Actionable && !has_resolved_tools {
+        let is_actionable = matches!(
+            evaluation,
+            super::types::UsersMessagesEvaluation::Actionable
+                | super::types::UsersMessagesEvaluation::NeedsClarification
+        );
+        if !is_actionable && !has_resolved_tools {
             commands.write = None;
         }
 
@@ -57,6 +62,10 @@ impl<'a> CognitiveOutputProcessor<CognitiveSideCommands> for SideOutputProcessor
             tracing::warn!("Chat plugin not wired; dropping write command.");
             commands.write = None;
         }
+    }
+
+    fn has_active_commands(&self, commands: &CognitiveSideCommands) -> bool {
+        commands.write.is_some() || !commands.commands_map.is_empty()
     }
 
     async fn execute_side_effects(
@@ -385,7 +394,8 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
                         pending_user_messages.clear();
                         continue;
                     }
-                    super::types::UsersMessagesEvaluation::Actionable => {
+                    super::types::UsersMessagesEvaluation::Actionable
+                    | super::types::UsersMessagesEvaluation::NeedsClarification => {
                         // proceed to LLM
                     }
                 }

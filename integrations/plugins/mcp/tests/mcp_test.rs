@@ -70,9 +70,11 @@ while read line; do
     if echo "$line" | grep -q '"method":"initialize"'; then
         echo "{\"jsonrpc\":\"2.0\",\"id\":$id,\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{}}}"
     elif echo "$line" | grep -q '"method":"tools/list"'; then
-        echo "{\"jsonrpc\":\"2.0\",\"id\":$id,\"result\":{\"tools\":[{\"name\":\"test_tool\",\"description\":\"A test tool\",\"inputSchema\":{\"type\":\"object\"}}]}}"
-    elif echo "$line" | grep -q '"method":"tools/call"'; then
+        echo "{\"jsonrpc\":\"2.0\",\"id\":$id,\"result\":{\"tools\":[{\"name\":\"test_tool\",\"description\":\"A test tool\",\"inputSchema\":{\"type\":\"object\"}},{\"name\":\"error_tool\",\"description\":\"Tool returning error\",\"inputSchema\":{\"type\":\"object\"}}]}}"
+    elif echo "$line" | grep -q '"test_tool"'; then
         echo "{\"jsonrpc\":\"2.0\",\"id\":$id,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"hello from mcp\"}]}}"
+    elif echo "$line" | grep -q '"error_tool"'; then
+        echo "{\"jsonrpc\":\"2.0\",\"id\":$id,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Validation error: bad arguments\"}],\"isError\":true}}"
     fi
 done
 "#;
@@ -97,7 +99,7 @@ done
                 .await
                 .expect("Failed to spawn mock MCP server");
 
-            assert_eq!(tools.len(), 1);
+            assert_eq!(tools.len(), 2);
             let tool = &tools[0];
             assert_eq!(tool.name(), "mcp__mock__test_tool");
             assert_eq!(tool.description(), "A test tool");
@@ -114,6 +116,13 @@ done
                     "content": [{"type": "text", "text": "hello from mcp"}]
                 })
             );
+
+            let err_tool = &tools[1];
+            let err_result = err_tool
+                .erased_execute(&ctx_req, json!({"bad": true}))
+                .await;
+            assert!(err_result.is_err());
+            assert_eq!(err_result.unwrap_err(), "Validation error: bad arguments");
         }
         _ => panic!("Expected Stdio target"),
     }

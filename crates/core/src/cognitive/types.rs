@@ -323,22 +323,27 @@ pub struct CognitiveLLMContent {
 )]
 pub(super) enum UsersMessagesEvaluation {
     #[schemars(
-        description = "All active messages are clearly understandable and actionable. The underlying meaning is unambiguous."
+        description = "All active messages are clearly understandable, complete, and directly actionable."
     )]
     Actionable,
 
     #[schemars(
-        description = "The active user_messages require no action or response from you. Use this when the user buffer is empty, or if they are just ambient discussion/self-talk."
+        description = "The user has finished speaking, but the input is ambiguous, distorted, or incomplete, requiring a clarification question or confirmation back to the user before proceeding."
+    )]
+    NeedsClarification,
+
+    #[schemars(
+        description = "The active user_messages require no action or response from you. Use this when the user buffer is empty, or if they are ambient discussion or self-talk."
     )]
     NonActionable,
 
     #[schemars(
-        description = "Discontinued sentence, incomplete thought, OR you are deliberately waiting for other users to speak before acting."
+        description = "The user is currently speaking, hesitating mid-sentence, or paused mid-thought. You must REMAIN SILENT to avoid interrupting. Output commands will be dropped."
     )]
     WaitingForMoreInput,
 
     #[schemars(
-        description = "All messages are not meaningful language due to mumbles, stutters, or garbling. The input will be discarded entirely."
+        description = "All messages are not meaningful language due to audio noise, mumbles, or stutters. The input will be discarded entirely."
     )]
     Unintelligible,
 }
@@ -347,6 +352,7 @@ impl UsersMessagesEvaluation {
     pub(super) fn from_choice(choice: &str) -> Option<Self> {
         match choice {
             "Actionable" => Some(Self::Actionable),
+            "NeedsClarification" => Some(Self::NeedsClarification),
             "NonActionable" => Some(Self::NonActionable),
             "WaitingForMoreInput" => Some(Self::WaitingForMoreInput),
             "Unintelligible" => Some(Self::Unintelligible),
@@ -404,7 +410,7 @@ pub(super) struct CognitiveLLMOutput<CognitiveCommands> {
     pub reasoning: CognitiveReasoning,
 
     #[schemars(
-        description = "Evaluation of the active user_messages. If there are no active messages, this should be NonActionable or WaitingForMoreInput. NOTE: You can and MUST still use the write command if you are fulfilling a request from a tool that just resolved, regardless of this evaluation."
+        description = "Evaluation of the active user_messages. Use Actionable when fulfilling a clear request, or NeedsClarification when asking a clarification question. If there are no active messages and no output commands, choose NonActionable or WaitingForMoreInput. Output commands (say, write) will be dropped if you choose WaitingForMoreInput, NonActionable, or Unintelligible (unless fulfilling a resolved tool)."
     )]
     pub users_messages_evaluation: UsersMessagesEvaluation,
 }
@@ -456,10 +462,53 @@ pub(super) fn clean_json_schema_for_llm(val: &mut serde_json::Value) {
         "enum",
         "nullable",
         "format",
+        "anyOf",
+        "oneOf",
     ];
 
     match val {
         serde_json::Value::Object(map) => {
+            // If the schema uses anyOf or oneOf, simplify nullable types like [ { "type": "object", ... }, { "type": "null" } ]
+            for union_key in ["anyOf", "oneOf"] {
+                let mut should_set_nullable = false;
+                let mut inlined_variant = None;
+
+                if let Some(serde_json::Value::Array(variants)) = map.get_mut(union_key) {
+                    let has_null = variants.iter().any(|v| {
+                        v.as_object()
+                            .and_then(|o| o.get("type"))
+                            .and_then(|t| t.as_str())
+                            == Some("null")
+                    });
+                    if has_null {
+                        variants.retain(|v| {
+                            v.as_object()
+                                .and_then(|o| o.get("type"))
+                                .and_then(|t| t.as_str())
+                                != Some("null")
+                        });
+                        should_set_nullable = true;
+                    }
+
+                    if variants.len() == 1 {
+                        inlined_variant = Some(variants.remove(0));
+                    }
+                }
+
+                if should_set_nullable {
+                    map.insert("nullable".to_string(), serde_json::Value::Bool(true));
+                }
+
+                if let Some(single_variant) = inlined_variant {
+                    map.remove(union_key);
+                    if let serde_json::Value::Object(inner) = single_variant {
+                        for (k, v) in inner {
+                            map.entry(k).or_insert(v);
+                        }
+                    }
+                }
+            }
+
             map.retain(|k, _| ALLOWED_KEYS.contains(&k.as_str()));
 
             if let Some(serde_json::Value::Object(props)) = map.get_mut("properties") {
@@ -470,6 +519,18 @@ pub(super) fn clean_json_schema_for_llm(val: &mut serde_json::Value) {
 
             if let Some(items_val) = map.get_mut("items") {
                 clean_json_schema_for_llm(items_val);
+            }
+
+            if let Some(serde_json::Value::Array(any_of)) = map.get_mut("anyOf") {
+                for v in any_of {
+                    clean_json_schema_for_llm(v);
+                }
+            }
+
+            if let Some(serde_json::Value::Array(one_of)) = map.get_mut("oneOf") {
+                for v in one_of {
+                    clean_json_schema_for_llm(v);
+                }
             }
         }
         serde_json::Value::Array(arr) => {
@@ -521,6 +582,40 @@ mod tests {
     }
 
     #[test]
+    fn test_clean_json_schema_for_llm_anyof_nullable() {
+        let mut schema = serde_json::json!({
+            "type": "object",
+            "properties": {
+                "params": {
+                    "anyOf": [
+                        { "type": "object", "additionalProperties": true },
+                        { "type": "null" }
+                    ],
+                    "description": "Dictionary of SerpApi engine-specific parameters."
+                }
+            },
+            "required": ["params"]
+        });
+
+        clean_json_schema_for_llm(&mut schema);
+
+        assert_eq!(
+            schema,
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "params": {
+                        "type": "object",
+                        "nullable": true,
+                        "description": "Dictionary of SerpApi engine-specific parameters."
+                    }
+                },
+                "required": ["params"]
+            })
+        );
+    }
+
+    #[test]
     fn test_generate_turn_evaluation_question() {
         let question = generate_turn_evaluation_question();
         assert!(
@@ -528,8 +623,9 @@ mod tests {
                 .instructions
                 .contains("Evaluation of active user_messages")
         );
-        assert_eq!(question.criteria.len(), 4);
+        assert_eq!(question.criteria.len(), 5);
         assert!(question.criteria.contains_key("Actionable"));
+        assert!(question.criteria.contains_key("NeedsClarification"));
         assert!(question.criteria.contains_key("WaitingForMoreInput"));
         assert!(question.criteria.contains_key("NonActionable"));
         assert!(question.criteria.contains_key("Unintelligible"));

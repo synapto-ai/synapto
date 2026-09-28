@@ -30,6 +30,9 @@ where
         has_resolved_tools: bool,
     );
 
+    // Returns true if output commands (e.g. say, write, tool calls) are requested.
+    fn has_active_commands(&self, commands: &Cmd) -> bool;
+
     // Returns None if the cycle should be aborted without creating an Interaction.
     fn execute_side_effects(
         &mut self,
@@ -88,6 +91,17 @@ pub(super) async fn process_llm_output<Cmd, P>(
             // Apply similar processing for side effects on interrupted responses
             pending_user_messages.extend(new_messages);
 
+            if model_response.users_messages_evaluation
+                == UsersMessagesEvaluation::WaitingForMoreInput
+                && processor.has_active_commands(&model_response.commands)
+            {
+                tracing::warn!(
+                    "Model output active commands while selecting WaitingForMoreInput; promoting evaluation to NeedsClarification."
+                );
+                model_response.users_messages_evaluation =
+                    UsersMessagesEvaluation::NeedsClarification;
+            }
+
             processor.sanitize_commands(
                 &mut model_response.commands,
                 &model_response.users_messages_evaluation,
@@ -95,8 +109,10 @@ pub(super) async fn process_llm_output<Cmd, P>(
             );
 
             let reasoning = model_response.reasoning.clone();
-            let is_actionable =
-                model_response.users_messages_evaluation == UsersMessagesEvaluation::Actionable;
+            let is_actionable = matches!(
+                model_response.users_messages_evaluation,
+                UsersMessagesEvaluation::Actionable | UsersMessagesEvaluation::NeedsClarification
+            );
 
             if let Some(metadata) = processor.execute_side_effects(&model_response).await {
                 if !discard_interaction {
@@ -176,8 +192,21 @@ pub(super) async fn process_llm_output<Cmd, P>(
             let mut messages_for_interaction = pending_user_messages.clone();
             let mut clear_pending_at_end = true;
 
+            if model_response.users_messages_evaluation
+                == UsersMessagesEvaluation::WaitingForMoreInput
+                && processor.has_active_commands(&model_response.commands)
+            {
+                tracing::warn!(
+                    "Model output active commands while selecting WaitingForMoreInput; promoting evaluation to NeedsClarification."
+                );
+                model_response.users_messages_evaluation =
+                    UsersMessagesEvaluation::NeedsClarification;
+            }
+
             match model_response.users_messages_evaluation {
-                UsersMessagesEvaluation::Actionable | UsersMessagesEvaluation::NonActionable => {
+                UsersMessagesEvaluation::Actionable
+                | UsersMessagesEvaluation::NeedsClarification
+                | UsersMessagesEvaluation::NonActionable => {
                     pending_user_messages.extend(new_messages);
                     messages_for_interaction = pending_user_messages.clone();
                 }
@@ -219,8 +248,10 @@ pub(super) async fn process_llm_output<Cmd, P>(
 
             let reasoning = model_response.reasoning.clone();
 
-            let is_actionable =
-                model_response.users_messages_evaluation == UsersMessagesEvaluation::Actionable;
+            let is_actionable = matches!(
+                model_response.users_messages_evaluation,
+                UsersMessagesEvaluation::Actionable | UsersMessagesEvaluation::NeedsClarification
+            );
 
             if let Some(metadata) = processor.execute_side_effects(&model_response).await {
                 if !discard_interaction {
