@@ -281,8 +281,15 @@ impl Tracing {
                         .map(|stem| stem.to_string_lossy().into_owned())
                 })
                 .unwrap_or_else(|| "unknown".to_string());
+            let spawn_opts = re_sdk::SpawnOptions {
+                extra_env: vec![(
+                    "RUST_LOG".to_string(),
+                    std::env::var("RERUN_LOG").unwrap_or_else(|_| "warn".to_string()),
+                )],
+                ..Default::default()
+            };
             let rec = re_sdk::RecordingStreamBuilder::new(binary_name.clone())
-                .spawn()
+                .spawn_opts(&spawn_opts)
                 .or_else(|_e| {
                     re_sdk::RecordingStreamBuilder::new(binary_name)
                         .connect_grpc_opts("rerun+http://host.docker.internal:9876/proxy") // TODO consider security concerns
