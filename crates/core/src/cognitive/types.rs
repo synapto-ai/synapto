@@ -1,12 +1,15 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
-use synapto_interface::cognitive::CognitiveReasoning;
+use synapto_interface::cognitive::{
+    CognitiveDirectState, CognitiveDirectStateUpdate, CognitiveReasoning,
+};
 use synapto_interface::document::DocumentId;
 use synapto_interface::interaction::CognitiveSpoken;
 use synapto_interface::peer_input::MessageText;
 use synapto_interface::peer_input::{PeerInput, Speaker};
 use synapto_interface::peer_input_text::SenderId;
 use synapto_interface::plugin::MessageChannel;
+use synapto_interface::sync::broadcast;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -30,6 +33,7 @@ use crate::{
 pub(super) struct RegistryToolExecutor {
     pub tool_resolved_tx: tokio::sync::mpsc::Sender<(ToolOutput, ToolCall)>,
     pub tools: Arc<synapto_interface::tool::ToolRegistryBuilder>,
+    pub cognitive_direct_state_tx: Option<broadcast::Sender<CognitiveDirectStateUpdate>>,
 }
 
 impl ToolExecutor for RegistryToolExecutor {
@@ -40,13 +44,25 @@ impl ToolExecutor for RegistryToolExecutor {
     ) -> impl std::future::Future<Output = ()> + Send {
         let tool_resolved_tx = self.tool_resolved_tx.clone();
         let tools = self.tools.clone();
+        let cognitive_direct_state_tx = self.cognitive_direct_state_tx.clone();
 
         async move {
             for call in tool_calls {
+                if let Some(ref tx) = cognitive_direct_state_tx {
+                    tx.send(CognitiveDirectStateUpdate {
+                        state: CognitiveDirectState::ToolExecuting {
+                            tool_name: call.fn_name.clone(),
+                            call_id: call.call_id.clone(),
+                        },
+                    })
+                    .ok();
+                }
+
                 if let Some(tool) = tools.get(&call.fn_name) {
                     let call_clone = call.clone();
                     let tool_resolved_tx = tool_resolved_tx.clone();
                     let ctx_req_clone = ctx_request.clone();
+                    let cognitive_direct_state_tx_clone = cognitive_direct_state_tx.clone();
 
                     tokio::spawn(async move {
                         tracing::debug!("Tool called: {}", call_clone.fn_name);
@@ -67,6 +83,18 @@ impl ToolExecutor for RegistryToolExecutor {
                                 .await;
 
                                 tracing::debug!("Tool resolved: {}", call_clone.fn_name);
+
+                                let is_error = !matches!(exec_res, Ok(Ok(_)));
+                                if let Some(ref tx) = cognitive_direct_state_tx_clone {
+                                    tx.send(CognitiveDirectStateUpdate {
+                                        state: CognitiveDirectState::ToolResolved {
+                                            tool_name: call_clone.fn_name.clone(),
+                                            call_id: call_clone.call_id.clone(),
+                                            is_error,
+                                        },
+                                    })
+                                    .ok();
+                                }
 
                                 match exec_res {
                                     Ok(Ok(result)) => {
@@ -121,6 +149,16 @@ impl ToolExecutor for RegistryToolExecutor {
                                     call_clone.fn_name,
                                     e
                                 );
+                                if let Some(ref tx) = cognitive_direct_state_tx_clone {
+                                    tx.send(CognitiveDirectStateUpdate {
+                                        state: CognitiveDirectState::ToolResolved {
+                                            tool_name: call_clone.fn_name.clone(),
+                                            call_id: call_clone.call_id.clone(),
+                                            is_error: true,
+                                        },
+                                    })
+                                    .ok();
+                                }
                                 let output =
                                     ToolOutput::new(format!("Error parsing arguments: {}", e));
                                 tool_resolved_tx
@@ -136,6 +174,16 @@ impl ToolExecutor for RegistryToolExecutor {
                 } else {
                     // LLM-side error: The LLM tried to invoke a tool that doesn't exist in the registry
                     tracing::warn!("LLM tried to call unknown tool: '{}'", call.fn_name);
+                    if let Some(ref tx) = cognitive_direct_state_tx {
+                        tx.send(CognitiveDirectStateUpdate {
+                            state: CognitiveDirectState::ToolResolved {
+                                tool_name: call.fn_name.clone(),
+                                call_id: call.call_id.clone(),
+                                is_error: true,
+                            },
+                        })
+                        .ok();
+                    }
                     let output = ToolOutput::new(format!(
                         "Error: Tool '{}' not found in registry.",
                         call.fn_name

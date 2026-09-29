@@ -19,7 +19,7 @@ use synapto_interface::peer_input_text::PeerInputText;
 use synapto_interface::peer_input_text::SenderId;
 use synapto_interface::plugin::MessageChannel;
 use synapto_interface::plugin::Plugin;
-use synapto_interface::sync::{broadcast, mpsc};
+use synapto_interface::sync::mpsc;
 use tokio::net::TcpStream;
 use tokio_native_tls::TlsConnector;
 use tokio_util::codec::Decoder;
@@ -103,9 +103,6 @@ impl ChatPlugin for MumblePlugin {
         &self,
         peer_input_text_tx: mpsc::Sender<PeerInputText>,
         cognitive_output_text_rx: mpsc::Receiver<CognitiveOutputText>,
-        _cognitive_side_state_rx: broadcast::Receiver<
-            synapto_interface::cognitive::CognitiveSideStateUpdate,
-        >,
     ) -> Result<(), String> {
         self.__channels
             .chat

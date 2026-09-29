@@ -1,6 +1,8 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
-use synapto_interface::cognitive::{CognitiveOutputSpeech, CognitiveSideStateUpdate};
+use synapto_interface::cognitive::{
+    CognitiveDirectStateUpdate, CognitiveOutputSpeech, CognitiveSideStateUpdate,
+};
 use synapto_interface::cognitive_output_audio::CognitiveOutputAudio;
 use synapto_interface::cognitive_output_text::CognitiveOutputText;
 use synapto_interface::interaction::NotClearInteractionMemory;
@@ -208,13 +210,18 @@ type TtsSpawner = Box<
             &mut Option<mpsc::Sender<CognitiveOutputAudio>>,
         ) + Send,
 >;
-type ChatSpawner = Box<
-    dyn FnOnce(
-            mpsc::Sender<PeerInputText>,
-            mpsc::Receiver<CognitiveOutputText>,
-            broadcast::Receiver<CognitiveSideStateUpdate>,
-        ) + Send,
->;
+type ChatSpawner =
+    Box<dyn FnOnce(mpsc::Sender<PeerInputText>, mpsc::Receiver<CognitiveOutputText>) + Send>;
+
+type CognitiveDirectStateObserverSpawner = (
+    String,
+    Box<dyn FnOnce(broadcast::Receiver<CognitiveDirectStateUpdate>) + Send>,
+);
+
+type CognitiveSideStateObserverSpawner = (
+    String,
+    Box<dyn FnOnce(broadcast::Receiver<CognitiveSideStateUpdate>) + Send>,
+);
 
 type DocumentProviderSpawner =
     Box<dyn FnOnce(mpsc::Sender<synapto_interface::document::AddDocumentRequest>) + Send>;
@@ -570,6 +577,8 @@ pub struct Synapto<C = NoConfig, S = NoStorage, PR = prompt_provider::EmptyPromp
     plugins: std::collections::HashMap<std::any::TypeId, Arc<dyn std::any::Any + Send + Sync>>,
     registries: synapto_interface::context::EngineRegistries,
     storage: synapto_interface::storage::StorageHandle,
+    cognitive_direct_state_observer_spawners: Vec<CognitiveDirectStateObserverSpawner>,
+    cognitive_side_state_observer_spawners: Vec<CognitiveSideStateObserverSpawner>,
     #[allow(clippy::type_complexity)]
     interaction_observer_spawners: Vec<(
         String,
@@ -653,6 +662,8 @@ impl<
             plugins: std::collections::HashMap::new(),
             registries,
             storage,
+            cognitive_direct_state_observer_spawners: Vec::new(),
+            cognitive_side_state_observer_spawners: Vec::new(),
             interaction_observer_spawners: Vec::new(),
             rollout_controller_spawners: Vec::new(),
             retrospective_consolidation_spawners: Vec::new(),
@@ -766,8 +777,16 @@ impl<
 
         let (peer_input_speech_tx, peer_input_speech_rx) = mpsc::channel::<PeerInputSpeech>(100);
 
-        let (cognitive_side_state_tx, _cognitive_side_state_rx) =
-            broadcast::channel::<CognitiveSideStateUpdate>(10);
+        let (cognitive_direct_state_tx, _) = broadcast::channel::<CognitiveDirectStateUpdate>(64);
+        let (cognitive_side_state_tx, _) = broadcast::channel::<CognitiveSideStateUpdate>(32);
+
+        for (_name, spawner) in self.cognitive_direct_state_observer_spawners {
+            spawner(cognitive_direct_state_tx.subscribe());
+        }
+
+        for (_name, spawner) in self.cognitive_side_state_observer_spawners {
+            spawner(cognitive_side_state_tx.subscribe());
+        }
 
         let (new_interaction_tx, new_interaction_rx) = mpsc::channel::<Interaction>(10);
 
@@ -988,11 +1007,7 @@ impl<
         }
 
         if let Some(spawner) = self.chat_spawner {
-            spawner(
-                peer_input_text_tx.clone(),
-                cognitive_output_text_rx,
-                cognitive_side_state_tx.subscribe(),
-            );
+            spawner(peer_input_text_tx.clone(), cognitive_output_text_rx);
         }
 
         cognitive::start::<PR>(
@@ -1013,6 +1028,7 @@ impl<
             } else {
                 None
             },
+            cognitive_direct_state_tx,
             cognitive_side_state_tx,
             self.decision_handle.clone(),
             resolve_in_flight_tool_tx,
@@ -1158,21 +1174,67 @@ impl<
 
     fn register_chat<P: ChatPlugin>(&mut self, plugin: Arc<P>) {
         self.chat_spawner = Some(Box::new(
-            move |peer_input_text_tx, cognitive_output_text_rx, cognitive_side_state_rx| {
+            move |peer_input_text_tx, cognitive_output_text_rx| {
                 let p = plugin.clone();
                 tokio::spawn(async move {
-                    p.start(
-                        peer_input_text_tx,
-                        cognitive_output_text_rx,
-                        cognitive_side_state_rx,
-                    )
-                    .await
-                    .inspect_err(|e| tracing::error!("Chat plugin failed: {:?}", e))
-                    .ok();
+                    p.start(peer_input_text_tx, cognitive_output_text_rx)
+                        .await
+                        .inspect_err(|e| tracing::error!("Chat plugin failed: {:?}", e))
+                        .ok();
                 });
             },
         ));
         tracing::info!("  Chat capability registered.");
+    }
+
+    fn register_cognitive_direct_state_observer<
+        P: synapto_interface::cognitive::CognitiveDirectStateObserver,
+    >(
+        &mut self,
+        plugin: Arc<P>,
+    ) {
+        let name = std::any::type_name::<P>().to_string();
+        self.cognitive_direct_state_observer_spawners.push((
+            name,
+            Box::new(move |direct_state_rx| {
+                let p = plugin.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = p.start(direct_state_rx).await {
+                        tracing::error!(
+                            "CognitiveDirectStateObserver plugin {} failed: {}",
+                            std::any::type_name::<P>(),
+                            e
+                        );
+                    }
+                });
+            }),
+        ));
+        tracing::info!("  CognitiveDirectStateObserver capability registered.");
+    }
+
+    fn register_cognitive_side_state_observer<
+        P: synapto_interface::cognitive::CognitiveSideStateObserver,
+    >(
+        &mut self,
+        plugin: Arc<P>,
+    ) {
+        let name = std::any::type_name::<P>().to_string();
+        self.cognitive_side_state_observer_spawners.push((
+            name,
+            Box::new(move |side_state_rx| {
+                let p = plugin.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = p.start(side_state_rx).await {
+                        tracing::error!(
+                            "CognitiveSideStateObserver plugin {} failed: {}",
+                            std::any::type_name::<P>(),
+                            e
+                        );
+                    }
+                });
+            }),
+        ));
+        tracing::info!("  CognitiveSideStateObserver capability registered.");
     }
 
     fn register_document_provider<P: synapto_interface::document::DocumentProviderPlugin>(

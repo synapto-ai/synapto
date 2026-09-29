@@ -1,10 +1,9 @@
 use crate::ACTIVE_COORDINATOR;
 use async_trait::async_trait;
 use synapto_interface::chat::ChatPlugin;
-use synapto_interface::cognitive::CognitiveSideStateUpdate;
 use synapto_interface::document::{AddDocumentRequest, DocumentProviderPlugin};
 use synapto_interface::plugin::Plugin;
-use synapto_interface::sync::{broadcast, mpsc};
+use synapto_interface::sync::mpsc;
 
 pub struct MockChatPlugin;
 
@@ -35,7 +34,6 @@ impl ChatPlugin for MockChatPlugin {
         mut cognitive_output_text_rx: mpsc::Receiver<
             synapto_interface::cognitive_output_text::CognitiveOutputText,
         >,
-        _cognitive_side_state_rx: broadcast::Receiver<CognitiveSideStateUpdate>,
     ) -> Result<(), String> {
         let coordinator = ACTIVE_COORDINATOR.lock().unwrap().clone().ok_or_else(|| {
             "ScenarioCoordinator is not initialized in ACTIVE_COORDINATOR Mutex".to_string()

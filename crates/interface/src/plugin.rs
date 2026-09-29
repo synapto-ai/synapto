@@ -2,6 +2,7 @@ use crate::audio_recorder::AudioRecorderPlugin;
 use crate::call::CallPlugin;
 use crate::camera::CameraPlugin;
 use crate::chat::ChatPlugin;
+use crate::cognitive::{CognitiveDirectStateObserver, CognitiveSideStateObserver};
 use crate::cognitive_output_audio::AudioOutputPlugin;
 use crate::document::{DocumentProviderPlugin, DocumentsPlugin};
 use crate::gui::GuiPlugin;
@@ -118,6 +119,14 @@ pub trait PluginRegistry {
         capability: Option<&'static str>,
     );
     fn register_recorder<P: AudioRecorderPlugin>(&mut self, plugin: std::sync::Arc<P>);
+    fn register_cognitive_direct_state_observer<P: CognitiveDirectStateObserver>(
+        &mut self,
+        plugin: std::sync::Arc<P>,
+    );
+    fn register_cognitive_side_state_observer<P: CognitiveSideStateObserver>(
+        &mut self,
+        plugin: std::sync::Arc<P>,
+    );
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

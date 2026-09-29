@@ -1,7 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use synapto_interface::cognitive::CognitiveOutputSpeech;
+use synapto_interface::cognitive::{
+    CognitiveDirectState, CognitiveDirectStateUpdate, CognitiveOutputSpeech, DirectTurnEvaluation,
+};
 use synapto_interface::cognitive_output_text::CognitiveOutputText;
 use synapto_interface::interaction::{CognitiveSpoken, CognitiveWritten};
 use synapto_interface::llm::LLMSafe;
@@ -80,6 +82,7 @@ impl CognitiveDirectInterrupt {
 struct DirectOutputProcessor<'a> {
     cognitive_speech_tx: &'a broadcast::Sender<CognitiveOutputSpeech>,
     cognitive_output_text_tx: Option<&'a mpsc::Sender<CognitiveOutputText>>,
+    cognitive_direct_state_tx: &'a broadcast::Sender<CognitiveDirectStateUpdate>,
     initial_cognitive_trigger: &'a mut bool,
     commands_registry: &'a Arc<synapto_interface::command::CommandRegistryBuilder>,
 }
@@ -123,6 +126,12 @@ impl<'a> CognitiveOutputProcessor<CognitiveDirectCommands> for DirectOutputProce
                 .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
                 .ok();
             tracing::info!("\n🔊 '{:?}'", say);
+
+            self.cognitive_direct_state_tx
+                .send(CognitiveDirectStateUpdate {
+                    state: CognitiveDirectState::Speaking,
+                })
+                .ok();
         }
 
         if let Some(ref chat_message) = model_response.commands.write
@@ -195,6 +204,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
     video_rx: Option<watch::Receiver<synapto_interface::camera::CameraInputFrame>>,
     registries: synapto_interface::context::EngineRegistries,
     cognitive_output_text_tx: Option<mpsc::Sender<CognitiveOutputText>>,
+    cognitive_direct_state_tx: broadcast::Sender<CognitiveDirectStateUpdate>,
     llm_executor: synapto_interface::llm::LlmExecutor,
     decision_handle: synapto_interface::decision::DecisionHandle,
     resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::tool::ToolCallId>,
@@ -205,6 +215,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
     let executor = crate::cognitive::types::RegistryToolExecutor {
         tool_resolved_tx,
         tools: registries.tools.clone(),
+        cognitive_direct_state_tx: Some(cognitive_direct_state_tx.clone()),
     };
 
     let rendered_system_prompt = synapto_llm::Instruction::render(&system_prompt, 0);
@@ -281,6 +292,14 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
     loop {
         let mut resolved_tools = None;
         let mut _cycle_permit: Option<tokio::sync::OwnedSemaphorePermit> = None;
+
+        if !initial_cognitive_trigger {
+            cognitive_direct_state_tx
+                .send(CognitiveDirectStateUpdate {
+                    state: CognitiveDirectState::Idle,
+                })
+                .ok();
+        }
 
         // Ignore notifications when cognitive task is paused
         if initial_cognitive_trigger {
@@ -482,6 +501,29 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
             if let Some(eval) =
                 eval_result.and_then(|c| super::types::UsersMessagesEvaluation::from_choice(&c))
             {
+                let direct_eval = match eval {
+                    super::types::UsersMessagesEvaluation::WaitingForMoreInput => {
+                        DirectTurnEvaluation::WaitingForMoreInput
+                    }
+                    super::types::UsersMessagesEvaluation::Unintelligible => {
+                        DirectTurnEvaluation::Unintelligible
+                    }
+                    super::types::UsersMessagesEvaluation::NonActionable => {
+                        DirectTurnEvaluation::NonActionable
+                    }
+                    super::types::UsersMessagesEvaluation::NeedsClarification => {
+                        DirectTurnEvaluation::NeedsClarification
+                    }
+                    super::types::UsersMessagesEvaluation::Actionable => {
+                        DirectTurnEvaluation::Actionable
+                    }
+                };
+                cognitive_direct_state_tx
+                    .send(CognitiveDirectStateUpdate {
+                        state: CognitiveDirectState::TurnGated(direct_eval),
+                    })
+                    .ok();
+
                 match eval {
                     super::types::UsersMessagesEvaluation::WaitingForMoreInput => {
                         tracing::info!(
@@ -492,6 +534,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                         let mut processor = DirectOutputProcessor {
                             cognitive_speech_tx: &cognitive_speech_tx,
                             cognitive_output_text_tx: cognitive_output_text_tx.as_ref(),
+                            cognitive_direct_state_tx: &cognitive_direct_state_tx,
                             initial_cognitive_trigger: &mut initial_cognitive_trigger,
                             commands_registry: &registries.commands,
                         };
@@ -503,6 +546,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                         let mut processor = DirectOutputProcessor {
                             cognitive_speech_tx: &cognitive_speech_tx,
                             cognitive_output_text_tx: cognitive_output_text_tx.as_ref(),
+                            cognitive_direct_state_tx: &cognitive_direct_state_tx,
                             initial_cognitive_trigger: &mut initial_cognitive_trigger,
                             commands_registry: &registries.commands,
                         };
@@ -533,6 +577,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                         let mut processor = DirectOutputProcessor {
                             cognitive_speech_tx: &cognitive_speech_tx,
                             cognitive_output_text_tx: cognitive_output_text_tx.as_ref(),
+                            cognitive_direct_state_tx: &cognitive_direct_state_tx,
                             initial_cognitive_trigger: &mut initial_cognitive_trigger,
                             commands_registry: &registries.commands,
                         };
@@ -593,6 +638,12 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
             CognitiveTarget::Direct,
         );
 
+        cognitive_direct_state_tx
+            .send(CognitiveDirectStateUpdate {
+                state: CognitiveDirectState::Thinking,
+            })
+            .ok();
+
         let generated_text_result = better_tokio_select::tokio_select!(match .. {
             .. if let res = llm_client.call(
                 content,
@@ -621,6 +672,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
         let mut processor = DirectOutputProcessor {
             cognitive_speech_tx: &cognitive_speech_tx,
             cognitive_output_text_tx: cognitive_output_text_tx.as_ref(),
+            cognitive_direct_state_tx: &cognitive_direct_state_tx,
             initial_cognitive_trigger: &mut initial_cognitive_trigger,
             commands_registry: &registries.commands,
         };

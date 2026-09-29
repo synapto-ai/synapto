@@ -151,7 +151,6 @@ impl ChatPlugin for ExamplePlugin {
         &self,
         peer_input_text_tx: mpsc::Sender<PeerInputText>,
         mut cognitive_output_text_rx: mpsc::Receiver<CognitiveOutputText>,
-        _cognitive_side_state_rx: broadcast::Receiver<CognitiveSideStateUpdate>,
         _add_document_tx: Option<mpsc::Sender<AddDocumentRequest>>,
     ) -> Result<(), String> {
         // Channels are live. Spawn background workers immediately without blocking.
@@ -280,7 +279,6 @@ impl ChatPlugin for MyChatPlugin {
         &self,
         peer_input_text_tx: mpsc::Sender<PeerInputText>,
         mut cognitive_output_text_rx: mpsc::Receiver<CognitiveOutputText>,
-        _cognitive_side_state_rx: broadcast::Receiver<CognitiveSideStateUpdate>,
         _add_document_tx: Option<mpsc::Sender<synapto_interface::document::AddDocumentRequest>>,
     ) -> Result<(), String> {
         let token = self.config.api_token.clone();

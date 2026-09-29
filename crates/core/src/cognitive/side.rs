@@ -144,6 +144,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
     let executor = crate::cognitive::types::RegistryToolExecutor {
         tool_resolved_tx,
         tools: registries.tools.clone(),
+        cognitive_direct_state_tx: None,
     };
 
     let rendered_system_prompt = synapto_llm::Instruction::render(&system_prompt, 0);
