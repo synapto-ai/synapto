@@ -103,8 +103,8 @@ impl ChatPlugin for MumblePlugin {
         &self,
         peer_input_text_tx: mpsc::Sender<PeerInputText>,
         cognitive_output_text_rx: mpsc::Receiver<CognitiveOutputText>,
-        _cognitive_state_rx: broadcast::Receiver<
-            synapto_interface::cognitive::CognitiveStateUpdate,
+        _cognitive_side_state_rx: broadcast::Receiver<
+            synapto_interface::cognitive::CognitiveSideStateUpdate,
         >,
     ) -> Result<(), String> {
         self.__channels

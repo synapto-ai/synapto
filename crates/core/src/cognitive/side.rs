@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use synapto_interface::cognitive::{CognitiveState, CognitiveStateUpdate};
+use synapto_interface::cognitive::{CognitiveSideState, CognitiveSideStateUpdate};
 use synapto_interface::cognitive_output_text::CognitiveOutputText;
 use synapto_interface::interaction::CognitiveWritten;
 use synapto_interface::llm::LLMSafe;
@@ -133,7 +133,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
 
     cognitive_output_text_tx: Option<mpsc::Sender<CognitiveOutputText>>,
 
-    cognitive_state_tx: broadcast::Sender<CognitiveStateUpdate>,
+    cognitive_side_state_tx: broadcast::Sender<CognitiveSideStateUpdate>,
     llm_executor: synapto_interface::llm::LlmExecutor,
     decision_handle: synapto_interface::decision::DecisionHandle,
     resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::tool::ToolCallId>,
@@ -417,10 +417,10 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
         };
 
         if let Some(msg) = &msg {
-            cognitive_state_tx
-                .send(CognitiveStateUpdate {
+            cognitive_side_state_tx
+                .send(CognitiveSideStateUpdate {
                     context: msg.channel.context.clone(),
-                    state: CognitiveState::Thinking,
+                    state: CognitiveSideState::Thinking,
                 })
                 .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
                 .ok();
@@ -504,10 +504,10 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
         }
 
         if let Some(msg) = msg {
-            cognitive_state_tx
-                .send(CognitiveStateUpdate {
+            cognitive_side_state_tx
+                .send(CognitiveSideStateUpdate {
                     context: msg.channel.context,
-                    state: CognitiveState::Idle,
+                    state: CognitiveSideState::Idle,
                 })
                 .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
                 .ok();

@@ -8,6 +8,6 @@ pub trait ChatPlugin: Plugin + Send + Sync {
         &self,
         peer_input_text_tx: mpsc::Sender<crate::peer_input_text::PeerInputText>,
         cognitive_output_text_rx: mpsc::Receiver<crate::cognitive_output_text::CognitiveOutputText>,
-        cognitive_state_rx: broadcast::Receiver<crate::cognitive::CognitiveStateUpdate>,
+        cognitive_side_state_rx: broadcast::Receiver<crate::cognitive::CognitiveSideStateUpdate>,
     ) -> Result<(), String>;
 }

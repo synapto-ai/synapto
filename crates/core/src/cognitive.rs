@@ -25,7 +25,7 @@ mod side;
 
 mod types;
 use std::sync::Arc;
-use synapto_interface::cognitive::{CognitiveOutputSpeech, CognitiveStateUpdate};
+use synapto_interface::cognitive::{CognitiveOutputSpeech, CognitiveSideStateUpdate};
 use synapto_interface::cognitive_output_text::CognitiveOutputText;
 use synapto_interface::peer_input::PeerInputSpeech;
 use synapto_interface::peer_input_text::PeerInputText;
@@ -61,7 +61,7 @@ pub(crate) async fn start<P: CognitivePromptProvider>(
 
     cognitive_output_text_tx: Option<mpsc::Sender<CognitiveOutputText>>,
 
-    cognitive_state_tx: broadcast::Sender<CognitiveStateUpdate>,
+    cognitive_side_state_tx: broadcast::Sender<CognitiveSideStateUpdate>,
     decision_handle: synapto_interface::decision::DecisionHandle,
     resolve_in_flight_tool_tx: mpsc::Sender<synapto_interface::tool::ToolCallId>,
     working_memory_store: crate::working_memory::WorkingMemoryStore,
@@ -77,7 +77,7 @@ pub(crate) async fn start<P: CognitivePromptProvider>(
             new_interaction_tx.clone(),
             registries.clone(),
             cognitive_output_text_tx.clone(),
-            cognitive_state_tx.clone(),
+            cognitive_side_state_tx.clone(),
             llm_executor.clone(),
             decision_handle.clone(),
             resolve_in_flight_tool_tx.clone(),

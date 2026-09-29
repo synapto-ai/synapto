@@ -151,7 +151,7 @@ impl ChatPlugin for ExamplePlugin {
         &self,
         peer_input_text_tx: mpsc::Sender<PeerInputText>,
         mut cognitive_output_text_rx: mpsc::Receiver<CognitiveOutputText>,
-        _cognitive_state_rx: broadcast::Receiver<CognitiveStateUpdate>,
+        _cognitive_side_state_rx: broadcast::Receiver<CognitiveSideStateUpdate>,
         _add_document_tx: Option<mpsc::Sender<AddDocumentRequest>>,
     ) -> Result<(), String> {
         // Channels are live. Spawn background workers immediately without blocking.
@@ -209,7 +209,7 @@ use synapto_interface::plugin::{Plugin, PluginRegistry, ChatPlugin};
 use synapto_interface::sync::{mpsc, broadcast};
 use synapto_interface::peer_input_text::types::PeerInputText;
 use synapto_interface::cognitive_output_text::types::CognitiveOutputText;
-use synapto_interface::cognitive::CognitiveStateUpdate;
+use synapto_interface::cognitive::CognitiveSideStateUpdate;
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]
 pub struct MyChatConfig {
@@ -280,7 +280,7 @@ impl ChatPlugin for MyChatPlugin {
         &self,
         peer_input_text_tx: mpsc::Sender<PeerInputText>,
         mut cognitive_output_text_rx: mpsc::Receiver<CognitiveOutputText>,
-        _cognitive_state_rx: broadcast::Receiver<CognitiveStateUpdate>,
+        _cognitive_side_state_rx: broadcast::Receiver<CognitiveSideStateUpdate>,
         _add_document_tx: Option<mpsc::Sender<synapto_interface::document::AddDocumentRequest>>,
     ) -> Result<(), String> {
         let token = self.config.api_token.clone();

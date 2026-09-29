@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
-use synapto_interface::cognitive::{CognitiveOutputSpeech, CognitiveStateUpdate};
+use synapto_interface::cognitive::{CognitiveOutputSpeech, CognitiveSideStateUpdate};
 use synapto_interface::cognitive_output_audio::CognitiveOutputAudio;
 use synapto_interface::cognitive_output_text::CognitiveOutputText;
 use synapto_interface::interaction::NotClearInteractionMemory;
@@ -212,7 +212,7 @@ type ChatSpawner = Box<
     dyn FnOnce(
             mpsc::Sender<PeerInputText>,
             mpsc::Receiver<CognitiveOutputText>,
-            broadcast::Receiver<CognitiveStateUpdate>,
+            broadcast::Receiver<CognitiveSideStateUpdate>,
         ) + Send,
 >;
 
@@ -766,8 +766,8 @@ impl<
 
         let (peer_input_speech_tx, peer_input_speech_rx) = mpsc::channel::<PeerInputSpeech>(100);
 
-        let (cognitive_state_tx, _cognitive_state_rx) =
-            broadcast::channel::<CognitiveStateUpdate>(10);
+        let (cognitive_side_state_tx, _cognitive_side_state_rx) =
+            broadcast::channel::<CognitiveSideStateUpdate>(10);
 
         let (new_interaction_tx, new_interaction_rx) = mpsc::channel::<Interaction>(10);
 
@@ -991,7 +991,7 @@ impl<
             spawner(
                 peer_input_text_tx.clone(),
                 cognitive_output_text_rx,
-                cognitive_state_tx.subscribe(),
+                cognitive_side_state_tx.subscribe(),
             );
         }
 
@@ -1013,7 +1013,7 @@ impl<
             } else {
                 None
             },
-            cognitive_state_tx,
+            cognitive_side_state_tx,
             self.decision_handle.clone(),
             resolve_in_flight_tool_tx,
             working_memory_store,
@@ -1158,13 +1158,13 @@ impl<
 
     fn register_chat<P: ChatPlugin>(&mut self, plugin: Arc<P>) {
         self.chat_spawner = Some(Box::new(
-            move |peer_input_text_tx, cognitive_output_text_rx, cognitive_state_rx| {
+            move |peer_input_text_tx, cognitive_output_text_rx, cognitive_side_state_rx| {
                 let p = plugin.clone();
                 tokio::spawn(async move {
                     p.start(
                         peer_input_text_tx,
                         cognitive_output_text_rx,
-                        cognitive_state_rx,
+                        cognitive_side_state_rx,
                     )
                     .await
                     .inspect_err(|e| tracing::error!("Chat plugin failed: {:?}", e))

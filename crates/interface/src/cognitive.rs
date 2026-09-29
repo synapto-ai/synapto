@@ -11,26 +11,22 @@ pub struct CognitiveOutputSpeech {
     pub text: String,
 }
 
-#[doc = " Current operational state of the cognitive loop."]
+#[doc = " Current operational state of the side (chat) cognitive loop."]
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
-pub enum CognitiveState {
+pub enum CognitiveSideState {
     #[doc = " The AI is actively thinking/processing."]
     Thinking,
-    #[doc = " The AI is performing document search or RAG."]
-    Searching,
-    #[doc = " The AI is executing an external command."]
-    Acting,
     #[doc = " The AI is waiting for new input."]
     Idle,
 }
 
-#[doc = " Update event for the system's cognitive state."]
+#[doc = " Update event for the side cognitive state."]
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
-pub struct CognitiveStateUpdate {
+pub struct CognitiveSideStateUpdate {
     #[doc = " The context of the state update (e.g. plugin-specific metadata)."]
     pub context: serde_json::Value,
-    #[doc = " The new cognitive state."]
-    pub state: CognitiveState,
+    #[doc = " The new cognitive side state."]
+    pub state: CognitiveSideState,
 }
 
 #[derive(
