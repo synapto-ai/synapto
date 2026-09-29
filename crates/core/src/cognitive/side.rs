@@ -149,6 +149,17 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
 
     let rendered_system_prompt = synapto_llm::Instruction::render(&system_prompt, 0);
 
+    let has_chat = cognitive_output_text_tx.is_some();
+    let has_speech = false;
+    let base_schema = schemars::schema_for!(CognitiveLLMOutput<CognitiveSideCommands>);
+    let custom_output_schema = crate::utils::schema::customize_cognitive_commands_schema(
+        base_schema,
+        "CognitiveSideCommands",
+        has_chat,
+        has_speech,
+        &registries.commands,
+    );
+
     let llm_client: LLMClient<
         CognitiveLLMContent,
         CognitiveLLMOutput<CognitiveSideCommands>,
@@ -159,7 +170,8 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
         system_prompt,
         executor,
         vec![], // Tools are dynamically passed in each turn
-    );
+    )
+    .with_output_schema(custom_output_schema);
 
     let mut historical_rx = registries
         .context
@@ -423,7 +435,6 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
                     context: msg.channel.context.clone(),
                     state: CognitiveSideState::Thinking,
                 })
-                .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
                 .ok();
         }
 
@@ -510,7 +521,6 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
                     context: msg.channel.context,
                     state: CognitiveSideState::Idle,
                 })
-                .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
                 .ok();
         }
 

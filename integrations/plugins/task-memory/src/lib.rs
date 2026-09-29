@@ -166,6 +166,8 @@ pub struct TaskCommandExecutor {
 impl synapto_interface::command::Command for TaskCommandExecutor {
     type Arguments = TaskCommand;
     const NAME: &'static str = "task_command";
+    const DESCRIPTION: &'static str =
+        "Execute task management actions such as creating, updating, or completing tasks";
 
     async fn execute(&self, args: Self::Arguments) -> Result<(), String> {
         self.tx.send(args).await.map_err(|e| e.to_string())

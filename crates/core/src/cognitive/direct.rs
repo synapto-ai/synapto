@@ -220,6 +220,17 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
 
     let rendered_system_prompt = synapto_llm::Instruction::render(&system_prompt, 0);
 
+    let has_chat = cognitive_output_text_tx.is_some();
+    let has_speech = true;
+    let base_schema = schemars::schema_for!(CognitiveLLMOutput<CognitiveDirectCommands>);
+    let custom_output_schema = crate::utils::schema::customize_cognitive_commands_schema(
+        base_schema,
+        "CognitiveDirectCommands",
+        has_chat,
+        has_speech,
+        &registries.commands,
+    );
+
     let llm_client: LLMClient<
         CognitiveLLMContent,
         CognitiveLLMOutput<CognitiveDirectCommands>,
@@ -230,7 +241,8 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
         system_prompt,
         executor,
         vec![], // dynamically provided each turn
-    );
+    )
+    .with_output_schema(custom_output_schema);
 
     // -- Build the chat request
 

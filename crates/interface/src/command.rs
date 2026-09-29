@@ -11,12 +11,14 @@ pub trait Command: Send + Sync + 'static {
         + Sync
         + 'static;
     const NAME: &'static str;
+    const DESCRIPTION: &'static str;
     async fn execute(&self, args: Self::Arguments) -> Result<(), String>;
 }
 
 #[async_trait::async_trait]
 pub trait ErasedCommand: Send + Sync + 'static {
     fn name(&self) -> &'static str;
+    fn description(&self) -> &'static str;
     fn schema(&self) -> schemars::Schema;
     async fn erased_execute(&self, args: serde_json::Value) -> Result<(), String>;
 }
@@ -28,6 +30,9 @@ where
 {
     fn name(&self) -> &'static str {
         <T as Command>::NAME
+    }
+    fn description(&self) -> &'static str {
+        <T as Command>::DESCRIPTION
     }
     fn schema(&self) -> schemars::Schema {
         schemars::schema_for!(<T as Command>::Arguments)
@@ -57,5 +62,13 @@ impl CommandRegistryBuilder {
             .write()
             .unwrap_or_else(|e| panic!("Failed to acquire write lock on commands: {:?}", e))
             .insert(command.name().to_string(), command);
+    }
+    pub fn list(&self) -> Vec<std::sync::Arc<dyn ErasedCommand>> {
+        self.commands
+            .read()
+            .unwrap_or_else(|e| panic!("Failed to acquire read lock on commands: {:?}", e))
+            .values()
+            .cloned()
+            .collect()
     }
 }

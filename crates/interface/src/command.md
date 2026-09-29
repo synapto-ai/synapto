@@ -30,6 +30,7 @@ impl Command for AdjustThermostatCommand {
 
     // The unique action identifier exposed to the LLM
     const NAME: &'static str = "adjust_thermostat";
+    const DESCRIPTION: &'static str = "Adjust the room thermostat temperature";
 
     async fn execute(&self, args: Self::Arguments) -> Result<(), String> {
         tracing::info!("Adjusting room temperature to: {}°C", args.target_temp_celsius);

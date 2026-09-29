@@ -134,6 +134,11 @@ pub type ResolvedTools = Vec<(ToolCall, ToolOutput)>;
 impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: ToolMode>
     LLMClient<Content, Output, Tools>
 {
+    pub fn with_output_schema(mut self, schema: schemars::Schema) -> Self {
+        self.output_schema = schema;
+        self
+    }
+
     #[instrument(level = "info", skip_all, fields(track_stats = true))]
     async fn call_inner(
         &self,
