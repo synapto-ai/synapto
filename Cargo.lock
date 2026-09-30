@@ -8764,6 +8764,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "synapto-prompt-embedded"
+version = "0.1.0-dev.15"
+dependencies = [
+ "serde",
+ "serde_json",
+ "synapto",
+ "synapto-interface",
+ "synapto-llm",
+ "synapto-test",
+ "tokio",
+]
+
+[[package]]
 name = "synapto-prompt-file"
 version = "0.1.0-dev.9"
 dependencies = [
