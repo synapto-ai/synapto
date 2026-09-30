@@ -130,6 +130,7 @@ async fn run_google_tts(
     let client = reqwest::Client::new();
     let target = GoogleCloudTarget {
         scopes: vec!["https://www.googleapis.com/auth/cloud-platform".to_string()],
+        subject: None,
     };
     let url = "https://texttospeech.googleapis.com/v1/text:synthesize";
 

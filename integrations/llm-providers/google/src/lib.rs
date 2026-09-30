@@ -45,6 +45,7 @@ impl GoogleLlmExecutor {
                             scopes: vec![
                                 "https://www.googleapis.com/auth/cloud-platform".to_string(),
                             ],
+                            subject: None,
                         };
                         let token = creds_handle
                             .resolve_bearer_token(&target)

@@ -12,9 +12,24 @@ use synapto_interface::secrets::Secret;
 use tokio::sync::RwLock;
 
 /// Target descriptor for Google Cloud authentication.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct GoogleCloudTarget {
     pub scopes: Vec<String>,
+    pub subject: Option<String>,
+}
+
+impl GoogleCloudTarget {
+    pub fn for_scopes(scopes: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self {
+            scopes: scopes.into_iter().map(Into::into).collect(),
+            subject: None,
+        }
+    }
+
+    pub fn with_subject(mut self, subject: impl Into<String>) -> Self {
+        self.subject = Some(subject.into());
+        self
+    }
 }
 
 impl synapto_interface::credentials::CredentialTarget for GoogleCloudTarget {}
@@ -96,11 +111,13 @@ struct JwtClaims<'a> {
     aud: &'a str,
     exp: i64,
     iat: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sub: Option<&'a str>,
 }
 
 pub struct GoogleCredentials {
     config: GoogleCredentialsConfig,
-    token_cache: RwLock<HashMap<BTreeSet<String>, CachedToken>>,
+    token_cache: RwLock<HashMap<(BTreeSet<String>, Option<String>), CachedToken>>,
     http_client: Client,
 }
 
@@ -171,6 +188,7 @@ impl GoogleCredentials {
             aud: token_uri,
             exp: now + 3600,
             iat: now,
+            sub: target.subject.as_deref(),
         };
 
         let key = jsonwebtoken::EncodingKey::from_rsa_pem(creds.private_key.as_bytes())
@@ -264,12 +282,15 @@ impl ProvideBearerToken<GoogleCloudTarget> for GoogleCredentials {
         &self,
         target: &GoogleCloudTarget,
     ) -> Result<Secret<String>, String> {
-        let normalized_scopes: BTreeSet<String> = target.scopes.iter().cloned().collect();
+        let cache_key = (
+            target.scopes.iter().cloned().collect::<BTreeSet<String>>(),
+            target.subject.clone(),
+        );
 
         // 1. Check in-memory scope cache with 60-second expiration buffer
         {
             let cache = self.token_cache.read().await;
-            if let Some(entry) = cache.get(&normalized_scopes)
+            if let Some(entry) = cache.get(&cache_key)
                 && entry.expires_at > std::time::Instant::now() + std::time::Duration::from_secs(60)
             {
                 return Ok(entry.token.clone());
@@ -286,7 +307,7 @@ impl ProvideBearerToken<GoogleCloudTarget> for GoogleCredentials {
         // 3. Save into cache
         let mut cache = self.token_cache.write().await;
         cache.insert(
-            normalized_scopes,
+            cache_key,
             CachedToken {
                 token: token.clone(),
                 expires_at: std::time::Instant::now() + ttl,

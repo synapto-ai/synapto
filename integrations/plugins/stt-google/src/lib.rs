@@ -122,6 +122,7 @@ async fn run_v1(
     let url = "https://speech.googleapis.com".to_string();
     let target = synapto_credentials_google::GoogleCloudTarget {
         scopes: vec!["https://www.googleapis.com/auth/cloud-platform".to_string()],
+        subject: None,
     };
 
     let streaming_config = StreamingRecognitionConfigV1 {
@@ -390,6 +391,7 @@ async fn run_v2(
     let url = format!("https://{location}-speech.googleapis.com");
     let target = synapto_credentials_google::GoogleCloudTarget {
         scopes: vec!["https://www.googleapis.com/auth/cloud-platform".to_string()],
+        subject: None,
     };
 
     let streaming_config_request = StreamingRecognizeRequestV2 {
