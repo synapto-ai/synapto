@@ -81,6 +81,14 @@ To keep our architecture robust, reliable, and decoupled:
 
 ## Code Style & Clippy Guidelines
 
+### Mandatory Clippy Verification
+
+Every workspace and crate must pass Clippy without warnings:
+
+```bash
+cargo clippy --workspace --all-targets -- -D warnings
+```
+
 ### Allowing `clippy::new_without_default`
 
 You may use `#[allow(clippy::new_without_default)]` locally on a struct's `new` method when implementing `Default` is semantically incorrect or doesn't make sense. Specifically, when `new` doesn't return exactly the same initialized struct, it can be `new(...)` and not `default()`.
