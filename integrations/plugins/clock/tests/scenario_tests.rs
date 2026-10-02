@@ -4,18 +4,16 @@ use synapto::Synapto;
 use synapto::config::ConfigJson;
 use synapto::config::{DotEnv, Env};
 use synapto_plugin_clock::ClockPlugin;
-use synapto_test::ephemeral_datadir::EphemeralDir;
-use synapto_test::local_storage::LocalStorage;
 use synapto_test::test_datadir::WorkspaceTestDir;
 use synapto_test::{
     MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin, MockLlm,
-    MockSlowReadPlugin, MockSttPlugin, MockTtsPlugin, run_scenario,
+    MockSlowReadPlugin, MockSttPlugin, MockTtsPlugin, TestStorage, run_scenario,
 };
 
 async fn test_bundle() {
     Synapto::builder()
         .configs::<(ConfigJson<WorkspaceTestDir>, DotEnv, Env)>()
-        .storage::<LocalStorage<EphemeralDir>>()
+        .storage::<TestStorage>()
         .llm::<MockLlm>()
         .plugins::<(
             MockAudioInputPlugin,

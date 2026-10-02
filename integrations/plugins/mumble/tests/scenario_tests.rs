@@ -4,12 +4,10 @@ use synapto::Synapto;
 use synapto::config::ConfigJson;
 use synapto::config::{DotEnv, Env};
 use synapto_plugin_mumble::MumblePlugin;
-use synapto_test::ephemeral_datadir::EphemeralDir;
-use synapto_test::local_storage::LocalStorage;
 use synapto_test::test_datadir::{ScenarioTestDir, WorkspaceTestDir};
 use synapto_test::{
     MockDiarizationPlugin, MockDocumentsPlugin, MockLlm, MockSlowReadPlugin, MockSttPlugin,
-    MockTtsPlugin, run_scenario,
+    MockTtsPlugin, TestStorage, run_scenario,
 };
 use testcontainers::{GenericImage, ImageExt, core::IntoContainerPort, runners::AsyncRunner};
 
@@ -21,7 +19,7 @@ async fn test_bundle() {
             DotEnv,
             Env,
         )>()
-        .storage::<LocalStorage<EphemeralDir>>()
+        .storage::<TestStorage>()
         .llm::<MockLlm>()
         .plugins::<(
             MockDocumentsPlugin,

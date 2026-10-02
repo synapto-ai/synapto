@@ -3,8 +3,8 @@
 use synapto::Synapto;
 use synapto::config::ConfigJson;
 use synapto::config::{DotEnv, Env};
+use synapto::storage::LocalStorage;
 use synapto_datadir_local::DataLocalDir;
-use synapto_test::local_storage::LocalStorage;
 use synapto_test::test_datadir::WorkspaceTestDir;
 use synapto_test::{
     MockAudioInputPlugin, MockChatPlugin, MockDiarizationPlugin, MockDocumentsPlugin, MockLlm,
