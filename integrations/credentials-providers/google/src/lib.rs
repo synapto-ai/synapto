@@ -115,9 +115,12 @@ struct JwtClaims<'a> {
     sub: Option<&'a str>,
 }
 
+type TokenCacheKey = (BTreeSet<String>, Option<String>);
+type TokenCache = RwLock<HashMap<TokenCacheKey, CachedToken>>;
+
 pub struct GoogleCredentials {
     config: GoogleCredentialsConfig,
-    token_cache: RwLock<HashMap<(BTreeSet<String>, Option<String>), CachedToken>>,
+    token_cache: TokenCache,
     http_client: Client,
 }
 

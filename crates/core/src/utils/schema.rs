@@ -81,11 +81,11 @@ pub(crate) fn customize_cognitive_commands_schema(
         let cmd_desc = cmd.description();
         let mut cmd_schema = cmd.schema();
 
-        if let Some(cmd_defs) = cmd_schema.remove("$defs") {
-            if let Some(cmd_defs_obj) = cmd_defs.as_object() {
-                for (k, v) in cmd_defs_obj {
-                    collected_defs.push((k.clone(), v.clone()));
-                }
+        if let Some(cmd_defs) = cmd_schema.remove("$defs")
+            && let Some(cmd_defs_obj) = cmd_defs.as_object()
+        {
+            for (k, v) in cmd_defs_obj {
+                collected_defs.push((k.clone(), v.clone()));
             }
         }
 
@@ -99,7 +99,8 @@ pub(crate) fn customize_cognitive_commands_schema(
 
         processed_commands.push((
             cmd_name,
-            serde_json::to_value(cmd_schema).expect("Valid JSON schema value"),
+            serde_json::to_value(cmd_schema)
+                .unwrap_or_else(|e| panic!("Failed to serialize command schema: {:?}", e)),
         ));
     }
 

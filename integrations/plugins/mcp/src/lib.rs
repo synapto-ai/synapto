@@ -66,25 +66,25 @@ struct JsonRpcResponse {
 }
 
 fn extract_mcp_tool_result(res: serde_json::Value) -> Result<serde_json::Value, String> {
-    if let Some(obj) = res.as_object() {
-        if obj.get("isError").and_then(|v| v.as_bool()) == Some(true) {
-            let error_msg = obj
-                .get("content")
-                .and_then(|c| c.as_array())
-                .and_then(|arr| {
-                    let texts: Vec<&str> = arr
-                        .iter()
-                        .filter_map(|item| item.get("text").and_then(|t| t.as_str()))
-                        .collect();
-                    if texts.is_empty() {
-                        None
-                    } else {
-                        Some(texts.join("\n"))
-                    }
-                })
-                .unwrap_or_else(|| res.to_string());
-            return Err(error_msg);
-        }
+    if let Some(obj) = res.as_object()
+        && obj.get("isError").and_then(|v| v.as_bool()) == Some(true)
+    {
+        let error_msg = obj
+            .get("content")
+            .and_then(|c| c.as_array())
+            .and_then(|arr| {
+                let texts: Vec<&str> = arr
+                    .iter()
+                    .filter_map(|item| item.get("text").and_then(|t| t.as_str()))
+                    .collect();
+                if texts.is_empty() {
+                    None
+                } else {
+                    Some(texts.join("\n"))
+                }
+            })
+            .unwrap_or_else(|| res.to_string());
+        return Err(error_msg);
     }
     Ok(res)
 }
