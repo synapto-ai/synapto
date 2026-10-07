@@ -7,6 +7,7 @@ use firestore::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use synapto_credentials_google::GoogleCloudTarget;
 use synapto_interface::storage::{
     FileStore, KeyValueStore, RecordStore, StorageConnection, VectorStore,
 };
@@ -15,7 +16,6 @@ use tokio_stream::StreamExt;
 #[derive(Deserialize, Debug, Clone)]
 pub struct FirestoreConfig {
     pub google_project_id: String,
-    pub credentials_path: Option<String>,
 }
 
 struct FirestoreProvider {
@@ -48,20 +48,57 @@ impl StorageConnection for FirestoreStorage {
         storage_handle: &synapto_interface::storage::StorageHandle,
         plugin_namespace: &str,
     ) -> Result<Self, String> {
+        let credentials = storage_handle.credentials().clone();
         let provider = storage_handle
             .get_or_init_pool(|| async move {
-                let db = if let Some(path) = config.credentials_path {
-                    firestore::FirestoreDb::with_options_service_account_key_file(
-                        firestore::FirestoreDbOptions::new(config.google_project_id),
-                        path.into(),
-                    )
-                    .await
-                    .map_err(|e| e.to_string())?
-                } else {
-                    firestore::FirestoreDb::new(&config.google_project_id)
-                        .await
-                        .map_err(|e| e.to_string())?
-                };
+                let token_source = gcloud_sdk::ExternalJwtFunctionSource::new(move || {
+                    let credentials = credentials.clone();
+                    Box::pin(async move {
+                        let target = GoogleCloudTarget {
+                            scopes: vec![
+                                "https://www.googleapis.com/auth/cloud-platform".to_string(),
+                                "https://www.googleapis.com/auth/datastore".to_string(),
+                            ],
+                            subject: None,
+                        };
+                        let join_handle =
+                            tokio::spawn(
+                                async move { credentials.resolve_bearer_token(&target).await },
+                            );
+                        let token_secret = join_handle
+                            .await
+                            .map_err(|e| {
+                                gcloud_sdk::error::Error::from(
+                                    gcloud_sdk::error::ErrorKind::ExternalCredsSourceError(
+                                        e.to_string(),
+                                    ),
+                                )
+                            })?
+                            .map_err(|e| {
+                                gcloud_sdk::error::Error::from(
+                                    gcloud_sdk::error::ErrorKind::ExternalCredsSourceError(e),
+                                )
+                            })?;
+                        let token_str = token_secret.expose_secret();
+                        Ok(gcloud_sdk::Token::new(
+                            "Bearer".to_string(),
+                            gcloud_sdk::SecretValue::from(token_str.as_str()),
+                            chrono::Utc::now() + chrono::Duration::minutes(55),
+                        ))
+                    })
+                });
+                let token_source_type =
+                    gcloud_sdk::TokenSourceType::ExternalSource(Box::new(token_source));
+                let db = firestore::FirestoreDb::with_options_token_source(
+                    firestore::FirestoreDbOptions::new(config.google_project_id),
+                    vec![
+                        "https://www.googleapis.com/auth/cloud-platform".to_string(),
+                        "https://www.googleapis.com/auth/datastore".to_string(),
+                    ],
+                    token_source_type,
+                )
+                .await
+                .map_err(|e| e.to_string())?;
 
                 Ok(FirestoreProvider { db: Arc::new(db) })
             })

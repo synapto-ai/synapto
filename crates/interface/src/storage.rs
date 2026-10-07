@@ -63,6 +63,7 @@ pub trait StorageConfigResolver: Send + Sync + 'static {
 pub struct StorageHandle {
     registry: std::sync::Arc<StorageRegistry>,
     resolver: std::sync::Arc<dyn StorageConfigResolver>,
+    credentials: crate::credentials::CredentialsHandle,
 }
 
 impl std::fmt::Debug for StorageHandle {
@@ -88,6 +89,7 @@ impl Default for StorageHandle {
         Self {
             registry: std::sync::Arc::new(StorageRegistry::default()),
             resolver: std::sync::Arc::new(DefaultStorageConfigResolver),
+            credentials: crate::credentials::CredentialsHandle::default(),
         }
     }
 }
@@ -97,6 +99,7 @@ impl StorageHandle {
         Self {
             registry: std::sync::Arc::new(StorageRegistry::default()),
             resolver,
+            credentials: crate::credentials::CredentialsHandle::default(),
         }
     }
 
@@ -104,7 +107,20 @@ impl StorageHandle {
         registry: std::sync::Arc<StorageRegistry>,
         resolver: std::sync::Arc<dyn StorageConfigResolver>,
     ) -> Self {
-        Self { registry, resolver }
+        Self {
+            registry,
+            resolver,
+            credentials: crate::credentials::CredentialsHandle::default(),
+        }
+    }
+
+    pub fn with_credentials(mut self, credentials: crate::credentials::CredentialsHandle) -> Self {
+        self.credentials = credentials;
+        self
+    }
+
+    pub fn credentials(&self) -> &crate::credentials::CredentialsHandle {
+        &self.credentials
     }
 
     /// Resolves configuration and establishes a scoped storage connection.

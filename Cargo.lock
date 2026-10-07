@@ -8802,10 +8802,13 @@ name = "synapto-storage-firestore"
 version = "0.1.0-dev.12"
 dependencies = [
  "async-trait",
+ "chrono",
  "firestore",
+ "gcloud-sdk",
  "serde",
  "serde_json",
  "synapto",
+ "synapto-credentials-google",
  "synapto-interface",
  "synapto-test",
  "tokio",

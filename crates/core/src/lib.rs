@@ -660,7 +660,8 @@ impl<
         let storage_resolver = Arc::new(CoreStorageConfigResolver {
             provider: config_provider.clone(),
         });
-        let storage = synapto_interface::storage::StorageHandle::new(storage_resolver);
+        let storage = synapto_interface::storage::StorageHandle::new(storage_resolver)
+            .with_credentials(credentials.clone());
 
         Self {
             config_provider,
