@@ -79,7 +79,7 @@ impl<C: config::ConfigProvider> PluginInitFactory<C> {
 
         let safe_namespace = base_path.replace("::", "_").replace(" ", "");
 
-        let init_context = synapto_interface::plugin::PluginInitContext::new(
+        let mut init_context = synapto_interface::plugin::PluginInitContext::new(
             self.llm_executor.clone(),
             self.decision_handle.clone(),
             &plugin_config,
@@ -87,6 +87,12 @@ impl<C: config::ConfigProvider> PluginInitFactory<C> {
             &safe_namespace,
             self.credentials.clone(),
         );
+        if let Some(loc) = self
+            .config_provider
+            .describe_plugin_location(&crate_name, &plugin_type_name)
+        {
+            init_context = init_context.with_config_location(loc);
+        }
 
         let start = std::time::Instant::now();
         let timeout_duration = self.timeout;
@@ -272,6 +278,11 @@ impl<C: crate::config::ConfigProvider> synapto_interface::storage::StorageConfig
                 .get_storage_config(crate_name, storage_type_name),
         )
     }
+
+    fn describe_location(&self, crate_name: &str, storage_type_name: &str) -> Option<String> {
+        self.provider
+            .describe_storage_location(crate_name, storage_type_name)
+    }
 }
 
 /// Marker for unconfigured mandatory configuration provider.
@@ -324,11 +335,16 @@ where
 
         let raw_config = config_provider.get_llm_config_value(&crate_name, &provider_type_name);
 
-        let config: L::Config = serde_json::from_value(raw_config).map_err(|e| {
-            format!(
+        let location = config_provider.describe_llm_location(&crate_name, &provider_type_name);
+        let config: L::Config = serde_json::from_value(raw_config).map_err(|e| match location {
+            Some(loc) => format!(
+                "Failed to parse config for LLM provider '{}' (expected in {}): {}",
+                provider_type_name, loc, e
+            ),
+            None => format!(
                 "Failed to parse config for LLM provider '{}': {}",
                 provider_type_name, e
-            )
+            ),
         })?;
 
         let provider = L::init(config, credentials.clone())?;
@@ -392,11 +408,18 @@ where
             .config_provider
             .get_decision_config_value(&crate_name, &provider_type_name);
 
-        let config: D::Config = serde_json::from_value(raw_config).map_err(|e| {
-            format!(
+        let location = synapto
+            .config_provider
+            .describe_decision_location(&crate_name, &provider_type_name);
+        let config: D::Config = serde_json::from_value(raw_config).map_err(|e| match location {
+            Some(loc) => format!(
+                "Failed to parse config for decision provider '{}' (expected in {}): {}",
+                provider_type_name, loc, e
+            ),
+            None => format!(
                 "Failed to parse config for decision provider '{}': {}",
                 provider_type_name, e
-            )
+            ),
         })?;
 
         let provider = D::init(config, synapto.credentials.clone())?;

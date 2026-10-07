@@ -139,4 +139,51 @@ mod tests {
         assert_eq!(config.reasoning_effort, ReasoningEffort::Low);
         assert!(config.disable_preflight_decision);
     }
+
+    #[test]
+    fn test_describe_locations() {
+        use crate::config::provider::ConfigProvider;
+        let env = Env;
+        assert_eq!(
+            env.describe_core_location(),
+            Some("environment prefix 'SYNAPTO__'".to_string())
+        );
+        assert_eq!(
+            env.describe_plugin_location("synapto_plugin_clock", "ClockPlugin"),
+            Some(
+                "environment prefix 'SYNAPTO__PLUGINS__synapto_plugin_clock__ClockPlugin__'"
+                    .to_string()
+            )
+        );
+        assert_eq!(
+            env.describe_storage_location("synapto_storage_firestore", "FirestoreStorage"),
+            Some("environment prefix 'SYNAPTO__STORAGE__synapto_storage_firestore__FirestoreStorage__'".to_string())
+        );
+        assert_eq!(
+            env.describe_credentials_location("synapto_credentials_google", "GoogleCredentials"),
+            Some("environment prefix 'SYNAPTO__CREDENTIALS__synapto_credentials_google__GoogleCredentials__'".to_string())
+        );
+        assert_eq!(
+            env.describe_decision_location("synapto_decision_typesafe", "TypesafeDecision"),
+            Some("environment prefix 'SYNAPTO__DECISION__synapto_decision_typesafe__TypesafeDecision__'".to_string())
+        );
+        assert_eq!(
+            env.describe_llm_location("synapto_llm_google", "GoogleLlm"),
+            Some("environment prefix 'SYNAPTO__LLM__synapto_llm_google__GoogleLlm__'".to_string())
+        );
+
+        let pair = (Env, DotEnv::init());
+        assert_eq!(
+            pair.describe_core_location(),
+            Some("environment prefix 'SYNAPTO__' or .env prefix 'SYNAPTO__'".to_string())
+        );
+        assert_eq!(
+            pair.describe_storage_location("synapto_storage_firestore", "FirestoreStorage"),
+            Some("environment prefix 'SYNAPTO__STORAGE__synapto_storage_firestore__FirestoreStorage__' or .env prefix 'SYNAPTO__STORAGE__synapto_storage_firestore__FirestoreStorage__'".to_string())
+        );
+        assert_eq!(
+            pair.describe_plugin_location("synapto_plugin_clock", "ClockPlugin"),
+            Some("environment prefix 'SYNAPTO__PLUGINS__synapto_plugin_clock__ClockPlugin__' or .env prefix 'SYNAPTO__PLUGINS__synapto_plugin_clock__ClockPlugin__'".to_string())
+        );
+    }
 }

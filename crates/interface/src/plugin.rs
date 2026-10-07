@@ -21,6 +21,7 @@ pub struct PluginInitContext<'a> {
     storage: crate::storage::StorageHandle,
     plugin_namespace: &'a str,
     credentials: crate::credentials::CredentialsHandle,
+    config_location: Option<String>,
 }
 
 impl<'a> PluginInitContext<'a> {
@@ -41,7 +42,13 @@ impl<'a> PluginInitContext<'a> {
             storage,
             plugin_namespace,
             credentials,
+            config_location: None,
         }
+    }
+
+    pub fn with_config_location(mut self, location: impl Into<String>) -> Self {
+        self.config_location = Some(location.into());
+        self
     }
 
     pub fn credentials(&self) -> crate::credentials::CredentialsHandle {
@@ -59,8 +66,12 @@ impl<'a> PluginInitContext<'a> {
     #[doc = " attribute on the struct field. This instructs `serde` to fall back to `Default::default()`"]
     #[doc = " when the key is omitted."]
     pub fn config<C: serde::de::DeserializeOwned>(&self) -> Result<C, String> {
-        serde_json::from_value(self.plugin_config.clone())
-            .map_err(|e| format!("Failed to parse plugin config: {}", e))
+        serde_json::from_value(self.plugin_config.clone()).map_err(|e| {
+            match &self.config_location {
+                Some(loc) => format!("Failed to parse plugin config (expected in {}): {}", loc, e),
+                None => format!("Failed to parse plugin config: {}", e),
+            }
+        })
     }
 
     #[doc = " Extracts the configuration if present, or returns `None` if the configuration is completely empty or null."]
@@ -160,4 +171,51 @@ pub trait Plugin: Send + Sync + 'static {
 pub struct MessageChannel {
     #[doc = " Opaque JSON context provided by plugins or core modules."]
     pub context: serde_json::Value,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Deserialize, Debug)]
+    struct DummyPluginConfig {
+        #[allow(dead_code)]
+        api_key: String,
+    }
+
+    struct DummyLlmExecutor;
+    #[async_trait]
+    impl crate::llm::RawLlmExecutor for DummyLlmExecutor {
+        async fn execute_raw(
+            &self,
+            _model: &str,
+            _system_prompt: &str,
+            _prompt: &str,
+            _options: crate::llm::RawLlmOptions,
+        ) -> Result<crate::llm::genai::chat::ChatResponse, String> {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn test_plugin_config_error_with_and_without_location() {
+        let val = serde_json::json!({});
+        let ctx = PluginInitContext::new(
+            crate::llm::LlmExecutor::new(DummyLlmExecutor),
+            crate::decision::DecisionHandle::empty(),
+            &val,
+            crate::storage::StorageHandle::default(),
+            "ns",
+            crate::credentials::CredentialsHandle::default(),
+        );
+
+        let err = ctx.config::<DummyPluginConfig>().unwrap_err();
+        assert!(!err.contains("(expected in"));
+        assert!(err.contains("missing field `api_key`"));
+
+        let ctx_with_loc = ctx.with_config_location("JSON key 'plugins.my_plugin.MyPlugin'");
+        let err_with_loc = ctx_with_loc.config::<DummyPluginConfig>().unwrap_err();
+        assert!(err_with_loc.contains("(expected in JSON key 'plugins.my_plugin.MyPlugin')"));
+        assert!(err_with_loc.contains("missing field `api_key`"));
+    }
 }

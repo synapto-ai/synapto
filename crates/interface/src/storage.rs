@@ -51,6 +51,11 @@ pub trait StorageConfigResolver: Send + Sync + 'static {
         crate_name: &str,
         storage_type_name: &str,
     ) -> Option<serde_json::Value>;
+
+    /// Describes where the storage configuration is expected to be defined.
+    fn describe_location(&self, _crate_name: &str, _storage_type_name: &str) -> Option<String> {
+        None
+    }
 }
 
 /// Opaque handle encapsulating storage connection pooling and configuration resolution.
@@ -122,11 +127,19 @@ impl StorageHandle {
             .resolve_config(&crate_name, &storage_type_name)
             .unwrap_or_else(|| serde_json::json!({}));
 
-        let config: S::Config = serde_json::from_value(config_val).map_err(|e| {
-            format!(
+        let location = self
+            .resolver
+            .describe_location(&crate_name, &storage_type_name);
+
+        let config: S::Config = serde_json::from_value(config_val).map_err(|e| match location {
+            Some(loc) => format!(
+                "Failed to parse config for storage '{}::{}' (expected in {}): {}",
+                crate_name, storage_type_name, loc, e
+            ),
+            None => format!(
                 "Failed to parse config for storage '{}::{}': {}",
                 crate_name, storage_type_name, e
-            )
+            ),
         })?;
 
         let store = S::connect(config, self, plugin_namespace).await?;
@@ -143,6 +156,69 @@ impl StorageHandle {
         Fut: std::future::Future<Output = Result<T, String>>,
     {
         self.registry.get_or_init(init).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug)]
+    struct DummyStore;
+    #[derive(serde::Deserialize, Debug)]
+    struct DummyConfig {
+        #[allow(dead_code)]
+        project_id: String,
+    }
+
+    #[async_trait::async_trait]
+    impl StorageConnection for DummyStore {
+        type Config = DummyConfig;
+        async fn connect(
+            _config: Self::Config,
+            _storage_handle: &StorageHandle,
+            _plugin_namespace: &str,
+        ) -> Result<Self, String> {
+            Ok(DummyStore)
+        }
+    }
+
+    struct CustomResolver(Option<String>);
+    impl StorageConfigResolver for CustomResolver {
+        fn resolve_config(
+            &self,
+            _crate_name: &str,
+            _storage_type_name: &str,
+        ) -> Option<serde_json::Value> {
+            Some(serde_json::json!({}))
+        }
+        fn describe_location(&self, _crate_name: &str, _storage_type_name: &str) -> Option<String> {
+            self.0.clone()
+        }
+    }
+
+    #[tokio::test]
+    async fn test_connect_store_error_with_location() {
+        let handle = StorageHandle::new(std::sync::Arc::new(CustomResolver(Some(
+            "JSON key 'storage.my_crate.MyStore'".to_string(),
+        ))));
+        let err = handle
+            .connect_store::<DummyStore>("test_ns")
+            .await
+            .unwrap_err();
+        assert!(err.contains("(expected in JSON key 'storage.my_crate.MyStore')"));
+        assert!(err.contains("missing field `project_id`"));
+    }
+
+    #[tokio::test]
+    async fn test_connect_store_error_without_location() {
+        let handle = StorageHandle::new(std::sync::Arc::new(CustomResolver(None)));
+        let err = handle
+            .connect_store::<DummyStore>("test_ns")
+            .await
+            .unwrap_err();
+        assert!(!err.contains("(expected in"));
+        assert!(err.contains("missing field `project_id`"));
     }
 }
 

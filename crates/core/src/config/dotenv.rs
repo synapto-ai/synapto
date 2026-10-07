@@ -31,6 +31,10 @@ impl crate::config::ConfigProvider for DotEnv {
         core_config
     }
 
+    fn describe_core_location(&self) -> Option<String> {
+        Some(".env prefix 'SYNAPTO__'".to_string())
+    }
+
     fn load_plugin_config(&self, crate_name: &str, plugin_type_name: &str) -> serde_json::Value {
         let prefix = format!(
             "SYNAPTO__PLUGINS__{}__{}__",
@@ -40,6 +44,15 @@ impl crate::config::ConfigProvider for DotEnv {
         crate::config::env::build_json_from_vars(self.vars.clone(), &prefix)
     }
 
+    fn describe_plugin_location(&self, crate_name: &str, plugin_type_name: &str) -> Option<String> {
+        let prefix = format!(
+            "SYNAPTO__PLUGINS__{}__{}__",
+            crate_name.replace(['-', '.'], "_"),
+            plugin_type_name.replace(['-', '.'], "_")
+        );
+        Some(format!(".env prefix '{prefix}'"))
+    }
+
     fn load_storage_config(&self, crate_name: &str, storage_type_name: &str) -> serde_json::Value {
         let prefix = format!(
             "SYNAPTO__STORAGE__{}__{}__",
@@ -47,6 +60,19 @@ impl crate::config::ConfigProvider for DotEnv {
             storage_type_name.replace(['-', '.'], "_")
         );
         crate::config::env::build_json_from_vars(self.vars.clone(), &prefix)
+    }
+
+    fn describe_storage_location(
+        &self,
+        crate_name: &str,
+        storage_type_name: &str,
+    ) -> Option<String> {
+        let prefix = format!(
+            "SYNAPTO__STORAGE__{}__{}__",
+            crate_name.replace(['-', '.'], "_"),
+            storage_type_name.replace(['-', '.'], "_")
+        );
+        Some(format!(".env prefix '{prefix}'"))
     }
 
     fn load_credentials_config(
@@ -62,6 +88,19 @@ impl crate::config::ConfigProvider for DotEnv {
         crate::config::env::build_json_from_vars(self.vars.clone(), &prefix)
     }
 
+    fn describe_credentials_location(
+        &self,
+        crate_name: &str,
+        provider_type_name: &str,
+    ) -> Option<String> {
+        let prefix = format!(
+            "SYNAPTO__CREDENTIALS__{}__{}__",
+            crate_name.replace(['-', '.'], "_"),
+            provider_type_name.replace(['-', '.'], "_")
+        );
+        Some(format!(".env prefix '{prefix}'"))
+    }
+
     fn load_decision_config(
         &self,
         crate_name: &str,
@@ -75,6 +114,19 @@ impl crate::config::ConfigProvider for DotEnv {
         crate::config::env::build_json_from_vars(self.vars.clone(), &prefix)
     }
 
+    fn describe_decision_location(
+        &self,
+        crate_name: &str,
+        provider_type_name: &str,
+    ) -> Option<String> {
+        let prefix = format!(
+            "SYNAPTO__DECISION__{}__{}__",
+            crate_name.replace(['-', '.'], "_"),
+            provider_type_name.replace(['-', '.'], "_")
+        );
+        Some(format!(".env prefix '{prefix}'"))
+    }
+
     fn load_llm_config(&self, crate_name: &str, provider_type_name: &str) -> serde_json::Value {
         let prefix = format!(
             "SYNAPTO__LLM__{}__{}__",
@@ -82,5 +134,14 @@ impl crate::config::ConfigProvider for DotEnv {
             provider_type_name.replace(['-', '.'], "_")
         );
         crate::config::env::build_json_from_vars(self.vars.clone(), &prefix)
+    }
+
+    fn describe_llm_location(&self, crate_name: &str, provider_type_name: &str) -> Option<String> {
+        let prefix = format!(
+            "SYNAPTO__LLM__{}__{}__",
+            crate_name.replace(['-', '.'], "_"),
+            provider_type_name.replace(['-', '.'], "_")
+        );
+        Some(format!(".env prefix '{prefix}'"))
     }
 }

@@ -38,6 +38,10 @@ impl<P: DataDirProvider> crate::config::ConfigProvider for ConfigJson<P> {
         core_config
     }
 
+    fn describe_core_location(&self) -> Option<String> {
+        Some("JSON root configuration".to_string())
+    }
+
     fn load_plugin_config(&self, crate_name: &str, plugin_type_name: &str) -> Value {
         self.config
             .get("plugins")
@@ -45,6 +49,13 @@ impl<P: DataDirProvider> crate::config::ConfigProvider for ConfigJson<P> {
             .and_then(|c| c.get(plugin_type_name))
             .cloned()
             .unwrap_or_else(|| Value::Object(serde_json::Map::new()))
+    }
+
+    fn describe_plugin_location(&self, crate_name: &str, plugin_type_name: &str) -> Option<String> {
+        Some(format!(
+            "JSON key 'plugins.{}.{}'",
+            crate_name, plugin_type_name
+        ))
     }
 
     fn load_storage_config(&self, crate_name: &str, storage_type_name: &str) -> Value {
@@ -56,6 +67,17 @@ impl<P: DataDirProvider> crate::config::ConfigProvider for ConfigJson<P> {
             .unwrap_or_else(|| Value::Object(serde_json::Map::new()))
     }
 
+    fn describe_storage_location(
+        &self,
+        crate_name: &str,
+        storage_type_name: &str,
+    ) -> Option<String> {
+        Some(format!(
+            "JSON key 'storage.{}.{}'",
+            crate_name, storage_type_name
+        ))
+    }
+
     fn load_credentials_config(&self, crate_name: &str, provider_type_name: &str) -> Value {
         self.config
             .get("credentials")
@@ -63,6 +85,17 @@ impl<P: DataDirProvider> crate::config::ConfigProvider for ConfigJson<P> {
             .and_then(|p| p.get(provider_type_name))
             .cloned()
             .unwrap_or_else(|| Value::Object(serde_json::Map::new()))
+    }
+
+    fn describe_credentials_location(
+        &self,
+        crate_name: &str,
+        provider_type_name: &str,
+    ) -> Option<String> {
+        Some(format!(
+            "JSON key 'credentials.{}.{}'",
+            crate_name, provider_type_name
+        ))
     }
 
     fn load_decision_config(&self, crate_name: &str, provider_type_name: &str) -> Value {
@@ -74,6 +107,17 @@ impl<P: DataDirProvider> crate::config::ConfigProvider for ConfigJson<P> {
             .unwrap_or_else(|| Value::Object(serde_json::Map::new()))
     }
 
+    fn describe_decision_location(
+        &self,
+        crate_name: &str,
+        provider_type_name: &str,
+    ) -> Option<String> {
+        Some(format!(
+            "JSON key 'decision.{}.{}'",
+            crate_name, provider_type_name
+        ))
+    }
+
     fn load_llm_config(&self, crate_name: &str, provider_type_name: &str) -> Value {
         self.config
             .get("llm")
@@ -81,5 +125,12 @@ impl<P: DataDirProvider> crate::config::ConfigProvider for ConfigJson<P> {
             .and_then(|p| p.get(provider_type_name))
             .cloned()
             .unwrap_or_else(|| Value::Object(serde_json::Map::new()))
+    }
+
+    fn describe_llm_location(&self, crate_name: &str, provider_type_name: &str) -> Option<String> {
+        Some(format!(
+            "JSON key 'llm.{}.{}'",
+            crate_name, provider_type_name
+        ))
     }
 }
