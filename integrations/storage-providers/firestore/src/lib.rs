@@ -14,7 +14,7 @@ use tokio_stream::StreamExt;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct FirestoreConfig {
-    pub project_id: String,
+    pub google_project_id: String,
     pub credentials_path: Option<String>,
 }
 
@@ -52,13 +52,13 @@ impl StorageConnection for FirestoreStorage {
             .get_or_init_pool(|| async move {
                 let db = if let Some(path) = config.credentials_path {
                     firestore::FirestoreDb::with_options_service_account_key_file(
-                        firestore::FirestoreDbOptions::new(config.project_id),
+                        firestore::FirestoreDbOptions::new(config.google_project_id),
                         path.into(),
                     )
                     .await
                     .map_err(|e| e.to_string())?
                 } else {
-                    firestore::FirestoreDb::new(&config.project_id)
+                    firestore::FirestoreDb::new(&config.google_project_id)
                         .await
                         .map_err(|e| e.to_string())?
                 };

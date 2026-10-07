@@ -38,7 +38,7 @@ By including the built-in `Env` provider at the end of your tuple (or `DotEnv` f
 *   **Decision Config:** Prefix `SYNAPTO__DECISION__<crate_name>__<ProviderTypeName>__<field_name>`:
     *   Example: `SYNAPTO__DECISION__synapto_decision_typesafe__TypeSafeDecision__model="jev-latest"` overrides `TypeSafeDecisionConfig::model`.
 *   **Storage Config:** Prefix `SYNAPTO__STORAGE__<crate_name>__<StorageTypeName>__<field_name>`:
-    *   Example: `SYNAPTO__STORAGE__synapto_storage_firestore__FirestoreStorage__project_id="my-project"`.
+    *   Example: `SYNAPTO__STORAGE__synapto_storage_firestore__FirestoreStorage__google_project_id="my-project"`.
 
 ## Existing Providers
 
