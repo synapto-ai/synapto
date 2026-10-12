@@ -1,5 +1,3 @@
-#![allow(unsafe_code)]
-#![allow(unused_imports)]
 #![allow(clippy::disallowed_methods)]
 
 use synapto::Synapto;

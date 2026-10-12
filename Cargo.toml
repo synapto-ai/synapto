@@ -48,15 +48,18 @@ url = "2"
 serde-saphyr = { version = "1.3", default-features = false }
 
 [workspace.lints.rust]
-unsafe_code = "deny"
+unsafe_code = "forbid"
+unused_imports = "warn"
 unreachable_pub = "warn"
 
 [workspace.lints.clippy]
-let_underscore_must_use = "deny"
-unwrap_used = "deny"
-disallowed_methods = "deny"
-disallowed_macros = "deny"
+let_underscore_must_use = "forbid"
 todo = "warn"
+
+# these can be overriden in tests
+unwrap_used = "deny"
+disallowed_methods = "deny" 
+disallowed_macros = "deny"
 
 [profile.dev.package."*"]
 debug = "line-tables-only"
