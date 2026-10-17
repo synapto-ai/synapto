@@ -1,0 +1,42 @@
+name: "2026-10-17-broadcast-lag-resilience-and-direct-audio-wiring"
+steps:
+  - action: user_writes
+    text: "Hello, please acknowledge this first message briefly."
+
+  - action: wait
+    millis: 100
+
+  - action: user_writes
+    text: "Burst message 1 while busy."
+  - action: user_writes
+    text: "Burst message 2 while busy."
+  - action: user_writes
+    text: "Burst message 3 while busy."
+  - action: user_writes
+    text: "Burst message 4 while busy."
+  - action: user_writes
+    text: "Burst message 5 while busy."
+  - action: user_writes
+    text: "Burst message 6 while busy."
+  - action: user_writes
+    text: "Burst message 7 while busy."
+  - action: user_writes
+    text: "Burst message 8 while busy."
+  - action: user_writes
+    text: "Burst message 9 while busy."
+  - action: user_writes
+    text: "Burst message 10 while busy."
+  - action: user_writes
+    text: "Burst message 11 while busy."
+  - action: user_writes
+    text: "Burst message 12 while busy."
+
+  - action: wait
+    millis: 5000
+
+  - action: user_writes
+    text: "What is the capital of France? Reply with the word Paris."
+
+  - action: await_response
+    assert_contains: "Paris"
+    timeout_secs: 20

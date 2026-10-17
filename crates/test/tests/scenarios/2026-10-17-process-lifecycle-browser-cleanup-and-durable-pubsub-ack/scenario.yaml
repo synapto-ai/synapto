@@ -1,0 +1,18 @@
+name: "2026-10-17-process-lifecycle-browser-cleanup-and-durable-pubsub-ack"
+steps:
+  - action: user_writes
+    text: "Channel update: coworkers shared https://meet.google.com/abc-defg-hij in the room. Acknowledge this status update only with ACK-MEET-LINK-SEEN."
+
+  - action: await_response
+    assert_contains: "ACK-MEET-LINK-SEEN"
+    timeout_secs: 15
+
+  - action: wait
+    millis: 500
+
+  - action: user_writes
+    text: "Inspect `context_plugins.available_documents` and your registered tools. Only if the durably ingested Pub/Sub attachment `incident-postmortem.txt` is present in `available_documents` AND the `join_meet_call` lifecycle tool is registered, output the exact token `PROCESS-LIFECYCLE-AND-PUBSUB-ACK-VERIFIED`. If `incident-postmortem.txt` is absent from `available_documents` (simulating premature Pub/Sub ACK before async attachment ingestion) or `join_meet_call` is not registered, do not output that token and instead reply only with `PREMATURE-PUBSUB-ACK-AND-LIFECYCLE-UNVERIFIED`."
+
+  - action: await_response
+    assert_contains: "PROCESS-LIFECYCLE-AND-PUBSUB-ACK-VERIFIED"
+    timeout_secs: 10

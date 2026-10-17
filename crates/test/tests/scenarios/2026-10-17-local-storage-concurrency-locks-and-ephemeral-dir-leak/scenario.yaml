@@ -1,0 +1,18 @@
+name: "2026-10-17-local-storage-concurrency-locks-and-ephemeral-dir-leak"
+steps:
+  - action: user_writes
+    text: "Call `mock_lookup_key` now so interaction memory persists in-flight and resolved tool updates to `LocalStorage<EphemeralDir>`, then reply only with `ACK-STORAGE-WRITE-1`."
+
+  - action: await_response
+    assert_contains: "ACK-STORAGE-WRITE-1"
+    timeout_secs: 20
+
+  - action: wait
+    millis: 500
+
+  - action: user_writes
+    text: "Inspect `context_plugins` for a `local_storage_diagnostics` entry confirming that `LocalStorage` per-path concurrency locks (`LocalStorageLockTable`) and a shared non-leaking `EphemeralDir` instance are active across namespaces. Only if `local_storage_diagnostics` is present in `context_plugins` with verified lock and directory state, output the exact token `LOCAL-STORAGE-CONCURRENCY-AND-EPHEMERAL-DIR-VERIFIED`. If `local_storage_diagnostics` is absent from `context_plugins`, do not output that token and instead reply only with `LOCAL-STORAGE-UNSYNCHRONIZED-AND-EPHEMERAL-DIR-LEAKED`."
+
+  - action: await_response
+    assert_contains: "LOCAL-STORAGE-CONCURRENCY-AND-EPHEMERAL-DIR-VERIFIED"
+    timeout_secs: 10

@@ -1,0 +1,74 @@
+name: "2026-10-17-episodic-memory-persistence-and-rollout-registration"
+steps:
+  - action: user_writes
+    text: "We are starting episodic session 1: the project codename is ORION-742 and the target region is eu-central-1. Reply only with OK-1."
+
+  - action: await_response
+    assert_contains: "OK-1"
+    timeout_secs: 15
+
+  - action: user_writes
+    text: "Log checkpoint 2 for the deployment pipeline. Reply only with OK-2."
+
+  - action: await_response
+    assert_contains: "OK-2"
+    timeout_secs: 15
+
+  - action: user_writes
+    text: "Log checkpoint 3 for the deployment pipeline. Reply only with OK-3."
+
+  - action: await_response
+    assert_contains: "OK-3"
+    timeout_secs: 15
+
+  - action: user_writes
+    text: "Log checkpoint 4 for the deployment pipeline. Reply only with OK-4."
+
+  - action: await_response
+    assert_contains: "OK-4"
+    timeout_secs: 15
+
+  - action: user_writes
+    text: "Log checkpoint 5 for the deployment pipeline. Reply only with OK-5."
+
+  - action: await_response
+    assert_contains: "OK-5"
+    timeout_secs: 15
+
+  - action: user_writes
+    text: "Log checkpoint 6 for the deployment pipeline. Reply only with OK-6."
+
+  - action: await_response
+    assert_contains: "OK-6"
+    timeout_secs: 15
+
+  - action: user_writes
+    text: "Log checkpoint 7 for the deployment pipeline. Reply only with OK-7."
+
+  - action: await_response
+    assert_contains: "OK-7"
+    timeout_secs: 15
+
+  - action: user_writes
+    text: "Log checkpoint 8 for the deployment pipeline. Reply only with OK-8."
+
+  - action: await_response
+    assert_contains: "OK-8"
+    timeout_secs: 15
+
+  - action: user_writes
+    text: "Log checkpoint 9 to exceed the 8-interaction retention window and trigger episodic session summarization and rollout. Reply only with OK-9."
+
+  - action: await_response
+    assert_contains: "OK-9"
+    timeout_secs: 15
+
+  - action: wait
+    millis: 5000
+
+  - action: user_writes
+    text: "Inspect your prompt context (`interaction_memory` and `context_plugins.session_memory`). Only if Turn 1 (OK-1) has been rolled out of raw `interaction_memory` AND summarized inside `context_plugins.session_memory.current_session` with the project codename, output the token `EPISODIC-ROLLOUT-VERIFIED-ORION-742`. If Turn 1 is still present in raw `interaction_memory` or `session_memory` is missing/empty, do not output that token and instead reply only with `RAW-INTERACTION-NOT-ROLLED-OUT`."
+
+  - action: await_response
+    assert_contains: "EPISODIC-ROLLOUT-VERIFIED-ORION-742"
+    timeout_secs: 15

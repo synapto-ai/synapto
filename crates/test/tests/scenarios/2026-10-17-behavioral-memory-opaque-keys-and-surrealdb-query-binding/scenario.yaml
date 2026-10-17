@@ -1,0 +1,18 @@
+name: "2026-10-17-behavioral-memory-opaque-keys-and-surrealdb-query-binding"
+steps:
+  - action: user_writes
+    text: "Strict behavioral rule for all future interactions: always reference the CI/CD deployment path `org/pipeline/prod-v2` and filter tag `env_tag` when discussing releases. Reply only with `ACK-BEHAVIORAL-RULE-1`."
+
+  - action: await_response
+    assert_contains: "ACK-BEHAVIORAL-RULE-1"
+    timeout_secs: 15
+
+  - action: wait
+    millis: 500
+
+  - action: user_writes
+    text: "Inspect `context_plugins` for `behavioral_insights` (or `behavioral_memory`). Only if the behavioral insight containing `org/pipeline/prod-v2` has been persisted under an opaque deterministic hash key (without raw `/` path characters corrupting the record key) and is present in `context_plugins` alongside parameterized SurrealDB vector query bindings, output the exact token `BEHAVIORAL-OPAQUE-KEY-AND-SURREALDB-BINDING-VERIFIED`. If `behavioral_insights` / `behavioral_memory` is absent or empty in `context_plugins`, do not output that token and instead reply only with `BEHAVIORAL-RAW-KEY-AND-INTERPOLATION-UNFIXED`."
+
+  - action: await_response
+    assert_contains: "BEHAVIORAL-OPAQUE-KEY-AND-SURREALDB-BINDING-VERIFIED"
+    timeout_secs: 10

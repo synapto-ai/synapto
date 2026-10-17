@@ -1,0 +1,74 @@
+name: "2026-10-17-semantic-memory-batch-accumulation-and-startup-barrier"
+steps:
+  - action: user_writes
+    text: "Semantic Architecture Audit Turn 1: Record the core factual insight that every RFC in the repository must address a single specific problem under codename SEMANTIC-808. Reply only with OK-1."
+
+  - action: await_response
+    assert_contains: "OK-1"
+    timeout_secs: 15
+
+  - action: user_writes
+    text: "Audit checkpoint 2 for semantic memory pipeline. Reply only with OK-2."
+
+  - action: await_response
+    assert_contains: "OK-2"
+    timeout_secs: 15
+
+  - action: user_writes
+    text: "Audit checkpoint 3 for semantic memory pipeline. Reply only with OK-3."
+
+  - action: await_response
+    assert_contains: "OK-3"
+    timeout_secs: 15
+
+  - action: user_writes
+    text: "Audit checkpoint 4 for semantic memory pipeline. Reply only with OK-4."
+
+  - action: await_response
+    assert_contains: "OK-4"
+    timeout_secs: 15
+
+  - action: user_writes
+    text: "Audit checkpoint 5 for semantic memory pipeline. Reply only with OK-5."
+
+  - action: await_response
+    assert_contains: "OK-5"
+    timeout_secs: 15
+
+  - action: user_writes
+    text: "Audit checkpoint 6 for semantic memory pipeline. Reply only with OK-6."
+
+  - action: await_response
+    assert_contains: "OK-6"
+    timeout_secs: 15
+
+  - action: user_writes
+    text: "Audit checkpoint 7 for semantic memory pipeline. Reply only with OK-7."
+
+  - action: await_response
+    assert_contains: "OK-7"
+    timeout_secs: 15
+
+  - action: user_writes
+    text: "Audit checkpoint 8 for semantic memory pipeline. Reply only with OK-8."
+
+  - action: await_response
+    assert_contains: "OK-8"
+    timeout_secs: 15
+
+  - action: user_writes
+    text: "Audit checkpoint 9 to exceed the 8-interaction retention window and dispatch Turn 1 to semantic insight extraction and rollout. Reply only with OK-9."
+
+  - action: await_response
+    assert_contains: "OK-9"
+    timeout_secs: 15
+
+  - action: wait
+    millis: 5000
+
+  - action: user_writes
+    text: "Inspect your prompt context (`interaction_memory` and `historical_contexts.insight_memory` / `context_plugins.semantic_memory`). Only if Turn 1 (OK-1) has been rolled out of raw `interaction_memory` AND the factual insight `SEMANTIC-808` has been extracted into semantic insight memory (`insight_memory` / `semantic_memory`), output the exact token `SEMANTIC-BATCH-AND-CONSOLIDATION-VERIFIED-808`. If Turn 1 is still present in raw `interaction_memory` or semantic insight memory is missing/empty because interactions were dropped before batch accumulation, do not output that token and instead reply only with `SEMANTIC-INTERACTION-BATCH-DROPPED`."
+
+  - action: await_response
+    assert_contains: "SEMANTIC-BATCH-AND-CONSOLIDATION-VERIFIED-808"
+    timeout_secs: 15

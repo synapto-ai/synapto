@@ -1,0 +1,20 @@
+name: "2026-10-17-tool-output-json-sandboxing-and-documents-plugin-fixes"
+steps:
+  - action: user_writes
+    text: |
+      Read the attached document using the read_document tool so its result is loaded into working memory. Once you have read it, reply with "DOCUMENT_LOADED" without summarizing the file yet.
+    attachments:
+      - "document.txt"
+  - action: await_response
+    assert_all:
+      - "DOCUMENT_LOADED"
+    timeout_secs: 30
+
+  - action: user_writes
+    text: |
+      Do not call any tools. Inspect the `read_document` entry inside `working_memory` in your input JSON data. Check the exact JSON type of its `output` field: is `output` a JSON object containing a `content` key (i.e. `{"content": ...}`), or is `output` a bare JSON string literal? If `output` is a JSON object with a `content` key, reply with "SANDBOXED_OBJECT_CONFIRMED" followed by the verification token. If `output` is a bare JSON string literal, reply only with "RAW_STRING_DEFECT".
+  - action: await_response
+    assert_all:
+      - "SANDBOXED_OBJECT_CONFIRMED"
+      - "ZETA-7319"
+    timeout_secs: 15

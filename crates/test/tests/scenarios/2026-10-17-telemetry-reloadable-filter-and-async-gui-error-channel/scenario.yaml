@@ -1,0 +1,18 @@
+name: "2026-10-17-telemetry-reloadable-filter-and-async-gui-error-channel"
+steps:
+  - action: user_writes
+    text: "Call `mock_store_key` with `security_key` set to `INVALID-TELEMETRY-TEST-KEY` to exercise plugin tool execution and telemetry logging when no `GuiPlugin` receiver is active. Once the tool call completes, reply only with `ACK-TELEMETRY-PROBE`."
+
+  - action: await_response
+    assert_contains: "ACK-TELEMETRY-PROBE"
+    timeout_secs: 15
+
+  - action: wait
+    millis: 500
+
+  - action: user_writes
+    text: "Inspect `context_plugins` for `telemetry_diagnostics` confirming that dynamically registered plugin targets (`Tracing::add_plugin_to_log`) pass inner stdout/Rerun filters without being blocked by static `EnvFilter` clones and that `GuiErrorLayer` delivers errors over an async `tokio::sync::mpsc` channel without closed-channel `stderr` output. Only if `context_plugins.telemetry_diagnostics` is present and reports both checks passing, reply with the exact token `TELEMETRY-RELOADABLE-FILTER-AND-ASYNC-GUI-CHANNEL-VERIFIED`. If `telemetry_diagnostics` is absent from `context_plugins`, do not output that token and instead reply only with `TELEMETRY-FILTER-BLOCKED-AND-SYNC-GUI-CHANNEL-UNVERIFIED`."
+
+  - action: await_response
+    assert_contains: "TELEMETRY-RELOADABLE-FILTER-AND-ASYNC-GUI-CHANNEL-VERIFIED"
+    timeout_secs: 10

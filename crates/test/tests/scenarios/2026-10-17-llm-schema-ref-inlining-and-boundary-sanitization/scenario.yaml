@@ -1,0 +1,18 @@
+name: "2026-10-17-llm-schema-ref-inlining-and-boundary-sanitization"
+steps:
+  - action: user_writes
+    text: "Call `mock_lookup_key` to retrieve the security access key and exercise dynamic tool schema evaluation. Once `mock_lookup_key` resolves, reply only with `ACK-KEY-LOOKUP-ALPHA-7789`."
+
+  - action: await_response
+    assert_contains: "ACK-KEY-LOOKUP-ALPHA-7789"
+    timeout_secs: 20
+
+  - action: wait
+    millis: 500
+
+  - action: user_writes
+    text: "Inspect your registered tool declarations and the `Input Data Types & Descriptions (YAML)` schema in your prompt. Verify two conditions: (1) all `$ref` pointers to `$defs` in your input/output/tool schemas have been inlined in-place so no raw `$ref: '#/$defs/...'` or stripped `{}` sub-schema objects remain, and (2) `mock_store_key` exposes an inlined nested `filter` (or `metadata`) object parameter with its inner `properties` (such as `tag`) intact. Only if both conditions hold, call `mock_store_key` with `security_key` set to `ALPHA-7789-SECURE` and reply with the exact token `SCHEMA-REF-INLINING-AND-BOUNDARY-SANITIZATION-VERIFIED`. If raw `$ref: '#/$defs/...'` entries remain in the YAML schema or the nested sub-schema properties are missing/stripped to `{}`, do not output that token and instead reply only with `SCHEMA-REF-NOT-INLINED-AT-BOUNDARY`."
+
+  - action: await_response
+    assert_contains: "SCHEMA-REF-INLINING-AND-BOUNDARY-SANITIZATION-VERIFIED"
+    timeout_secs: 15

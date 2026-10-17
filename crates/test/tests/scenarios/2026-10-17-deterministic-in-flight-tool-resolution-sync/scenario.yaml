@@ -1,0 +1,9 @@
+name: "2026-10-17-deterministic-in-flight-tool-resolution-sync"
+steps:
+  - action: user_says
+    transcript: "Call the `mock_slow_lookup_key` tool right now. When it returns on your next turn, inspect the `interaction_memory` array in your JSON input data: if `mock_slow_lookup_key` is still listed inside `in_flight_tools` (or is missing from `resolved_tools`) in `interaction_memory`, you MUST NOT call `mock_store_key` and MUST instead say only 'RACE-DETECTED-STALE-IN-FLIGHT'. Only if `interaction_memory` shows `mock_slow_lookup_key` inside `resolved_tools` and `in_flight_tools` is empty, call `mock_store_key` with the security key and say the confirmation code."
+
+  - action: await_response
+    assert_all:
+      - "KEY-STORED-SUCCESSFULLY"
+    timeout_secs: 25

@@ -1,0 +1,18 @@
+name: "2026-09-20-runtime-stability-and-smells-remediation"
+steps:
+  - action: user_writes
+    text: "Call `mock_store_key` with `security_key` set to `INVALID-RUNTIME-STABILITY-PROBE-KEY` to trigger a tool execution error through `GuiErrorLayer` and the runtime error channel. Once the tool call completes, reply only with `ACK-RUNTIME-STABILITY-PROBE`."
+
+  - action: await_response
+    assert_contains: "ACK-RUNTIME-STABILITY-PROBE"
+    timeout_secs: 15
+
+  - action: wait
+    millis: 500
+
+  - action: user_writes
+    text: "Inspect `context_plugins` for `runtime_stability_diagnostics` confirming that: (1) `PluginInitFactory::init_plugin` uses `PluginStartupResult` (`Ready` / `Failed`) for fault-tolerant boot instead of panicking on optional plugin failure, (2) `GuiErrorLayer` and `Synapto` use non-blocking `tokio::sync::mpsc::UnboundedReceiver<String>` instead of blocking `std::sync::mpsc::Receiver<String>`, and (3) outbound HTTP clients enforce explicit connect (5s) and request (30s) timeouts with `Accept: application/json` MCP JSON-RPC headers. Only if `context_plugins.runtime_stability_diagnostics` is present and confirms all checks pass, reply with the exact token `RUNTIME-STABILITY-AND-FAULT-TOLERANT-BOOT-VERIFIED`. If `runtime_stability_diagnostics` is absent from `context_plugins`, do not output that token and instead reply only with `UNBOUNDED-CLIENTS-AND-PANIC-BOOT-UNVERIFIED`."
+
+  - action: await_response
+    assert_contains: "RUNTIME-STABILITY-AND-FAULT-TOLERANT-BOOT-VERIFIED"
+    timeout_secs: 10
