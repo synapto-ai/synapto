@@ -68,11 +68,6 @@ pub trait ToolMode: Send + Sync {
         output: Option<Output>,
         tool_calls: Vec<ToolCall>,
     ) -> Result<Self::CallResult<Output>, anyhow::Error>;
-    fn execute(
-        &self,
-        ctx: synapto_interface::context::ContextRequest,
-        tool_calls: Vec<ToolCall>,
-    ) -> impl Future<Output = ()> + Send;
 }
 
 pub struct WithoutTools;
@@ -87,13 +82,6 @@ impl ToolMode for WithoutTools {
     ) -> Result<Self::CallResult<Output>, anyhow::Error> {
         Err(anyhow::anyhow!("LLM returned tool calls unexpectedly"))
     }
-    async fn execute(
-        &self,
-        _ctx: synapto_interface::context::ContextRequest,
-        _tool_calls: Vec<ToolCall>,
-    ) {
-        unreachable!("WithoutTools executor should never be called");
-    }
 }
 
 pub struct WithTools<E>(pub E);
@@ -107,13 +95,6 @@ impl<E: ToolExecutor> ToolMode for WithTools<E> {
         tool_calls: Vec<ToolCall>,
     ) -> Result<Self::CallResult<Output>, anyhow::Error> {
         Ok(LLMResult::Interrupted(output, tool_calls))
-    }
-    async fn execute(
-        &self,
-        ctx: synapto_interface::context::ContextRequest,
-        tool_calls: Vec<ToolCall>,
-    ) {
-        self.0.execute(ctx, tool_calls).await;
     }
 }
 
@@ -147,7 +128,6 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
         override_reasoning_effort: Option<ReasoningEffort>,
         resolved_tools: Option<ResolvedTools>,
         override_tools: Option<Vec<Tool>>,
-        ctx: Option<synapto_interface::context::ContextRequest>,
     ) -> Result<Tools::CallResult<Output>, anyhow::Error> {
         #[allow(dead_code)]
         struct ResolvedToolsFmt<'a>(&'a Option<ResolvedTools>);
@@ -263,13 +243,10 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
         if !tool_calls.is_empty() {
             if !has_tools {
                 tracing::error!("LLM returned tool calls unexpectedly");
-                return Tools::interrupted(None, vec![]);
+                return Err(anyhow::anyhow!("LLM returned tool calls unexpectedly"));
             }
 
             let tool_calls_cloned: Vec<_> = tool_calls.into_iter().cloned().collect();
-            self.tools_state
-                .execute(ctx.unwrap_or_default(), tool_calls_cloned.clone())
-                .await;
 
             let joined_text = response_obj.texts().join("");
             tracing::debug!("LLM interrupted output raw text: {}", joined_text);
@@ -307,15 +284,8 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned>
         instructions: Option<Vec<Instruction>>,
         override_reasoning_effort: Option<ReasoningEffort>,
     ) -> Result<Output, anyhow::Error> {
-        self.call_inner(
-            content,
-            instructions,
-            override_reasoning_effort,
-            None,
-            None,
-            None,
-        )
-        .await
+        self.call_inner(content, instructions, override_reasoning_effort, None, None)
+            .await
     }
 }
 
@@ -329,7 +299,6 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Executor: T
         override_reasoning_effort: Option<ReasoningEffort>,
         resolved_tools: Option<ResolvedTools>,
         override_tools: Option<Vec<Tool>>,
-        ctx: synapto_interface::context::ContextRequest,
     ) -> Result<LLMResult<Output>, anyhow::Error> {
         self.call_inner(
             content,
@@ -337,9 +306,16 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Executor: T
             override_reasoning_effort,
             resolved_tools,
             override_tools,
-            Some(ctx),
         )
         .await
+    }
+
+    pub async fn execute_tools(
+        &self,
+        ctx: synapto_interface::context::ContextRequest,
+        tool_calls: Vec<ToolCall>,
+    ) {
+        self.tools_state.0.execute(ctx, tool_calls).await;
     }
 }
 

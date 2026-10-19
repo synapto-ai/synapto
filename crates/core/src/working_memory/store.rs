@@ -233,4 +233,41 @@ mod tests {
         assert_eq!(ctx_distilled[0].tool_name, "tool_distilled");
         assert_eq!(ctx_distilled[0].state, WorkingMemoryState::Condensed);
     }
+
+    #[tokio::test]
+    async fn test_working_memory_multi_tool_batch_slicing() {
+        let store = WorkingMemoryStore::new();
+        let provider = WorkingMemoryProvider::new(store.clone());
+
+        for name in ["mock_lookup_key", "mock_slow_lookup_key", "mock_slow_read"] {
+            store
+                .append(WorkingMemoryEntry {
+                    tool_name: name.to_string(),
+                    arguments: json!({}),
+                    output: json!({"ok": true}),
+                    state: WorkingMemoryState::Original,
+                })
+                .await;
+        }
+
+        // During the batch resolution turn (k = 3), all 3 entries are on the wire as ToolResponses
+        // and must be excluded from working_memory context to prevent duplication.
+        let req_batch_turn = ContextRequest {
+            resolved_tools_count: 3,
+            ..Default::default()
+        };
+        let ctx_batch = provider.context(&req_batch_turn).await.unwrap();
+        assert_eq!(ctx_batch.len(), 0);
+
+        // On the subsequent turn (k = 0), all 3 entries are visible in working_memory.
+        let req_next_turn = ContextRequest {
+            resolved_tools_count: 0,
+            ..Default::default()
+        };
+        let ctx_next = provider.context(&req_next_turn).await.unwrap();
+        assert_eq!(ctx_next.len(), 3);
+        assert_eq!(ctx_next[0].tool_name, "mock_lookup_key");
+        assert_eq!(ctx_next[1].tool_name, "mock_slow_lookup_key");
+        assert_eq!(ctx_next[2].tool_name, "mock_slow_read");
+    }
 }

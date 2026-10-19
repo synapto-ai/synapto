@@ -135,11 +135,20 @@ async fn rfc_2026_10_17_broadcast_lag_resilience_and_direct_audio_wiring() {
 }
 
 #[ignore]
-#[should_panic(expected = "Scenario Failed")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn rfc_2026_10_17_multi_tool_turn_barrier_and_working_memory_alignment() {
+async fn multi_tool_turn_barrier_and_working_memory_alignment() {
     run_scenario(
-        "tests/scenarios/2026-10-17-multi-tool-turn-barrier-and-working-memory-alignment/scenario.yaml",
+        "tests/scenarios/multi-tool-turn-barrier-and-working-memory-alignment/scenario.yaml",
+        test_bundle,
+    )
+    .await;
+}
+
+#[ignore]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn multi_tool_barge_in_race() {
+    run_scenario(
+        "tests/scenarios/multi-tool-barge-in-race/scenario.yaml",
         test_bundle,
     )
     .await;

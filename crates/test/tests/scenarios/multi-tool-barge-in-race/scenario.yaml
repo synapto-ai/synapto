@@ -1,0 +1,19 @@
+name: "multi-tool-barge-in-race"
+steps:
+  - action: user_says
+    transcript: "In your first turn, call all three tools in parallel in the same turn: `mock_lookup_key`, `mock_slow_lookup_key`, and `mock_slow_read`."
+
+  - action: wait
+    millis: 200
+
+  - action: user_says
+    transcript: "Wait for all three tools to return before calling `mock_store_key` with the security key, then reply once with both the confirmation code and the architect's name."
+
+  - action: wait
+    millis: 4500
+
+  - action: await_response
+    assert_all:
+      - "KEY-STORED-SUCCESSFULLY"
+      - "Alice"
+    timeout_secs: 60

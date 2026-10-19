@@ -22,6 +22,8 @@ use crate::{
     utils::schema::flatten_enum,
 };
 
+pub(super) type ResolvedToolBatch = Vec<(ToolOutput, ToolCall)>;
+
 #[derive(Clone)]
 /// Executes tools in the background and handles the return routing to the originating cognitive loop.
 ///
@@ -31,7 +33,7 @@ use crate::{
 /// creates and passes its own unique transmitter when instantiating this executor, the background
 /// task is hard-wired to wake up only the loop that spawned it.
 pub(super) struct RegistryToolExecutor {
-    pub tool_resolved_tx: tokio::sync::mpsc::Sender<(ToolOutput, ToolCall)>,
+    pub tool_resolved_tx: tokio::sync::mpsc::Sender<ResolvedToolBatch>,
     pub tools: Arc<synapto_interface::tool::ToolRegistryBuilder>,
     pub cognitive_direct_state_tx: Option<broadcast::Sender<CognitiveDirectStateUpdate>>,
 }
@@ -47,154 +49,134 @@ impl ToolExecutor for RegistryToolExecutor {
         let cognitive_direct_state_tx = self.cognitive_direct_state_tx.clone();
 
         async move {
-            for call in tool_calls {
-                if let Some(ref tx) = cognitive_direct_state_tx {
-                    tx.send(CognitiveDirectStateUpdate {
-                        state: CognitiveDirectState::ToolExecuting {
-                            tool_name: call.fn_name.clone(),
-                            call_id: call.call_id.clone(),
-                        },
-                    })
-                    .ok();
-                }
-
-                if let Some(tool) = tools.get(&call.fn_name) {
-                    let call_clone = call.clone();
-                    let tool_resolved_tx = tool_resolved_tx.clone();
-                    let ctx_req_clone = ctx_request.clone();
-                    let cognitive_direct_state_tx_clone = cognitive_direct_state_tx.clone();
-
-                    tokio::spawn(async move {
-                        tracing::debug!("Tool called: {}", call_clone.fn_name);
-
-                        // Attempt to parse the arguments provided by the LLM into a standard JSON Value
-                        let parsed_args_res = serde_json::from_value::<serde_json::Value>(
-                            call_clone.fn_arguments.clone(),
-                        );
-
-                        match parsed_args_res {
-                            Ok(args) => {
-                                // Execute the tool with a timeout
-                                let exec_future = tool.erased_execute(&ctx_req_clone, args);
-                                let exec_res = tokio::time::timeout(
-                                    std::time::Duration::from_secs(60),
-                                    exec_future,
-                                )
-                                .await;
-
-                                tracing::debug!("Tool resolved: {}", call_clone.fn_name);
-
-                                let is_error = !matches!(exec_res, Ok(Ok(_)));
-                                if let Some(ref tx) = cognitive_direct_state_tx_clone {
-                                    tx.send(CognitiveDirectStateUpdate {
-                                        state: CognitiveDirectState::ToolResolved {
-                                            tool_name: call_clone.fn_name.clone(),
-                                            call_id: call_clone.call_id.clone(),
-                                            is_error,
-                                        },
-                                    })
-                                    .ok();
-                                }
-
-                                match exec_res {
-                                    Ok(Ok(result)) => {
-                                        // Happy path: Tool executed successfully
-                                        let output = ToolOutput::new(result);
-                                        tool_resolved_tx
-                                            .send((output, call_clone))
-                                            .await
-                                            .inspect_err(|e| {
-                                                tracing::error!("Channel send failed: {:?}", e)
-                                            })
-                                            .ok();
-                                    }
-                                    Ok(Err(e)) => {
-                                        // Tool-side error: The tool itself failed during execution (behaved badly)
-                                        tracing::warn!(
-                                            "Tool '{}' behaved badly/execution error: {}",
-                                            call_clone.fn_name,
-                                            e
-                                        );
-                                        let output =
-                                            ToolOutput::new(format!("Error executing tool: {}", e));
-                                        tool_resolved_tx
-                                            .send((output, call_clone))
-                                            .await
-                                            .inspect_err(|e| {
-                                                tracing::error!("Channel send failed: {:?}", e)
-                                            })
-                                            .ok();
-                                    }
-                                    Err(_) => {
-                                        // Timeout error: The tool took longer than 60 seconds
-                                        tracing::warn!(
-                                            "Tool execution timed out for '{}'",
-                                            call_clone.fn_name
-                                        );
-                                        let output = ToolOutput::new("Error: Execution timed out");
-                                        tool_resolved_tx
-                                            .send((output, call_clone))
-                                            .await
-                                            .inspect_err(|e| {
-                                                tracing::error!("Channel send failed: {:?}", e)
-                                            })
-                                            .ok();
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                // LLM-side error: The LLM hallucinated bad arguments or formatted them incorrectly
-                                tracing::warn!(
-                                    "LLM called tool '{}' incorrectly: {}",
-                                    call_clone.fn_name,
-                                    e
-                                );
-                                if let Some(ref tx) = cognitive_direct_state_tx_clone {
-                                    tx.send(CognitiveDirectStateUpdate {
-                                        state: CognitiveDirectState::ToolResolved {
-                                            tool_name: call_clone.fn_name.clone(),
-                                            call_id: call_clone.call_id.clone(),
-                                            is_error: true,
-                                        },
-                                    })
-                                    .ok();
-                                }
-                                let output =
-                                    ToolOutput::new(format!("Error parsing arguments: {}", e));
-                                tool_resolved_tx
-                                    .send((output, call_clone))
-                                    .await
-                                    .inspect_err(|e| {
-                                        tracing::error!("Channel send failed: {:?}", e)
-                                    })
-                                    .ok();
-                            }
-                        }
-                    });
-                } else {
-                    // LLM-side error: The LLM tried to invoke a tool that doesn't exist in the registry
-                    tracing::warn!("LLM tried to call unknown tool: '{}'", call.fn_name);
-                    if let Some(ref tx) = cognitive_direct_state_tx {
-                        tx.send(CognitiveDirectStateUpdate {
-                            state: CognitiveDirectState::ToolResolved {
-                                tool_name: call.fn_name.clone(),
-                                call_id: call.call_id.clone(),
-                                is_error: true,
-                            },
-                        })
-                        .ok();
-                    }
-                    let output = ToolOutput::new(format!(
-                        "Error: Tool '{}' not found in registry.",
-                        call.fn_name
-                    ));
-                    tool_resolved_tx
-                        .send((output, call.clone()))
-                        .await
-                        .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
-                        .ok();
-                }
+            if tool_calls.is_empty() {
+                return;
             }
+
+            // Spawn a single turn-scoped coordinator task so all tool calls from the turn
+            // execute concurrently and resolve as one atomic batch on tool_resolved_tx.
+            tokio::spawn(async move {
+                let tool_futures = tool_calls.into_iter().map(|call| {
+                    let tools = tools.clone();
+                    let ctx_req_clone = ctx_request.clone();
+                    let cognitive_direct_state_tx = cognitive_direct_state_tx.clone();
+
+                    async move {
+                        if let Some(ref tx) = cognitive_direct_state_tx {
+                            tx.send(CognitiveDirectStateUpdate {
+                                state: CognitiveDirectState::ToolExecuting {
+                                    tool_name: call.fn_name.clone(),
+                                    call_id: call.call_id.clone(),
+                                },
+                            })
+                            .ok();
+                        }
+
+                        if let Some(tool) = tools.get(&call.fn_name) {
+                            tracing::debug!("Tool called: {}", call.fn_name);
+
+                            let parsed_args_res = serde_json::from_value::<serde_json::Value>(
+                                call.fn_arguments.clone(),
+                            );
+
+                            match parsed_args_res {
+                                Ok(args) => {
+                                    let exec_future = tool.erased_execute(&ctx_req_clone, args);
+                                    let exec_res = tokio::time::timeout(
+                                        std::time::Duration::from_secs(60),
+                                        exec_future,
+                                    )
+                                    .await;
+
+                                    tracing::debug!("Tool resolved: {}", call.fn_name);
+
+                                    let is_error = !matches!(exec_res, Ok(Ok(_)));
+                                    if let Some(ref tx) = cognitive_direct_state_tx {
+                                        tx.send(CognitiveDirectStateUpdate {
+                                            state: CognitiveDirectState::ToolResolved {
+                                                tool_name: call.fn_name.clone(),
+                                                call_id: call.call_id.clone(),
+                                                is_error,
+                                            },
+                                        })
+                                        .ok();
+                                    }
+
+                                    match exec_res {
+                                        Ok(Ok(result)) => (ToolOutput::new(result), call),
+                                        Ok(Err(e)) => {
+                                            tracing::warn!(
+                                                "Tool '{}' behaved badly/execution error: {}",
+                                                call.fn_name,
+                                                e
+                                            );
+                                            (
+                                                ToolOutput::new(format!(
+                                                    "Error executing tool: {}",
+                                                    e
+                                                )),
+                                                call,
+                                            )
+                                        }
+                                        Err(_) => {
+                                            tracing::warn!(
+                                                "Tool execution timed out for '{}'",
+                                                call.fn_name
+                                            );
+                                            (ToolOutput::new("Error: Execution timed out"), call)
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        "LLM called tool '{}' incorrectly: {}",
+                                        call.fn_name,
+                                        e
+                                    );
+                                    if let Some(ref tx) = cognitive_direct_state_tx {
+                                        tx.send(CognitiveDirectStateUpdate {
+                                            state: CognitiveDirectState::ToolResolved {
+                                                tool_name: call.fn_name.clone(),
+                                                call_id: call.call_id.clone(),
+                                                is_error: true,
+                                            },
+                                        })
+                                        .ok();
+                                    }
+                                    (
+                                        ToolOutput::new(format!("Error parsing arguments: {}", e)),
+                                        call,
+                                    )
+                                }
+                            }
+                        } else {
+                            tracing::warn!("LLM tried to call unknown tool: '{}'", call.fn_name);
+                            if let Some(ref tx) = cognitive_direct_state_tx {
+                                tx.send(CognitiveDirectStateUpdate {
+                                    state: CognitiveDirectState::ToolResolved {
+                                        tool_name: call.fn_name.clone(),
+                                        call_id: call.call_id.clone(),
+                                        is_error: true,
+                                    },
+                                })
+                                .ok();
+                            }
+                            let output = ToolOutput::new(format!(
+                                "Error: Tool '{}' not found in registry.",
+                                call.fn_name
+                            ));
+                            (output, call)
+                        }
+                    }
+                });
+
+                let batch = futures::future::join_all(tool_futures).await;
+                tool_resolved_tx
+                    .send(batch)
+                    .await
+                    .inspect_err(|e| tracing::error!("Channel send failed: {:?}", e))
+                    .ok();
+            });
         }
     }
 }

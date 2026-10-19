@@ -345,41 +345,47 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                         break;
                     }
                     .. if let res = tool_resolved_rx.recv() => {
-                        if let Some((doc_text, tool_call)) = res {
-                            tracing::debug!(
-                                "Cognitive Direct Task triggered by tool resolution: {}",
-                                tool_call.fn_name
-                            );
+                        if let Some(batch) = res {
+                            for (doc_text, tool_call) in batch {
+                                tracing::debug!(
+                                    "Cognitive Direct Task triggered by tool resolution: {}",
+                                    tool_call.fn_name
+                                );
 
-                            let output_val = serde_json::from_str(&doc_text.to_json_string())
-                                .unwrap_or_else(|_| {
-                                    serde_json::Value::String(doc_text.to_json_string())
-                                });
-                            working_memory_store
-                                .append(crate::working_memory::WorkingMemoryEntry {
-                                    tool_name: tool_call.fn_name.clone(),
-                                    arguments: tool_call.fn_arguments.clone(),
-                                    output: output_val,
-                                    state: crate::working_memory::WorkingMemoryState::Original,
-                                })
-                                .await;
+                                let output_val = serde_json::from_str(&doc_text.to_json_string())
+                                    .unwrap_or_else(|_| {
+                                        serde_json::Value::String(doc_text.to_json_string())
+                                    });
+                                working_memory_store
+                                    .append(crate::working_memory::WorkingMemoryEntry {
+                                        tool_name: tool_call.fn_name.clone(),
+                                        arguments: tool_call.fn_arguments.clone(),
+                                        output: output_val,
+                                        state: crate::working_memory::WorkingMemoryState::Original,
+                                    })
+                                    .await;
 
-                            resolved_tools = Some(vec![(tool_call.clone(), doc_text)]);
+                                // Remove the in-flight tool from memory since it has resolved
+                                if let Err(e) = resolve_in_flight_tool_tx
+                                    .send(synapto_interface::tool::ToolCallId(
+                                        tool_call.call_id.clone(),
+                                    ))
+                                    .await
+                                {
+                                    tracing::warn!(
+                                        "Failed to request resolving in-flight tool marker: {}",
+                                        e
+                                    );
+                                }
+
+                                // Accumulate all resolved tools across the batch without overwriting
+                                // earlier entries if multiple batches arrive while waiting for the speaking lock.
+                                resolved_tools
+                                    .get_or_insert_with(Vec::new)
+                                    .push((tool_call, doc_text));
+                            }
                             // Document results also need the lock to start a cycle
                             run_after_unpaused = true;
-
-                            // Remove the in-flight tool from memory since it has resolved
-                            if let Err(e) = resolve_in_flight_tool_tx
-                                .send(synapto_interface::tool::ToolCallId(
-                                    tool_call.call_id.clone(),
-                                ))
-                                .await
-                            {
-                                tracing::warn!(
-                                    "Failed to request resolving in-flight tool marker: {}",
-                                    e
-                                );
-                            }
                         } else {
                             break;
                         }
@@ -395,10 +401,10 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
         let new_speech_messages: Vec<PeerInputSpeech> =
             std::iter::from_fn(|| peer_input_speech_rx.try_recv().ok()).collect();
 
-        if !new_speech_messages.is_empty() {
-            consecutive_tool_turns = 0;
-        } else if resolved_tools.is_some() {
+        if resolved_tools.is_some() {
             consecutive_tool_turns += 1;
+        } else if !new_speech_messages.is_empty() {
+            consecutive_tool_turns = 0;
         }
 
         let mut current_messages = pending_user_messages.clone();
@@ -663,7 +669,6 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                 override_reasoning_effort,
                 resolved_tools.clone(),
                 Some(dynamic_tools),
-                request,
             ) =>
                 res,
             .. if let _ = interrupt.interrupted() => {
@@ -689,16 +694,19 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
             commands_registry: &registries.commands,
         };
 
-        let in_flight_tools = match &generated_text_result {
-            Ok(synapto_llm::LLMResult::Interrupted(_, tool_calls)) => tool_calls
-                .iter()
-                .map(|call| InFlightTool {
-                    id: call.call_id.clone(),
-                    name: call.fn_name.clone(),
-                    arguments: call.fn_arguments.clone(),
-                })
-                .collect(),
-            _ => vec![],
+        let (in_flight_tools, interrupted_tool_calls) = match &generated_text_result {
+            Ok(synapto_llm::LLMResult::Interrupted(_, tool_calls)) => (
+                tool_calls
+                    .iter()
+                    .map(|call| InFlightTool {
+                        id: call.call_id.clone(),
+                        name: call.fn_name.clone(),
+                        arguments: call.fn_arguments.clone(),
+                    })
+                    .collect(),
+                Some(tool_calls.clone()),
+            ),
+            _ => (vec![], None),
         };
 
         process_llm_output(
@@ -715,5 +723,9 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
             has_resolved_tools,
         )
         .await;
+
+        if let Some(tool_calls) = interrupted_tool_calls {
+            llm_client.execute_tools(request, tool_calls).await;
+        }
     }
 }

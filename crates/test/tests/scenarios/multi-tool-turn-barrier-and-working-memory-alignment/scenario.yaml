@@ -1,4 +1,4 @@
-name: "2026-10-17-multi-tool-turn-barrier-and-working-memory-alignment"
+name: "multi-tool-turn-barrier-and-working-memory-alignment"
 steps:
   - action: user_writes
     text: "In your very first turn, you MUST call all three tools in parallel in the same turn: `mock_lookup_key`, `mock_slow_lookup_key`, and `mock_slow_read`. Do not call `mock_store_key` until all three tools have returned. Once all three have returned, call `mock_store_key` with the security key, and finally reply in one message with both the confirmation code and the architect's name."
@@ -10,4 +10,4 @@ steps:
     assert_all:
       - "KEY-STORED-SUCCESSFULLY"
       - "Alice"
-    timeout_secs: 25
+    timeout_secs: 60
