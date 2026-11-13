@@ -29,7 +29,7 @@ use crate::{
 struct CognitiveSideCommands {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schemars(
-        description = "Write a text response back to the user. If you are fulfilling a past request because a tool has resolved, you MUST use this command. To do so, extract the 'channel' object from the corresponding past interaction in 'interaction_memory' and provide it as 'target_channel'. Null if you have nothing to write now."
+        description = "Write a text response back to the user. When replying directly to an active message, copy its 'channel' object from 'user_messages' into 'target_channel' and answer immediately without calling unrelated tools. When fulfilling a past request after a tool has resolved, extract the 'channel' object from the corresponding past interaction in 'interaction_memory' and provide it as 'target_channel'. Null if you have nothing to write now."
     )]
     write: Option<CognitiveOutputText>,
 
