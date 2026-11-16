@@ -18,7 +18,7 @@ schemars.workspace = true
 serde-saphyr = { workspace = true, features = ["deserialize"] }
 tracing.workspace = true
 dirs = "5"
-tokio.workspace = true
+tokio = { workspace = true, features = ["fs"] }
 
 [dev-dependencies]
 synapto-test.workspace = true

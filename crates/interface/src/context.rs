@@ -103,21 +103,28 @@ impl ContextRegistryBuilder {
             .unwrap_or_else(|e| panic!("Providers lock poisoned: {:?}", e))
             .clone();
 
-        let futures = providers.into_iter().map(|provider| {
+        let mut join_set = tokio::task::JoinSet::new();
+        for provider in providers {
             let request = request.clone();
-            async move {
+            join_set.spawn(async move {
                 let name = provider.name().to_string();
                 let res = provider.erased_context(&request).await;
                 (name, res)
-            }
-        });
-
-        let results = futures::future::join_all(futures).await;
+            });
+        }
 
         let mut contexts = std::collections::BTreeMap::new();
-        for (name, res) in results {
-            if let Ok(val) = res {
-                contexts.insert(name, val);
+        while let Some(joined) = join_set.join_next().await {
+            match joined {
+                Ok((name, Ok(val))) => {
+                    contexts.insert(name, val);
+                }
+                Ok((name, Err(e))) => {
+                    tracing::warn!("Context provider '{}' failed: {}", name, e);
+                }
+                Err(e) => {
+                    tracing::error!("Context provider task panicked or cancelled: {:?}", e);
+                }
             }
         }
         contexts

@@ -25,5 +25,4 @@ serde = { workspace = true, features = ["std"] }
 serde_json = { workspace = true, features = ["std"] }
 
 serde-saphyr = { workspace = true, features = ["serialize"] }
-genai = { version = "0.6" }
 anyhow = "1.0"

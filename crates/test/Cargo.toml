@@ -20,7 +20,7 @@ serde_json.workspace = true
 serde-saphyr = { workspace = true, features = ["deserialize"] }
 async-trait.workspace = true
 tracing.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["fs"] }
 claxon = "0.4"
 tempfile = "3"
 

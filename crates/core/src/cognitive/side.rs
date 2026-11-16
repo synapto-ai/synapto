@@ -224,9 +224,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
 
                     // Remove the in-flight tool from memory since it has resolved
                     if let Err(e) = resolve_in_flight_tool_tx
-                        .send(synapto_interface::tool::ToolCallId(
-                            tool_call.call_id.clone(),
-                        ))
+                        .send(tool_call.call_id.clone())
                         .await
                     {
                         tracing::warn!("Failed to request resolving in-flight tool marker: {}", e);
@@ -273,7 +271,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
                 // Check if the memory already knows it is resolved
                 if !interaction_memory
                     .iter()
-                    .any(|i| i.resolved_tools.iter().any(|t| t.id == *call_id))
+                    .any(|i| i.resolved_tools.iter().any(|t| t.id == **call_id))
                 {
                     // Wait for the update
                     let mut rx = interaction_memory_rx.clone();
@@ -281,7 +279,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
                         let new_mem = rx.borrow().clone();
                         if new_mem
                             .iter()
-                            .any(|i| i.resolved_tools.iter().any(|t| t.id == *call_id))
+                            .any(|i| i.resolved_tools.iter().any(|t| t.id == **call_id))
                         {
                             interaction_memory = new_mem;
                             break;
@@ -491,7 +489,7 @@ pub(super) async fn cognitive_side_task<P: CognitivePromptProvider>(
                 tool_calls
                     .iter()
                     .map(|call| InFlightTool {
-                        id: call.call_id.clone(),
+                        id: call.call_id.0.clone(),
                         name: call.fn_name.clone(),
                         arguments: call.fn_arguments.clone(),
                     })

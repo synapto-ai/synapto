@@ -1,12 +1,12 @@
 use std::future::Future;
 use std::marker::PhantomData;
 
-use genai::chat::{Tool, ToolCall};
 use serde::{Serialize, de::DeserializeOwned};
 use tracing::instrument;
 
 use synapto_interface::llm::LLMSafe;
 use synapto_interface::llm::ReasoningEffort;
+use synapto_interface::llm::{ToolCall, ToolDefinition};
 
 pub mod instruction;
 
@@ -104,7 +104,7 @@ pub struct LLMClient<Content, Output, Tools = WithoutTools> {
     pub model: String,
     input_schema: String,
     pub system_prompt: String,
-    pub tools: Vec<Tool>,
+    pub tools: Vec<ToolDefinition>,
     pub tools_state: Tools,
     pub output_schema: schemars::Schema,
     _marker: PhantomData<(Content, Output)>,
@@ -127,7 +127,7 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
         instructions: Option<Vec<Instruction>>,
         override_reasoning_effort: Option<ReasoningEffort>,
         resolved_tools: Option<ResolvedTools>,
-        override_tools: Option<Vec<Tool>>,
+        override_tools: Option<Vec<ToolDefinition>>,
     ) -> Result<Tools::CallResult<Output>, anyhow::Error> {
         #[allow(dead_code)]
         struct ResolvedToolsFmt<'a>(&'a Option<ResolvedTools>);
@@ -136,7 +136,7 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
                 if let Some(tools) = self.0 {
                     f.debug_list()
                         .entries(tools.iter().map(|(call, output)| {
-                            struct ToolCallFmt<'a>(&'a genai::chat::ToolCall);
+                            struct ToolCallFmt<'a>(&'a ToolCall);
                             impl<'a> std::fmt::Debug for ToolCallFmt<'a> {
                                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                                     f.debug_struct("ToolCall")
@@ -144,10 +144,10 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
                                         .field("fn_name", &self.0.fn_name)
                                         .field("fn_arguments", &self.0.fn_arguments)
                                         .field(
-                                            "thought_signatures",
+                                            "provider_metadata",
                                             &format_args!(
                                                 "{}",
-                                                if self.0.thought_signatures.is_some() {
+                                                if self.0.provider_metadata.is_some() {
                                                     "Some(...)"
                                                 } else {
                                                     "None"
@@ -209,18 +209,10 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
 
         tracing::trace!("full prompt: {}", prompt);
 
-        let reasoning_effort = override_reasoning_effort.map(|e| match e {
-            ReasoningEffort::None => genai::chat::ReasoningEffort::None,
-            ReasoningEffort::Minimal => genai::chat::ReasoningEffort::Minimal,
-            ReasoningEffort::Low => genai::chat::ReasoningEffort::Low,
-            ReasoningEffort::Medium => genai::chat::ReasoningEffort::Medium,
-            ReasoningEffort::High => genai::chat::ReasoningEffort::High,
-        });
-
         let has_tools = !current_tools.is_empty();
 
         let raw_options = synapto_interface::llm::RawLlmOptions {
-            reasoning_effort,
+            reasoning_effort: override_reasoning_effort,
             tools: if has_tools { Some(current_tools) } else { None },
             resolved_tools: resolved_tools.as_ref().map(|rt| {
                 rt.iter()
@@ -228,7 +220,6 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
                     .collect::<Vec<_>>()
             }),
             output_schema: Some(self.output_schema.clone()),
-            messages: None,
         };
 
         // Call the abstract, injected executor
@@ -238,17 +229,13 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
             .await
             .map_err(|e| anyhow::anyhow!("{}", e))?;
 
-        let tool_calls = response_obj.tool_calls();
-
-        if !tool_calls.is_empty() {
+        if !response_obj.tool_calls.is_empty() {
             if !has_tools {
                 tracing::error!("LLM returned tool calls unexpectedly");
                 return Err(anyhow::anyhow!("LLM returned tool calls unexpectedly"));
             }
 
-            let tool_calls_cloned: Vec<_> = tool_calls.into_iter().cloned().collect();
-
-            let joined_text = response_obj.texts().join("");
+            let joined_text = response_obj.texts.join("");
             tracing::debug!("LLM interrupted output raw text: {}", joined_text);
             let parsed_output = if joined_text.trim().is_empty() {
                 None
@@ -265,10 +252,10 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Tools: Tool
                 }
             };
 
-            return Tools::interrupted(parsed_output, tool_calls_cloned);
+            return Tools::interrupted(parsed_output, response_obj.tool_calls);
         }
 
-        match serde_json::from_str(&response_obj.texts().join("")) {
+        match serde_json::from_str(&response_obj.texts.join("")) {
             Ok(output) => Ok(Tools::success(output)),
             Err(e) => Err(anyhow::anyhow!("Failed to parse LLM response: {}", e)),
         }
@@ -298,7 +285,7 @@ impl<Content: Serialize + std::fmt::Debug, Output: DeserializeOwned, Executor: T
         instructions: Option<Vec<Instruction>>,
         override_reasoning_effort: Option<ReasoningEffort>,
         resolved_tools: Option<ResolvedTools>,
-        override_tools: Option<Vec<Tool>>,
+        override_tools: Option<Vec<ToolDefinition>>,
     ) -> Result<LLMResult<Output>, anyhow::Error> {
         self.call_inner(
             content,
@@ -361,7 +348,7 @@ pub trait LLM {
         config: synapto_interface::llm::ModelConfig,
         system_prompt: Vec<Instruction>,
         tool_executor: Executor,
-        tools: Vec<Tool>,
+        tools: Vec<ToolDefinition>,
     ) -> LLMClient<Self::Content, Self::Output, WithTools<Executor>>
     where
         Executor: ToolExecutor,

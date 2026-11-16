@@ -367,9 +367,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
 
                                 // Remove the in-flight tool from memory since it has resolved
                                 if let Err(e) = resolve_in_flight_tool_tx
-                                    .send(synapto_interface::tool::ToolCallId(
-                                        tool_call.call_id.clone(),
-                                    ))
+                                    .send(tool_call.call_id.clone())
                                     .await
                                 {
                                     tracing::warn!(
@@ -699,7 +697,7 @@ pub(super) async fn cognitive_direct_task<P: CognitivePromptProvider>(
                 tool_calls
                     .iter()
                     .map(|call| InFlightTool {
-                        id: call.call_id.clone(),
+                        id: call.call_id.0.clone(),
                         name: call.fn_name.clone(),
                         arguments: call.fn_arguments.clone(),
                     })

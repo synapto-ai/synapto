@@ -192,7 +192,7 @@ mod tests {
             _system_prompt: &str,
             _prompt: &str,
             _options: crate::llm::RawLlmOptions,
-        ) -> Result<crate::llm::genai::chat::ChatResponse, String> {
+        ) -> Result<crate::llm::RawLlmResponse, String> {
             unimplemented!()
         }
     }

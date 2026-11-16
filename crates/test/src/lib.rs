@@ -28,18 +28,8 @@ impl synapto_interface::llm::RawLlmExecutor for MockLlmExecutor {
         _system_prompt: &str,
         _prompt: &str,
         _options: synapto_interface::llm::RawLlmOptions,
-    ) -> Result<synapto_interface::llm::genai::chat::ChatResponse, String> {
-        use synapto_interface::llm::genai;
-        Ok(genai::chat::ChatResponse {
-            content: genai::chat::MessageContent::from(""),
-            reasoning_content: None,
-            model_iden: genai::ModelIden::new(genai::adapter::AdapterKind::OpenAI, "mock"),
-            provider_model_iden: genai::ModelIden::new(genai::adapter::AdapterKind::OpenAI, "mock"),
-            stop_reason: Some(genai::chat::StopReason::Completed("stop".to_string())),
-            usage: genai::chat::Usage::default(),
-            captured_raw_body: None,
-            response_id: None,
-        })
+    ) -> Result<synapto_interface::llm::RawLlmResponse, String> {
+        Ok(synapto_interface::llm::RawLlmResponse::default())
     }
 }
 

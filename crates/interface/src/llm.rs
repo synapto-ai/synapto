@@ -1,5 +1,3 @@
-pub use genai;
-
 pub trait LLMSafe {}
 
 impl<T: LLMSafe> LLMSafe for Vec<T> {}
@@ -42,13 +40,54 @@ pub struct ModelConfig {
     pub reasoning_effort: ReasoningEffort,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ToolDefinition {
+    pub name: String,
+    pub description: Option<String>,
+    pub schema: Option<serde_json::Value>,
+}
+
+impl ToolDefinition {
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            description: None,
+            schema: None,
+        }
+    }
+
+    pub fn with_description(mut self, description: impl Into<String>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
+    pub fn with_schema(mut self, schema: serde_json::Value) -> Self {
+        self.schema = Some(schema);
+        self
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ToolCall {
+    pub call_id: crate::tool::ToolCallId,
+    pub fn_name: String,
+    pub fn_arguments: serde_json::Value,
+    /// Opaque provider continuation state preserved across tool-call turns without leaking vendor schema.
+    pub provider_metadata: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct RawLlmResponse {
+    pub texts: Vec<String>,
+    pub tool_calls: Vec<ToolCall>,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct RawLlmOptions {
-    pub reasoning_effort: Option<genai::chat::ReasoningEffort>,
-    pub tools: Option<Vec<genai::chat::Tool>>,
-    pub resolved_tools: Option<Vec<(genai::chat::ToolCall, String)>>,
+    pub reasoning_effort: Option<ReasoningEffort>,
+    pub tools: Option<Vec<ToolDefinition>>,
+    pub resolved_tools: Option<Vec<(ToolCall, String)>>,
     pub output_schema: Option<schemars::Schema>,
-    pub messages: Option<Vec<genai::chat::ChatMessage>>,
 }
 
 /// Internal raw executor contract, completely decoupled from any specific client library.
@@ -61,7 +100,7 @@ pub trait RawLlmExecutor: Send + Sync + 'static {
         system_prompt: &str,
         prompt: &str,
         options: RawLlmOptions,
-    ) -> Result<genai::chat::ChatResponse, String>;
+    ) -> Result<RawLlmResponse, String>;
 }
 
 /// Capability trait for singleton LLM providers.
@@ -88,7 +127,7 @@ impl<T: RawLlmExecutor + ?Sized> RawLlmExecutor for std::sync::Arc<T> {
         system_prompt: &str,
         prompt: &str,
         options: RawLlmOptions,
-    ) -> Result<genai::chat::ChatResponse, String> {
+    ) -> Result<RawLlmResponse, String> {
         (**self)
             .execute_raw(model, system_prompt, prompt, options)
             .await
@@ -128,7 +167,7 @@ impl LlmExecutor {
         system_prompt: &str,
         prompt: &str,
         options: RawLlmOptions,
-    ) -> Result<genai::chat::ChatResponse, String> {
+    ) -> Result<RawLlmResponse, String> {
         self.backend
             .execute_raw(model, system_prompt, prompt, options)
             .await

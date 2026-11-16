@@ -6,7 +6,10 @@ use genai::resolver::{AuthData, AuthResolver};
 use serde::{Deserialize, Serialize};
 use synapto_credentials_google::GoogleCloudTarget;
 use synapto_interface::credentials::CredentialsHandle;
-use synapto_interface::llm::{LlmProvider, RawLlmExecutor, RawLlmOptions};
+use synapto_interface::llm::{
+    LlmProvider, RawLlmExecutor, RawLlmOptions, RawLlmResponse, ReasoningEffort, ToolCall,
+};
+use synapto_interface::tool::ToolCallId;
 
 /// Explicit configuration struct for Google Gemini / Vertex AI provider.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,7 +25,7 @@ pub struct GoogleLlmExecutor {
 }
 
 impl GoogleLlmExecutor {
-    pub fn new(config: GoogleLlmConfig, credentials: CredentialsHandle) -> Self {
+    pub fn new(config: GoogleLlmConfig, credentials: CredentialsHandle) -> Result<Self, String> {
         let location = config.google_vertex_ai_location;
         let project_id = config.google_project_id;
         let gemini_api_key = config.gemini_api_key;
@@ -89,15 +92,19 @@ impl GoogleLlmExecutor {
                 },
             )
         } else {
-            panic!(
+            return Err(
                 "GoogleLlm requires either (google_project_id and google_vertex_ai_location) or gemini_api_key"
+                    .to_string(),
             );
         };
 
         let client_config = genai::ClientConfig::default().with_auth_resolver(auth_resolver);
-        let client = genai::Client::builder().with_config(client_config).build();
+        let client = genai::Client::builder()
+            .with_config(client_config)
+            .build()
+            .map_err(|e| format!("Failed to build genai client: {:?}", e))?;
 
-        Self { client }
+        Ok(Self { client })
     }
 }
 
@@ -109,7 +116,7 @@ impl RawLlmExecutor for GoogleLlmExecutor {
         system_prompt: &str,
         prompt: &str,
         options: RawLlmOptions,
-    ) -> Result<genai::chat::ChatResponse, String> {
+    ) -> Result<RawLlmResponse, String> {
         let mut chat_req = if prompt.is_empty() {
             genai::chat::ChatRequest::default()
         } else {
@@ -119,18 +126,19 @@ impl RawLlmExecutor for GoogleLlmExecutor {
             chat_req = chat_req.with_system(system_prompt.to_string());
         }
 
-        if let Some(messages) = options.messages.clone() {
-            for msg in messages {
-                chat_req = chat_req.append_message(msg);
-            }
-        }
-
         let mut chat_options = genai::chat::ChatOptions::default()
             .with_temperature(0.0)
             .with_top_p(0.95);
 
-        if let Some(ref effort) = options.reasoning_effort {
-            chat_options = chat_options.with_reasoning_effort(effort.clone());
+        if let Some(effort) = options.reasoning_effort {
+            let mapped = match effort {
+                ReasoningEffort::None => genai::chat::ReasoningEffort::Zero,
+                ReasoningEffort::Minimal => genai::chat::ReasoningEffort::Minimal,
+                ReasoningEffort::Low => genai::chat::ReasoningEffort::Low,
+                ReasoningEffort::Medium => genai::chat::ReasoningEffort::Medium,
+                ReasoningEffort::High => genai::chat::ReasoningEffort::High,
+            };
+            chat_options = chat_options.with_reasoning_effort(mapped);
         }
 
         if let Some(ref output_schema) = options.output_schema {
@@ -143,19 +151,48 @@ impl RawLlmExecutor for GoogleLlmExecutor {
         if let Some(tools) = options.tools
             && !tools.is_empty()
         {
-            chat_req = chat_req.with_tools(tools);
+            let genai_tools: Vec<genai::chat::Tool> = tools
+                .into_iter()
+                .map(|tool_def| {
+                    let mut tool = genai::chat::Tool::new(tool_def.name);
+                    if let Some(desc) = tool_def.description {
+                        tool = tool.with_description(desc);
+                    }
+                    if let Some(schema) = tool_def.schema {
+                        tool = tool.with_schema(schema);
+                    }
+                    tool
+                })
+                .collect();
+            chat_req = chat_req.with_tools(genai_tools);
         }
 
         if let Some(resolved_tools) = options.resolved_tools
             && !resolved_tools.is_empty()
         {
-            let mut tool_calls = Vec::new();
+            let mut tool_calls = Vec::with_capacity(resolved_tools.len());
             let mut thought_signatures = Vec::new();
             for (call, _) in &resolved_tools {
-                if let Some(signatures) = &call.thought_signatures {
+                let sigs = call
+                    .provider_metadata
+                    .as_ref()
+                    .map(|meta| serde_json::from_value::<Vec<String>>(meta.clone()))
+                    .transpose()
+                    .map_err(|e| {
+                        format!(
+                            "Invalid provider_metadata for tool call '{}': {}",
+                            call.fn_name, e
+                        )
+                    })?;
+                if let Some(ref signatures) = sigs {
                     thought_signatures.extend(signatures.clone());
                 }
-                tool_calls.push(call.clone());
+                tool_calls.push(genai::chat::ToolCall {
+                    call_id: call.call_id.0.clone(),
+                    fn_name: call.fn_name.clone(),
+                    fn_arguments: call.fn_arguments.clone(),
+                    thought_signatures: sigs,
+                });
             }
             chat_req = chat_req.append_message(
                 genai::chat::ChatMessage::assistant_tool_calls_with_thoughts(
@@ -166,7 +203,7 @@ impl RawLlmExecutor for GoogleLlmExecutor {
 
             for (call, response) in resolved_tools {
                 chat_req = chat_req.append_message(genai::chat::ChatMessage::from(
-                    genai::chat::ToolResponse::new(call.call_id.clone(), response.clone()),
+                    genai::chat::ToolResponse::new(call.call_id.0, response),
                 ));
             }
         }
@@ -200,7 +237,36 @@ impl RawLlmExecutor for GoogleLlmExecutor {
             }
         };
 
-        Ok(response_obj)
+        let texts = response_obj
+            .texts()
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        let tool_calls = response_obj
+            .tool_calls()
+            .into_iter()
+            .map(|tc| {
+                let provider_metadata = tc
+                    .thought_signatures
+                    .as_ref()
+                    .map(serde_json::to_value)
+                    .transpose()
+                    .map_err(|e| {
+                        format!(
+                            "Failed to serialize thought_signatures for tool call '{}': {}",
+                            tc.fn_name, e
+                        )
+                    })?;
+                Ok(ToolCall {
+                    call_id: ToolCallId(tc.call_id.clone()),
+                    fn_name: tc.fn_name.clone(),
+                    fn_arguments: tc.fn_arguments.clone(),
+                    provider_metadata,
+                })
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+
+        Ok(RawLlmResponse { texts, tool_calls })
     }
 }
 
@@ -212,7 +278,7 @@ impl LlmProvider for GoogleLlm {
     type Config = GoogleLlmConfig;
 
     fn init(config: Self::Config, credentials: CredentialsHandle) -> Result<Self, String> {
-        let executor = Arc::new(GoogleLlmExecutor::new(config, credentials));
+        let executor = Arc::new(GoogleLlmExecutor::new(config, credentials)?);
         Ok(Self { executor })
     }
 

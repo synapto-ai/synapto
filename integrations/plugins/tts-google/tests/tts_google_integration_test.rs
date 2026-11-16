@@ -50,7 +50,7 @@ async fn test_google_tts_live_synthesis_xml_escaping() {
             _system_prompt: &str,
             _prompt: &str,
             _options: synapto_interface::llm::RawLlmOptions,
-        ) -> Result<synapto_interface::llm::genai::chat::ChatResponse, String> {
+        ) -> Result<synapto_interface::llm::RawLlmResponse, String> {
             panic!("Not implemented");
         }
     }

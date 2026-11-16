@@ -13,7 +13,7 @@ use synapto_interface::sync::broadcast;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use synapto_interface::llm::{LLMSafe, genai::chat::ToolCall};
+use synapto_interface::llm::{LLMSafe, ToolCall, ToolDefinition};
 use synapto_llm::{LLM, ToolExecutor, ToolOutput};
 
 use crate::{
@@ -66,7 +66,7 @@ impl ToolExecutor for RegistryToolExecutor {
                             tx.send(CognitiveDirectStateUpdate {
                                 state: CognitiveDirectState::ToolExecuting {
                                     tool_name: call.fn_name.clone(),
-                                    call_id: call.call_id.clone(),
+                                    call_id: call.call_id.0.clone(),
                                 },
                             })
                             .ok();
@@ -95,7 +95,7 @@ impl ToolExecutor for RegistryToolExecutor {
                                         tx.send(CognitiveDirectStateUpdate {
                                             state: CognitiveDirectState::ToolResolved {
                                                 tool_name: call.fn_name.clone(),
-                                                call_id: call.call_id.clone(),
+                                                call_id: call.call_id.0.clone(),
                                                 is_error,
                                             },
                                         })
@@ -137,7 +137,7 @@ impl ToolExecutor for RegistryToolExecutor {
                                         tx.send(CognitiveDirectStateUpdate {
                                             state: CognitiveDirectState::ToolResolved {
                                                 tool_name: call.fn_name.clone(),
-                                                call_id: call.call_id.clone(),
+                                                call_id: call.call_id.0.clone(),
                                                 is_error: true,
                                             },
                                         })
@@ -155,7 +155,7 @@ impl ToolExecutor for RegistryToolExecutor {
                                 tx.send(CognitiveDirectStateUpdate {
                                     state: CognitiveDirectState::ToolResolved {
                                         tool_name: call.fn_name.clone(),
-                                        call_id: call.call_id.clone(),
+                                        call_id: call.call_id.0.clone(),
                                         is_error: true,
                                     },
                                 })
@@ -460,7 +460,7 @@ pub(super) async fn evaluate_dynamic_tools(
     tools: &synapto_interface::tool::ToolRegistryBuilder,
     request: &synapto_interface::context::ContextRequest,
     content_value: &serde_json::Value,
-) -> Vec<synapto_interface::llm::genai::chat::Tool> {
+) -> Vec<ToolDefinition> {
     let available_tools_erased = tools.get_all();
     let mut dynamic_tools = vec![];
     for tool in available_tools_erased {
@@ -473,7 +473,7 @@ pub(super) async fn evaluate_dynamic_tools(
                 .unwrap_or_else(|e| panic!("Failed to serialize tool schema: {}", e));
             clean_json_schema_for_llm(&mut schema);
             dynamic_tools.push(
-                synapto_interface::llm::genai::chat::Tool::new(tool.name())
+                ToolDefinition::new(tool.name())
                     .with_description(tool.description())
                     .with_schema(schema),
             );

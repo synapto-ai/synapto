@@ -25,7 +25,7 @@ synapto-telemetry.workspace = true
 synapto-shutdown.workspace = true
 
 async-trait.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["fs"] }
 serde.workspace = true
 serde_json.workspace = true
 schemars.workspace = true
